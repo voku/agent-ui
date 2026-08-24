@@ -1,0 +1,29 @@
+{
+  "name": "voku/agent-ui",
+  "description": "Local server-rendered human control plane for the governed voku/agent-loop workflow.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.3",
+    "voku/agent-kanban": "dev-main",
+    "voku/agent-loop": "dev-main"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.75",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^11.5"
+  },
+  "autoload": {"psr-4": {"voku\\AgentUi\\": "src/"}},
+  "autoload-dev": {"psr-4": {"voku\\AgentUi\\Tests\\": "tests/"}},
+  "scripts": {
+    "test": "phpunit",
+    "phpstan": "phpstan analyse --configuration=phpstan.neon.dist --memory-limit=512M",
+    "cs-check": "php-cs-fixer fix --dry-run --diff",
+    "cs-fix": "php-cs-fixer fix",
+    "ci": ["@composer validate --strict", "@test", "@phpstan", "@cs-check"]
+  },
+  "config": {"allow-plugins": false, "sort-packages": true},
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "suggest": {"voku/agent-loop-runner": "Optional managed execution plane surfaced by agent-ui from v0.4 onward."}
+}
