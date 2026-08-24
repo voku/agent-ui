@@ -16,8 +16,10 @@ final readonly class Request
 
     public static function fromGlobals(): self
     {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+        $methodValue = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $method = strtoupper(is_string($methodValue) ? $methodValue : 'GET');
+        $uriValue = $_SERVER['REQUEST_URI'] ?? '/';
+        $uri = is_string($uriValue) ? $uriValue : '/';
         $path = parse_url($uri, PHP_URL_PATH);
 
         if (!is_string($path) || $path === '') {
