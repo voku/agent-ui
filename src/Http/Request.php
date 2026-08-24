@@ -6,11 +6,15 @@ namespace voku\AgentUi\Http;
 
 final readonly class Request
 {
-    /** @param array<string, string> $query */
+    /**
+     * @param array<string, string> $query
+     * @param array<string, string> $body
+     */
     public function __construct(
         public string $method,
         public string $path,
         public array $query = [],
+        public array $body = [],
     ) {
     }
 
@@ -26,13 +30,19 @@ final readonly class Request
             $path = '/';
         }
 
-        $query = [];
-        foreach ($_GET as $key => $value) {
+        return new self($method, $path, self::stringValues($_GET), self::stringValues($_POST));
+    }
+
+    /** @param array<array-key, mixed> $values @return array<string, string> */
+    private static function stringValues(array $values): array
+    {
+        $result = [];
+        foreach ($values as $key => $value) {
             if (is_string($key) && is_string($value)) {
-                $query[$key] = $value;
+                $result[$key] = $value;
             }
         }
 
-        return new self($method, $path, $query);
+        return $result;
     }
 }
