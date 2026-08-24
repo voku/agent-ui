@@ -5,7 +5,7 @@
   "license": "MIT",
   "require": {
     "php": "^8.3",
-    "voku/agent-kanban": "dev-main",
+    "voku/agent-kanban": "^0.3.2",
     "voku/agent-loop": "dev-main"
   },
   "require-dev": {
