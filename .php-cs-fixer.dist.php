@@ -14,6 +14,7 @@ return (new PhpCsFixer\Config())
         'declare_strict_types' => true,
         'no_unused_imports' => true,
         'ordered_imports' => true,
+        'single_line_empty_body' => false,
         'single_quote' => true,
     ])
     ->setFinder($finder);
