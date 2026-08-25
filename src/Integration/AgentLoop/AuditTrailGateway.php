@@ -125,7 +125,7 @@ final readonly class AuditTrailGateway
             learningDecidedBy: $learningDecision?->decidedBy,
             learningDecidedAt: $learningDecision?->decidedAt,
             learningReason: $learningDecision?->reason,
-            learningFindingIds: $learningDecision?->findingIds ?? [],
+            learningFindingIds: $learningDecision === null ? [] : $learningDecision->findingIds,
             learningFollowUpRef: $learningDecision?->followUpRef,
             timeline: $timeline,
         );
