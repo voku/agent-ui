@@ -10,6 +10,7 @@ use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Feature\Evidence\EvidenceAction;
 use voku\AgentUi\Feature\Handoff\GuidedHandoffAction;
 use voku\AgentUi\Feature\Handoff\GuidedHandoffBuilder;
+use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
@@ -18,6 +19,7 @@ use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Http\Router;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
@@ -31,6 +33,7 @@ final readonly class Application
     private BoardAction $board;
     private TaskAction $task;
     private EvidenceAction $evidence;
+    private HistoryAction $history;
     private GuidedHandoffAction $handoff;
     private HumanDecisionAction $humanDecision;
     private RunnerAction $runner;
@@ -39,6 +42,7 @@ final readonly class Application
     {
         $board = new BoardProjectionGateway($projectRoot);
         $workflow = new WorkflowProjectionGateway($projectRoot);
+        $audit = new AuditTrailGateway($projectRoot);
         $decisions = new HumanDecisionGateway($projectRoot);
         $runner = new RunnerGateway($projectRoot);
         $csrf = new CsrfTokenManager();
@@ -48,7 +52,8 @@ final readonly class Application
         $this->home = new HomeAction($board, $workflow, $templates);
         $this->board = new BoardAction($board, $templates);
         $this->task = new TaskAction($board, $workflow, $decisions, $runner, $csrf, $templates);
-        $this->evidence = new EvidenceAction($workflow, $templates);
+        $this->evidence = new EvidenceAction($workflow, $audit, $templates);
+        $this->history = new HistoryAction($audit, $templates);
         $this->handoff = new GuidedHandoffAction($board, $workflow, new GuidedHandoffBuilder(), $templates);
         $this->humanDecision = new HumanDecisionAction($decisions, $csrf);
         $this->runner = new RunnerAction($runner, $csrf);
@@ -64,6 +69,7 @@ final readonly class Application
                 'board' => ($this->board)(),
                 'task' => ($this->task)($route['task_id'] ?? ''),
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
+                'history' => ($this->history)($route['task_id'] ?? ''),
                 'handoff' => ($this->handoff)($route['task_id'] ?? ''),
                 'approve', 'review_ack', 'learning' => ($this->humanDecision)(
                     $route['task_id'] ?? '',

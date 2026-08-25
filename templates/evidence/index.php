@@ -1,9 +1,25 @@
 <?php
+use voku\AgentUi\Integration\AgentLoop\TaskAuditSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{workflow: WorkflowSnapshot} $model */
-$workflow=$model['workflow']; $title=$workflow->taskId . ' evidence'; require __DIR__ . '/../layout/header.php';
+/** @var array{workflow: WorkflowSnapshot, audit: TaskAuditSnapshot} $model */
+$workflow = $model['workflow'];
+$audit = $model['audit'];
+$title = $workflow->taskId . ' evidence';
+require __DIR__ . '/../layout/header.php';
 ?>
-<h1><?= TemplateRenderer::escape($workflow->taskId) ?> evidence</h1><p class="muted">References are owner-projected pointers. Generated evidence is not approval or workflow authority.</p>
-<?php foreach ($workflow->references as $name=>$reference): ?><section class="panel"><h2><?= TemplateRenderer::escape((string)$name) ?></h2><pre><?= TemplateRenderer::escape((string) json_encode($reference, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)) ?></pre></section><?php endforeach; ?>
+<h1><?= TemplateRenderer::escape($workflow->taskId) ?> · Evidence & audit</h1>
+<p class="muted">All facts below come from owner projections/stores. Generated evidence remains evidence, not approval or workflow authority.</p>
+<div class="grid">
+<section class="panel"><h2>Contract</h2><dl><dt>Status</dt><dd><?= TemplateRenderer::escape($audit->contractStatus) ?></dd><dt>Revision</dt><dd><?= TemplateRenderer::escape((string) ($audit->contractRevision ?? 0)) ?></dd><dt>Goal</dt><dd><?= TemplateRenderer::escape($audit->contractGoal ?? 'missing') ?></dd><dt>Approved by</dt><dd><?= TemplateRenderer::escape($audit->approvalBy ?? 'not approved') ?></dd><dt>Approved at</dt><dd><?= TemplateRenderer::escape($audit->approvalAt ?? 'not approved') ?></dd></dl></section>
+<section class="panel"><h2>Session & verification</h2><dl><dt>Session</dt><dd><?= TemplateRenderer::escape($audit->sessionStatus) ?> (<?= $audit->activeSessionCount ?>/<?= $audit->sessionCount ?> active)</dd><dt>Verification</dt><dd><?= TemplateRenderer::escape($audit->verificationStatus) ?></dd><dt>Receipt</dt><dd><code><?= TemplateRenderer::escape($audit->verificationPath) ?></code></dd></dl></section>
+<section class="panel"><h2>Recall</h2><dl><dt>Status</dt><dd><?= TemplateRenderer::escape($audit->recallStatus) ?></dd><dt>Outcome draft</dt><dd><?= $audit->recallOutcomeDraft ? 'yes' : 'no' ?></dd><dt>Logged outcomes</dt><dd><?= $audit->recallLoggedOutcomes ?></dd></dl><?php if ($audit->recallTaskFiles !== []): ?><p><strong>Task files</strong></p><ul><?php foreach ($audit->recallTaskFiles as $file): ?><li><code><?= TemplateRenderer::escape($file) ?></code></li><?php endforeach; ?></ul><?php endif; ?></section>
+</div>
+<section class="panel"><h2>Validation</h2><?php if ($audit->validation === []): ?><p class="muted">No Contract validation obligations are projected.</p><?php else: ?><div class="grid"><?php foreach ($audit->validation as $validation): ?><div class="card"><strong><?= TemplateRenderer::escape($validation->status) ?></strong><pre><?= TemplateRenderer::escape($validation->command) ?></pre><p>Revision <?= $validation->contractRevision ?> · source <?= TemplateRenderer::escape($validation->source) ?></p><p>Exit <?= TemplateRenderer::escape($validation->exitCode === null ? 'n/a' : (string) $validation->exitCode) ?> · <?= TemplateRenderer::escape($validation->executedAt ?? 'not executed') ?></p></div><?php endforeach; ?></div><?php endif; ?></section>
+<div class="grid">
+<section class="panel <?= $audit->reviewInvalid ? 'danger' : '' ?>"><h2>Review</h2><dl><dt>Report</dt><dd><?= TemplateRenderer::escape($audit->reviewExists ? ($audit->reviewStatus ?? 'present') : 'missing') ?></dd><dt>Path</dt><dd><code><?= TemplateRenderer::escape($audit->reviewPath) ?></code></dd><dt>Acknowledged by</dt><dd><?= TemplateRenderer::escape($audit->reviewAcknowledgedBy ?? 'not acknowledged') ?></dd><dt>Acknowledged at</dt><dd><?= TemplateRenderer::escape($audit->reviewAcknowledgedAt ?? 'not acknowledged') ?></dd></dl></section>
+<section class="panel"><h2>Learning</h2><dl><dt>Status</dt><dd><?= TemplateRenderer::escape($audit->learningStatus) ?></dd><dt>Decision</dt><dd><?= TemplateRenderer::escape($audit->learningDecision ?? 'not decided') ?></dd><dt>Decided by</dt><dd><?= TemplateRenderer::escape($audit->learningDecidedBy ?? 'n/a') ?></dd><dt>Decided at</dt><dd><?= TemplateRenderer::escape($audit->learningDecidedAt ?? 'n/a') ?></dd><dt>Findings</dt><dd><?= $audit->learningFindings ?></dd><dt>Proposals</dt><dd><?= $audit->learningProposals ?></dd><dt>Outcomes</dt><dd><?= $audit->learningOutcomes ?></dd></dl><?php if ($audit->learningReason !== null): ?><p><strong>Reason:</strong> <?= TemplateRenderer::escape($audit->learningReason) ?></p><?php endif; ?><?php if ($audit->learningFollowUpRef !== null): ?><p><strong>Follow-up:</strong> <?= TemplateRenderer::escape($audit->learningFollowUpRef) ?></p><?php endif; ?><?php if ($audit->learningFindingIds !== []): ?><p><strong>Finding IDs:</strong> <?= TemplateRenderer::escape(implode(', ', $audit->learningFindingIds)) ?></p><?php endif; ?></section>
+</div>
+<p><a class="button" href="/task/<?= TemplateRenderer::escape($workflow->taskId) ?>/history">Audit history</a> <a class="button" href="/task/<?= TemplateRenderer::escape($workflow->taskId) ?>">Back to task</a></p>
+<details><summary>Raw lifecycle references</summary><?php foreach ($workflow->references as $name => $reference): ?><section class="panel"><h2><?= TemplateRenderer::escape((string) $name) ?></h2><pre><?= TemplateRenderer::escape((string) json_encode($reference, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)) ?></pre></section><?php endforeach; ?></details>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
