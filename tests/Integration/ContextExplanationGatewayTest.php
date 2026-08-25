@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use SplFileInfo;
 use voku\AgentRecallCompiler\CanonicalJson;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
@@ -157,6 +158,10 @@ final class ContextExplanationGatewayTest extends TestCase
             RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($iterator as $item) {
+            if (!$item instanceof SplFileInfo) {
+                throw new RuntimeException('Unexpected fixture iterator value.');
+            }
+
             if ($item->isDir()) {
                 rmdir($item->getPathname());
             } else {
