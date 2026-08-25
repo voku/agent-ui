@@ -6,7 +6,8 @@
   "require": {
     "php": "^8.3",
     "voku/agent-kanban": "^0.3.2",
-    "voku/agent-loop": "dev-main"
+    "voku/agent-loop": "dev-main",
+    "voku/agent-recall-compiler": "^0.13.14"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
