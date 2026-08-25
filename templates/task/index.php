@@ -48,5 +48,5 @@ require __DIR__ . '/../layout/header.php';
 <?php endif; ?>
 </section>
 <?php endif; ?>
-<p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence & references</a></p>
+<p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence & audit</a> <a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a></p>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
