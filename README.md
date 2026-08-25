@@ -12,7 +12,7 @@ agent-ui          = lets a developer understand and control it
 
 ## Status
 
-The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
+The implementation has reached the v0.2 human-decision slice. The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
 
 ## Development install
 
@@ -28,7 +28,7 @@ AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 
 
 Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
-v0.1 is GET-only and exposes `/`, `/board`, `/task/{id}`, and `/task/{id}/evidence`.
+Routes include `/`, `/board`, `/task/{id}`, and `/task/{id}/evidence`. State-changing human decisions are POST-only, CSRF-protected, and redirect back to freshly projected owner state.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ browser
   -> server-rendered HTML
 ```
 
-The lifecycle rule is intentionally severe: **the UI never derives what happens next.** `voku/agent-loop` projects `state`, `references`, `disagreements`, `next_action`, and `next_action_kind`; the UI renders those values unchanged.
+The lifecycle rule is intentionally severe: **the UI never derives what happens next or which human decision is legal.** `voku/agent-loop` projects lifecycle state, canonical next action, and currently recordable human decisions; the UI renders those values and delegates writes back to the owner service.
 
 Board config/card parsing similarly comes from `voku/agent-kanban`. There is no duplicated card parser, inferred lane policy, database, ORM, JavaScript framework, or frontend build pipeline.
 
