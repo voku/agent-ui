@@ -16,6 +16,7 @@ use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Work\WorkAction;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Http\Router;
@@ -36,6 +37,7 @@ final readonly class Application
     private BoardAction $board;
     private TaskAction $task;
     private ContextAction $context;
+    private WorkAction $work;
     private EvidenceAction $evidence;
     private HistoryAction $history;
     private GuidedHandoffAction $handoff;
@@ -68,6 +70,7 @@ final readonly class Application
             $templates,
         );
         $this->context = new ContextAction($board, $context, $transparency, $templates);
+        $this->work = new WorkAction($board, $transparency, $templates);
         $this->evidence = new EvidenceAction($workflow, $audit, $templates);
         $this->history = new HistoryAction($audit, $templates);
         $this->handoff = new GuidedHandoffAction($board, $workflow, new GuidedHandoffBuilder(), $templates);
@@ -85,6 +88,7 @@ final readonly class Application
                 'board' => ($this->board)(),
                 'task' => ($this->task)($route['task_id'] ?? ''),
                 'context' => ($this->context)($route['task_id'] ?? ''),
+                'work' => ($this->work)($route['task_id'] ?? ''),
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
                 'history' => ($this->history)($route['task_id'] ?? ''),
                 'handoff' => ($this->handoff)($route['task_id'] ?? ''),
