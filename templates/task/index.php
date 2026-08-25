@@ -3,6 +3,7 @@ use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
+use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 /** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, csrf_token: string} $model */
 $card = $model['card'];
@@ -10,43 +11,194 @@ $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $runner = $model['runner'];
 $csrf = $model['csrf_token'];
-$title = $card->id . ' · Agent UI';
+$title = $card->id . ' · ' . $card->title . ' · agent-ui';
+$nav = null;
+$projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
-<h1><?= TemplateRenderer::escape($card->id) ?> · <?= TemplateRenderer::escape($card->title) ?></h1>
-<p><?= TemplateRenderer::escape($card->summary) ?></p>
-<div class="grid">
-<section class="panel"><h2>Board</h2><dl><dt>Lane</dt><dd><?= TemplateRenderer::escape($card->lane) ?></dd><dt>Status</dt><dd><?= TemplateRenderer::escape($card->status) ?></dd><dt>Assignee</dt><dd><?= TemplateRenderer::escape($card->assignee ?? 'unassigned') ?></dd></dl></section>
-<section class="panel"><h2>Workflow authority</h2><dl><dt>Run</dt><dd><?= TemplateRenderer::escape($workflow->runId) ?></dd><dt>State</dt><dd class="status"><?= TemplateRenderer::escape($workflow->state) ?></dd><dt>Mode</dt><dd><?= TemplateRenderer::escape($workflow->mode) ?></dd></dl></section>
+<p class="crumbs"><a href="/board">Board</a><span>/</span><?= TemplateRenderer::escape($card->lane) ?></p>
+<div class="page-head">
+    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
+    <h1><?= TemplateRenderer::escape($card->title) ?></h1>
+    <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
 </div>
-<section class="panel <?= $workflow->nextActionKind === 'decision_required' ? 'attention' : '' ?>"><h2>Canonical next action</h2><p><strong><?= TemplateRenderer::escape($workflow->nextActionKind) ?></strong></p><pre><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><p class="muted">Rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p></section>
-<?php if ($workflow->disagreements !== []): ?><section class="panel danger"><h2>Disagreements</h2><?php foreach ($workflow->disagreements as $d): ?><p><strong><?= TemplateRenderer::escape($d['code']) ?></strong> [<?= TemplateRenderer::escape($d['owner']) ?>]: <?= TemplateRenderer::escape($d['message']) ?></p><?php endforeach; ?></section><?php endif; ?>
 
-<section class="panel"><h2>Execution</h2><div class="grid"><div><h3>Guided coding-agent session</h3><p>The coding agent performs host-native work; agent-loop remains workflow authority.</p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/handoff">Open governed handoff</a></div><div><h3>Managed runner</h3>
-<?php if (!$runner->installed): ?><p class="muted">agent-loop-runner is optional and is not installed in this runtime.</p>
-<?php elseif ($runner->diagnostic !== null): ?><p class="muted">Runner installed; managed projection is not currently available.</p><pre><?= TemplateRenderer::escape($runner->diagnostic) ?></pre>
-<?php else: ?><dl><dt>Profile</dt><dd><?= TemplateRenderer::escape($runner->profile ?? 'unknown') ?></dd><dt>Authoritative stage</dt><dd><?= TemplateRenderer::escape($runner->currentStageId ?? 'none') ?></dd><dt>Attempt</dt><dd><?= TemplateRenderer::escape((string) ($runner->currentAttempt ?? 0)) ?></dd><dt>Attention</dt><dd><?= TemplateRenderer::escape($runner->attentionId ?? 'none') ?></dd><dt>Runner host</dt><dd><?= TemplateRenderer::escape($runner->hostId ?? 'not observed') ?></dd><dt>Runner observation</dt><dd><?= TemplateRenderer::escape($runner->observationStatus ?? 'none') ?></dd></dl>
-<p class="muted">Authority above comes from agent-loop. Host/process fields are Runner observations only.</p>
-<?php if ($runner->allowRun): ?><form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/run"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><button type="submit">Run synchronously</button></form><?php endif; ?>
-<?php if ($runner->allowResume): ?><form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/resume"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><button type="submit">Resume synchronously</button></form><?php endif; ?>
-<?php if ($runner->allowCancel): ?><form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/cancel"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><button type="submit">Cancel owned process</button></form><?php endif; ?>
-<p class="muted">Run/Resume block the current request. A single-process PHP development server cannot service its own Cancel request while blocked; Cancel is useful when another worker/session observes the owned Runner process.</p>
-<?php endif; ?></div></div></section>
+<?php if ($workflow->references !== []): ?>
+    <p class="eyebrow">Owner references</p>
+    <section class="panel">
+        <div class="refs">
+            <?php foreach ($workflow->references as $name => $reference): ?>
+                <?php $state = Presentation::referenceState($reference); ?>
+                <div class="ref ref--<?= TemplateRenderer::escape(Presentation::tone($state)) ?>" title="<?= TemplateRenderer::escape((string) $name . ': ' . Presentation::label($state) . ' — owned by ' . (Presentation::referenceOwner($reference) ?? 'unknown')) ?>">
+                    <span class="ref__name"><?= TemplateRenderer::escape(str_replace('_', ' ', (string) $name)) ?></span>
+                    <span class="ref__state"><?= TemplateRenderer::escape(Presentation::label($state)) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="note">Each mark is the state its owning package reports for that artifact. agent-ui does not derive them.</p>
+    </section>
+<?php endif; ?>
+
+<p class="eyebrow">Current state</p>
+<section class="panel action">
+    <div class="action__head">
+        <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($workflow->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($workflow->state)) ?></span>
+        <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
+    </div>
+    <h2 style="margin-top:14px">Canonical next action</h2>
+    <p class="action__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($workflow->nextActionKind)) ?></p>
+    <div class="codeblock">
+        <pre id="next-action"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre>
+        <button type="button" class="copy" data-copy-target="next-action">Copy</button>
+    </div>
+    <p class="note">Rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
+</section>
+
+<?php if ($workflow->disagreements !== []): ?>
+    <p class="eyebrow">Disagreements between owners</p>
+    <section class="panel panel--danger stack">
+        <?php foreach ($workflow->disagreements as $d): ?>
+            <div>
+                <p class="mono small" style="margin:0;color:var(--blocked)"><?= TemplateRenderer::escape($d['code']) ?></p>
+                <p style="margin:2px 0 0"><?= TemplateRenderer::escape($d['message']) ?></p>
+                <p class="note" style="margin-top:2px">owner: <?= TemplateRenderer::escape($d['owner']) ?></p>
+            </div>
+        <?php endforeach; ?>
+    </section>
+<?php endif; ?>
 
 <?php if ($decisions->actions !== []): ?>
-<section class="panel attention"><h2>Human decision</h2><p class="muted">These controls exist only because agent-loop currently projects the corresponding human action as recordable.</p>
-<?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
-<form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><label>Approver <input required maxlength="200" name="actor"></label> <button type="submit">Approve current Contract</button></form>
+    <p class="eyebrow">Your decision</p>
+    <section class="panel panel--attention">
+        <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
+            corresponding human action as recordable.</p>
+
+        <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
+            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve">
+                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                <h3>Approve the current Contract</h3>
+                <p class="note" style="margin:0 0 10px">Approval records human authority over the scope, and nothing else.
+                    It does not approve code, validation, or Learning.</p>
+                <div class="form__row">
+                    <label class="field"><span>Approver</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is approving"></label>
+                    <button class="btn btn--primary" type="submit">Approve Contract</button>
+                </div>
+            </form>
+        <?php endif; ?>
+
+        <?php if ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
+            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/review-ack">
+                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                <input type="hidden" name="report_sha256" value="<?= TemplateRenderer::escape($decisions->reviewReportSha256) ?>">
+                <h3>Acknowledge the exact review report</h3>
+                <p class="note" style="margin:0 0 8px">Binds you to this exact report digest, not to "the review" in general.</p>
+                <p class="mono small" style="margin:0 0 10px;overflow-wrap:anywhere"><?= TemplateRenderer::escape($decisions->reviewReportSha256) ?></p>
+                <div class="form__row">
+                    <label class="field"><span>Reviewer</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who reviewed it"></label>
+                    <button class="btn btn--primary" type="submit">Acknowledge review</button>
+                </div>
+            </form>
+        <?php endif; ?>
+
+        <?php if ($decisions->allows(WorkflowHumanDecisionProjection::RECORD_LEARNING)): ?>
+            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning">
+                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                <input type="hidden" name="decision" value="no_durable_learning">
+                <h3>Record: no durable learning</h3>
+                <div class="form__row">
+                    <label class="field"><span>Decided by</span><input required maxlength="200" name="actor" autocomplete="name"></label>
+                </div>
+                <div class="form__row" style="margin-top:10px">
+                    <label class="field field--wide"><span>Reason</span><textarea required maxlength="2000" name="reason" placeholder="why this run taught nothing durable"></textarea></label>
+                </div>
+                <div class="form__row" style="margin-top:10px"><button class="btn" type="submit">Record no durable learning</button></div>
+            </form>
+
+            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning">
+                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                <input type="hidden" name="decision" value="follow_up_required">
+                <h3>Record: follow-up required</h3>
+                <div class="form__row">
+                    <label class="field"><span>Decided by</span><input required maxlength="200" name="actor" autocomplete="name"></label>
+                    <label class="field"><span>Follow-up reference</span><input required maxlength="500" name="follow_up_ref" placeholder="LOOP-123 or an issue URL"></label>
+                </div>
+                <div class="form__row" style="margin-top:10px">
+                    <label class="field field--wide"><span>Reason</span><textarea required maxlength="2000" name="reason"></textarea></label>
+                </div>
+                <div class="form__row" style="margin-top:10px"><button class="btn" type="submit">Record required follow-up</button></div>
+            </form>
+
+            <p class="note">Validated findings are intentionally not offered here. A <span class="mono">findings_recorded</span>
+                decision requires real Finding content through the Learning owner.</p>
+        <?php endif; ?>
+    </section>
 <?php endif; ?>
-<?php if ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
-<form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/review-ack"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><input type="hidden" name="report_sha256" value="<?= TemplateRenderer::escape($decisions->reviewReportSha256) ?>"><p>Exact report: <code><?= TemplateRenderer::escape($decisions->reviewReportSha256) ?></code></p><label>Reviewer <input required maxlength="200" name="actor"></label> <button type="submit">Acknowledge exact review</button></form>
-<?php endif; ?>
-<?php if ($decisions->allows(WorkflowHumanDecisionProjection::RECORD_LEARNING)): ?>
-<h3>No durable learning</h3><form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><input type="hidden" name="decision" value="no_durable_learning"><label>Decided by <input required maxlength="200" name="actor"></label><br><label>Reason <textarea required maxlength="2000" name="reason"></textarea></label><br><button type="submit">Record no durable learning</button></form>
-<h3>Follow-up required</h3><form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning"><input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>"><input type="hidden" name="decision" value="follow_up_required"><label>Decided by <input required maxlength="200" name="actor"></label><br><label>Reason <textarea required maxlength="2000" name="reason"></textarea></label><br><label>Follow-up reference <input required maxlength="500" name="follow_up_ref"></label><br><button type="submit">Record required follow-up</button></form>
-<p class="muted">Validated findings are intentionally not faked here. A findings_recorded decision requires real Finding content through the Learning owner.</p>
-<?php endif; ?>
+
+<p class="eyebrow">Execution</p>
+<section class="panel">
+    <p class="note" style="margin:0 0 14px">The same governed workflow, two ways of doing the work.
+        agent-loop owns workflow, approval, validation, review and Learning in both.</p>
+    <div class="modes">
+        <div class="mode mode--primary">
+            <h3>Coding-agent session</h3>
+            <p class="small muted">A coding agent performs the host-native implementation work. agent-loop remains
+                workflow authority throughout.</p>
+            <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/handoff">Open governed handoff →</a></p>
+        </div>
+        <div class="mode">
+            <h3>Managed runner</h3>
+            <?php if (!$runner->installed): ?>
+                <p class="small muted"><span class="mono">agent-loop-runner</span> is optional and is not installed in
+                    this runtime. agent-loop works without it, and so does this page.</p>
+            <?php elseif ($runner->diagnostic !== null): ?>
+                <p class="small muted">Runner installed; no managed projection is available for this task yet.</p>
+                <div class="codeblock"><pre><?= TemplateRenderer::escape($runner->diagnostic) ?></pre></div>
+            <?php else: ?>
+                <div class="split">
+                    <div>
+                        <p class="provenance provenance--authority">agent-loop authority</p>
+                        <dl class="kv">
+                            <dt>Profile</dt><dd><?= TemplateRenderer::escape($runner->profile ?? 'unknown') ?></dd>
+                            <dt>Stage</dt><dd><?= TemplateRenderer::escape($runner->currentStageId ?? 'none pending') ?></dd>
+                            <dt>Attempt</dt><dd><?= TemplateRenderer::escape((string) ($runner->currentAttempt ?? 0)) ?></dd>
+                            <dt>Attention</dt><dd><?= TemplateRenderer::escape($runner->attentionId ?? 'none') ?></dd>
+                        </dl>
+                    </div>
+                    <div>
+                        <p class="provenance provenance--observation">runner observation</p>
+                        <dl class="kv">
+                            <dt>Host</dt><dd><?= TemplateRenderer::escape($runner->hostId ?? 'not observed') ?></dd>
+                            <dt>Process</dt><dd><?= TemplateRenderer::escape($runner->observationStatus ?? 'none') ?></dd>
+                        </dl>
+                        <p class="note">A process exit is an observation. Only agent-loop accepts it as a transition.</p>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <?php foreach ([
+                        ['run', 'Run', $runner->allowRun],
+                        ['resume', 'Resume', $runner->allowResume],
+                        ['cancel', 'Cancel', $runner->allowCancel],
+                    ] as [$control, $label, $allowed]): ?>
+                        <?php if ($allowed): ?>
+                            <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/<?= TemplateRenderer::escape($control) ?>" style="margin:0">
+                                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                                <button class="btn" type="submit"><?= TemplateRenderer::escape($label) ?></button>
+                            </form>
+                        <?php else: ?>
+                            <button class="btn" type="button" disabled><?= TemplateRenderer::escape($label) ?></button>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+                <p class="note">Enabled only where agent-loop-runner reports the control as legal right now.
+                    Run and Resume block the current request: a single-process development server cannot service its
+                    own Cancel while blocked, so Cancel is useful from another session observing the owned process.</p>
+            <?php endif; ?>
+        </div>
+    </div>
 </section>
-<?php endif; ?>
-<p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence & audit</a> <a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a></p>
+
+<div class="btn-row">
+    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
+    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a>
+</div>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
