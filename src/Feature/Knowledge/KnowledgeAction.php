@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Knowledge;
 
 use InvalidArgumentException;
+use voku\AgentLearning\Catalog\FindingProjection;
+use voku\AgentLearning\Catalog\ProposalProjection;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\View\TemplateRenderer;
@@ -19,8 +21,26 @@ final readonly class KnowledgeAction
 
     public function overview(): Response
     {
+        $overview = $this->learning->overview();
+        $findings = [];
+        foreach ($overview->recentFindingIds as $findingId) {
+            $finding = $this->learning->finding($findingId);
+            if ($finding instanceof FindingProjection) {
+                $findings[] = $finding;
+            }
+        }
+        $proposals = [];
+        foreach ($overview->recentProposalIds as $proposalId) {
+            $proposal = $this->learning->proposal($proposalId);
+            if ($proposal instanceof ProposalProjection) {
+                $proposals[] = $proposal;
+            }
+        }
+
         return Response::html($this->templates->render('knowledge/index', [
-            'overview' => $this->learning->overview(),
+            'overview' => $overview,
+            'recent_findings' => $findings,
+            'recent_proposals' => $proposals,
         ]));
     }
 
