@@ -7,6 +7,7 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 
@@ -28,6 +29,9 @@ final class AuditTrailGatewayTest extends TestCase
             RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($iterator as $item) {
+            if (!$item instanceof SplFileInfo) {
+                continue;
+            }
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
         rmdir($this->root);
