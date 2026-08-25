@@ -55,7 +55,8 @@ final class AuditTrailGatewayTest extends TestCase
         self::assertCount(1, $audit->validation);
         self::assertSame('missing', $audit->validation[0]->status);
         self::assertSame('Contract approved', $audit->timeline[0]->title);
-        self::assertSame('missing', $audit->reviewStatus);
+        self::assertFalse($audit->reviewExists);
+        self::assertNull($audit->reviewStatus);
         self::assertNull($audit->learningDecision);
     }
 }
