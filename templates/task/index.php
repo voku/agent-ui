@@ -1,5 +1,6 @@
 <?php
 use voku\AgentLoop\Workflow\Transparency\ContextCoverage;
+use voku\AgentLoop\Workflow\Transparency\TaskTransparencyProjection;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
@@ -7,13 +8,14 @@ use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $runner = $model['runner'];
 $context = $model['context_explanation'];
 $contextCoverage = $model['context_coverage'];
+$transparency = $model['task_transparency'];
 $csrf = $model['csrf_token'];
 $contextOmittedCount = 0;
 foreach ($contextCoverage->omitted as $omission) {
@@ -23,6 +25,12 @@ $contextIntegrityProblem = $context->explanation?->hasIntegrityFailures() ?? fal
 $contextTone = $context->status === ContextExplanationSnapshot::INVALID || $contextIntegrityProblem
     ? 'blocked'
     : ($context->status === ContextExplanationSnapshot::MISSING ? 'attention' : 'ok');
+$workObserved = $transparency->scopeCoverage->observed;
+$workHasDrift = $transparency->scopeCoverage->changedOutsideScope !== [];
+$workReviewProblem = $transparency->review->invalid || $transparency->review->currency->value === 'stale';
+$workTone = !$workObserved
+    ? 'attention'
+    : ($workHasDrift || $workReviewProblem ? 'blocked' : Presentation::tone($transparency->review->currency->value));
 $title = $card->id . ' · ' . $card->title . ' · agent-ui';
 $nav = null;
 $projectLabel = null;
@@ -86,6 +94,29 @@ require __DIR__ . '/../layout/header.php';
         <p class="note">Unavailable context is not rendered as an empty or unconstrained session.</p>
     <?php endif; ?>
     <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Explain context &amp; constraints →</a></p>
+</section>
+
+<p class="eyebrow">Work &amp; review</p>
+<section class="panel<?= $workTone === 'blocked' ? ' panel--danger' : ($workTone === 'attention' ? ' panel--attention' : '') ?>">
+    <div class="action__head">
+        <span class="pill pill--<?= TemplateRenderer::escape($workTone) ?>"><?= TemplateRenderer::escape($workObserved ? $transparency->review->currency->value : $transparency->observation->status->value) ?></span>
+        <strong>Did the work stay inside the approved boundary?</strong>
+    </div>
+    <?php if (!$workObserved): ?>
+        <p class="muted"><?= TemplateRenderer::escape($transparency->observation->unavailableReason ?? 'Repository observation is unavailable.') ?></p>
+        <p class="note">Unavailable Git observation is not rendered as “no scope drift”.</p>
+    <?php else: ?>
+        <dl class="kv" style="margin-top:12px">
+            <dt>Changed in scope</dt><dd><?= count($transparency->scopeCoverage->changedInScope) ?></dd>
+            <dt>Changed outside scope</dt><dd><?= count($transparency->scopeCoverage->changedOutsideScope) ?></dd>
+            <dt>Review currency</dt><dd><?= TemplateRenderer::escape(Presentation::label($transparency->review->currency->value)) ?></dd>
+            <dt>Review findings</dt><dd><?= count($transparency->review->findings) ?></dd>
+            <dt>Explicit blocker</dt><dd><?= $transparency->blocked === null ? 'none recorded' : TemplateRenderer::escape($transparency->blocked->state) ?></dd>
+            <dt>Deferred follow-up</dt><dd><?= $transparency->deferredFollowUp === null ? 'none recorded' : TemplateRenderer::escape($transparency->deferredFollowUp->followUpRef) ?></dd>
+        </dl>
+        <?php if ($workHasDrift): ?><p class="note">Outside-scope changes are observed, not adjudicated. Open the detail view before deciding what to do.</p><?php endif; ?>
+    <?php endif; ?>
+    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Inspect scope &amp; review →</a></p>
 </section>
 
 <?php if ($workflow->disagreements !== []): ?>
@@ -233,6 +264,7 @@ require __DIR__ . '/../layout/header.php';
 
 <div class="btn-row">
     <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Context &amp; constraints</a>
+    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Work &amp; review</a>
     <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
     <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a>
 </div>

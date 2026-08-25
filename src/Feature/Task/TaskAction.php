@@ -30,13 +30,16 @@ final readonly class TaskAction
 
     public function __invoke(string $taskId): Response
     {
+        $transparency = $this->transparency->task($taskId);
+
         return Response::html($this->templates->render('task/index', [
             'card' => $this->board->card($taskId),
             'workflow' => $this->workflow->task($taskId),
             'human_decisions' => $this->decisions->available($taskId),
             'runner' => $this->runner->status($taskId),
             'context_explanation' => $this->context->task($taskId),
-            'context_coverage' => $this->transparency->task($taskId)->context,
+            'context_coverage' => $transparency->context,
+            'task_transparency' => $transparency,
             'csrf_token' => $this->csrf->token(),
         ]));
     }
