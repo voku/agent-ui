@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'home'|'board'|'task'|'evidence'|'handoff'|'approve'|'review_ack'|'learning', task_id?: string} */
+    /** @return array{route: 'home'|'board'|'task'|'evidence'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel', task_id?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
@@ -34,6 +34,9 @@ final readonly class Router
                 'approve' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/approve$#',
                 'review_ack' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/review-ack$#',
                 'learning' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/learning$#',
+                'runner_run' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/runner/run$#',
+                'runner_resume' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/runner/resume$#',
+                'runner_cancel' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/runner/cancel$#',
             ] as $route => $pattern) {
                 $taskId = $this->taskId($request->path, $pattern);
                 if ($taskId !== null) {
