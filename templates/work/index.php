@@ -91,7 +91,7 @@ require __DIR__ . '/../layout/header.php';
                 <?php endif; ?>
             </div>
             <div>
-                <p class="provenance <?= $scope->changedOutsideScope === [] ? 'provenance--observation' : 'provenance--authority' ?>">changed outside approved scope</p>
+                <p class="provenance provenance--observation">changed outside approved scope</p>
                 <?php if ($scope->changedOutsideScope === []): ?><p class="empty">No outside-scope change observed.</p><?php else: ?>
                     <div class="stack"><?php foreach ($scope->changedOutsideScope as $path): ?><code><?= TemplateRenderer::escape($path) ?></code><?php endforeach; ?></div>
                     <p class="note">This is scope-drift observation. agent-ui does not decide whether it is acceptable.</p>
