@@ -30,10 +30,18 @@ final readonly class Request
             $path = '/';
         }
 
-        return new self($method, $path, self::stringValues($_GET), self::stringValues($_POST));
+        return new self(
+            $method,
+            $path,
+            self::stringValues($_GET),
+            self::stringValues($_POST),
+        );
     }
 
-    /** @param array<array-key, mixed> $values @return array<string, string> */
+    /**
+     * @param array<array-key, mixed> $values
+     * @return array<string, string>
+     */
     private static function stringValues(array $values): array
     {
         $result = [];
