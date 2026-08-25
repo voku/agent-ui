@@ -41,19 +41,19 @@ require __DIR__ . '/../layout/header.php';
         </dl>
         <div class="grid" style="margin-top:14px">
             <div>
-                <h3>In scope</h3>
+                <h2>In scope</h2>
                 <?php if ($contract->scope === []): ?><p class="empty">No paths declared.</p><?php else: ?>
                     <div class="stack"><?php foreach ($contract->scope as $path): ?><code><?= TemplateRenderer::escape($path) ?></code><?php endforeach; ?></div>
                 <?php endif; ?>
             </div>
             <div>
-                <h3>Explicit non-goals</h3>
+                <h2>Explicit non-goals</h2>
                 <?php if ($contract->nonGoals === []): ?><p class="empty">None recorded.</p><?php else: ?>
                     <div class="stack"><?php foreach ($contract->nonGoals as $nonGoal): ?><p class="small" style="margin:0"><?= TemplateRenderer::escape($nonGoal) ?></p><?php endforeach; ?></div>
                 <?php endif; ?>
             </div>
             <div>
-                <h3>Acceptance criteria</h3>
+                <h2>Acceptance criteria</h2>
                 <?php if ($contract->acceptanceCriteria === []): ?><p class="empty">None recorded.</p><?php else: ?>
                     <div class="stack"><?php foreach ($contract->acceptanceCriteria as $criterion): ?><p class="small" style="margin:0"><?= TemplateRenderer::escape($criterion) ?></p><?php endforeach; ?></div>
                 <?php endif; ?>
@@ -108,7 +108,7 @@ require __DIR__ . '/../layout/header.php';
                     'Untracked' => $observation->untracked,
                 ] as $label => $paths): ?>
                     <section class="panel">
-                        <h3><?= TemplateRenderer::escape($label) ?></h3>
+                        <h2><?= TemplateRenderer::escape($label) ?></h2>
                         <?php if ($paths === []): ?><p class="empty">None observed.</p><?php else: ?>
                             <div class="stack"><?php foreach ($paths as $path): ?><code><?= TemplateRenderer::escape($path) ?></code><?php endforeach; ?></div>
                         <?php endif; ?>
