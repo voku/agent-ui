@@ -35,5 +35,5 @@ require __DIR__ . '/../layout/header.php';
 <?php endif; ?>
 </section>
 <?php endif; ?>
-<p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence & references</a></p>
+<p><a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence & references</a> <a class="button" href="/task/<?= TemplateRenderer::escape($card->id) ?>/handoff">Coding-agent handoff</a></p>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
