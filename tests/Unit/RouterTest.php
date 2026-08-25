@@ -17,7 +17,12 @@ final class RouterTest extends TestCase
     {
         yield 'home' => [new Request('GET', '/'), ['route' => 'home']];
         yield 'board' => [new Request('GET', '/board'), ['route' => 'board']];
+        yield 'knowledge' => [new Request('GET', '/knowledge'), ['route' => 'knowledge']];
+        yield 'knowledge finding' => [new Request('GET', '/knowledge/findings/finding.2026-08-26.ab12cd'), ['route' => 'knowledge_finding', 'knowledge_id' => 'finding.2026-08-26.ab12cd']];
+        yield 'knowledge proposal' => [new Request('GET', '/knowledge/proposals/proposal.2026-08-26.123'), ['route' => 'knowledge_proposal', 'knowledge_id' => 'proposal.2026-08-26.123']];
+        yield 'knowledge guidance' => [new Request('GET', '/knowledge/guidance/proposal.2026-08-26.123'), ['route' => 'knowledge_guidance', 'knowledge_id' => 'proposal.2026-08-26.123']];
         yield 'task' => [new Request('GET', '/task/abc-12'), ['route' => 'task', 'task_id' => 'ABC-12']];
+        yield 'task learning' => [new Request('GET', '/task/abc-12/learning'), ['route' => 'task_learning', 'task_id' => 'ABC-12']];
         yield 'context' => [new Request('GET', '/task/ABC-12/context'), ['route' => 'context', 'task_id' => 'ABC-12']];
         yield 'work' => [new Request('GET', '/task/ABC-12/work'), ['route' => 'work', 'task_id' => 'ABC-12']];
         yield 'evidence' => [new Request('GET', '/task/ABC-12/evidence'), ['route' => 'evidence', 'task_id' => 'ABC-12']];
@@ -25,7 +30,7 @@ final class RouterTest extends TestCase
         yield 'handoff' => [new Request('GET', '/task/ABC-12/handoff'), ['route' => 'handoff', 'task_id' => 'ABC-12']];
         yield 'approve' => [new Request('POST', '/task/abc-12/approve'), ['route' => 'approve', 'task_id' => 'ABC-12']];
         yield 'review ack' => [new Request('POST', '/task/ABC-12/review-ack'), ['route' => 'review_ack', 'task_id' => 'ABC-12']];
-        yield 'learning' => [new Request('POST', '/task/ABC-12/learning'), ['route' => 'learning', 'task_id' => 'ABC-12']];
+        yield 'learning decision' => [new Request('POST', '/task/ABC-12/learning'), ['route' => 'learning', 'task_id' => 'ABC-12']];
         yield 'runner run' => [new Request('POST', '/task/ABC-12/runner/run'), ['route' => 'runner_run', 'task_id' => 'ABC-12']];
         yield 'runner resume' => [new Request('POST', '/task/ABC-12/runner/resume'), ['route' => 'runner_resume', 'task_id' => 'ABC-12']];
         yield 'runner cancel' => [new Request('POST', '/task/ABC-12/runner/cancel'), ['route' => 'runner_cancel', 'task_id' => 'ABC-12']];
@@ -48,5 +53,11 @@ final class RouterTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         (new Router())->match(new Request('GET', '/task/../../etc/passwd'));
+    }
+
+    public function testRejectsUnsafeKnowledgeIdentifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new Router())->match(new Request('GET', '/knowledge/findings/../../etc/passwd'));
     }
 }

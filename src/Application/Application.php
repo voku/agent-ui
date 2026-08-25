@@ -14,6 +14,7 @@ use voku\AgentUi\Feature\Handoff\GuidedHandoffBuilder;
 use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
+use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Task\TaskAction;
 use voku\AgentUi\Feature\Work\WorkAction;
@@ -21,6 +22,7 @@ use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Http\Router;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
@@ -35,6 +37,7 @@ final readonly class Application
     private Router $router;
     private HomeAction $home;
     private BoardAction $board;
+    private KnowledgeAction $knowledge;
     private TaskAction $task;
     private ContextAction $context;
     private WorkAction $work;
@@ -53,12 +56,14 @@ final readonly class Application
         $runner = new RunnerGateway($projectRoot);
         $context = new ContextExplanationGateway($projectRoot);
         $transparency = new TaskTransparencyGateway($projectRoot);
+        $learning = new LearningCatalogGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
 
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $templates);
         $this->board = new BoardAction($board, $templates);
+        $this->knowledge = new KnowledgeAction($learning, $templates);
         $this->task = new TaskAction(
             $board,
             $workflow,
@@ -86,7 +91,12 @@ final readonly class Application
             return match ($route['route']) {
                 'home' => ($this->home)(),
                 'board' => ($this->board)(),
+                'knowledge' => $this->knowledge->overview(),
+                'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
+                'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
+                'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),
                 'task' => ($this->task)($route['task_id'] ?? ''),
+                'task_learning' => $this->knowledge->task($route['task_id'] ?? ''),
                 'context' => ($this->context)($route['task_id'] ?? ''),
                 'work' => ($this->work)($route['task_id'] ?? ''),
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
