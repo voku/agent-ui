@@ -131,9 +131,7 @@ final readonly class AuditTrailGateway
         );
     }
 
-    /**
-     * @return list<ValidationAuditSnapshot>
-     */
+    /** @return list<ValidationAuditSnapshot> */
     private function validation(mixed $value): array
     {
         if (!is_array($value)) {
@@ -160,7 +158,10 @@ final readonly class AuditTrailGateway
         return $result;
     }
 
-    /** @param array<string, mixed> $source @return array<string, mixed> */
+    /**
+     * @param array<string, mixed> $source
+     * @return array<string, mixed>
+     */
     private function map(array $source, string $key): array
     {
         $value = $source[$key] ?? null;
@@ -171,7 +172,10 @@ final readonly class AuditTrailGateway
         return $this->stringMap($value, $key);
     }
 
-    /** @param array<array-key, mixed> $value @return array<string, mixed> */
+    /**
+     * @param array<array-key, mixed> $value
+     * @return array<string, mixed>
+     */
     private function stringMap(array $value, string $field): array
     {
         $result = [];
@@ -240,7 +244,10 @@ final readonly class AuditTrailGateway
         return $value;
     }
 
-    /** @param array<string, mixed> $source @return list<string> */
+    /**
+     * @param array<string, mixed> $source
+     * @return list<string>
+     */
     private function stringList(array $source, string $key): array
     {
         $value = $source[$key] ?? null;
