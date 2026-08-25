@@ -14,6 +14,8 @@ agent-ui          = lets a developer understand and control it
 
 The initial roadmap has reached v0.5: read-only workflow/board views, typed human decisions, guided coding-agent handoff, optional managed Runner controls, and readable evidence/review/Learning/history UX.
 
+The interface was rebuilt on a proper design system in the same milestone — see [Interface](#interface).
+
 ## Development install
 
 ```bash
@@ -46,6 +48,27 @@ Runner remains optional at runtime and a development dependency here only so tes
 `/task/{id}/evidence` adapts `agent-loop`'s public `WorkflowReportCommand::buildReport()` plus typed review-acknowledgement and Learning-decision records into immutable UI snapshots. Raw lifecycle references remain available as a disclosure, but the primary view presents Contract, validation, verification, Recall, review and Learning facts directly.
 
 `/task/{id}/history` sorts only timestamped owner facts: Contract approval, validation executions, exact review acknowledgement, and Learning decisions. It does not infer missing events or treat generated evidence as authority.
+
+## Interface
+
+The interface is one hand-written stylesheet (`templates/layout/app.css`), inlined by the layout.
+No framework, no build step, no asset pipeline — the same constraint the rest of the project works
+under, and one fewer thing to keep alive for a tool you run locally.
+
+Two ideas drive the visual design, because both are product decisions rather than decoration:
+
+- **Provenance is visible.** Owner authority and Runner observation sit in separate, differently
+  marked columns, so a green process exit can never be misread as a passed gate.
+- **State carries colour, and unknown states do not.** `src/View/Presentation.php` is the only place
+  that interprets an owner state string, and it interprets it for colour and wording only. A state
+  agent-loop adds tomorrow renders as neutral rather than being guessed at.
+
+The task page opens with an owner-reference ribbon: every artifact agent-loop projects, with the
+state its owning package reports for it. It reads as a lifecycle at a glance, and none of it is
+derived here.
+
+Light and dark themes follow the operating system. Commands and prompts carry copy buttons, which
+are the only JavaScript in the project and which every page works completely without.
 
 ## Architecture
 
