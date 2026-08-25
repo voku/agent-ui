@@ -14,7 +14,7 @@ namespace voku\AgentUi\View;
  * happens next, and both come from agent-loop.
  *
  * An unrecognised state renders as neutral rather than being guessed at, so a
- * vocabulary agent-loop adds tomorrow shows up as "not styled yet" instead of
+ * vocabulary an owner adds tomorrow shows up as "not styled yet" instead of
  * as a confident lie.
  */
 final class Presentation
@@ -37,6 +37,9 @@ final class Presentation
         'ready_to_close' => self::TONE_OK,
         'complete' => self::TONE_OK,
         'approved' => self::TONE_OK,
+        'applied' => self::TONE_OK,
+        'acknowledged' => self::TONE_OK,
+        'consolidated' => self::TONE_OK,
         'current' => self::TONE_OK,
         'compiled' => self::TONE_OK,
         'active' => self::TONE_OK,
@@ -61,19 +64,21 @@ final class Presentation
         'pending_recall' => self::TONE_ATTENTION,
         'pending_approval' => self::TONE_ATTENTION,
         'candidate' => self::TONE_ATTENTION,
+        'validated' => self::TONE_ATTENTION,
         'changes_required' => self::TONE_ATTENTION,
         'needs_clarification' => self::TONE_ATTENTION,
         'follow_up_required' => self::TONE_ATTENTION,
         'decision_required' => self::TONE_ATTENTION,
         'host_work' => self::TONE_ATTENTION,
-        // stopped
+        // stopped / disproven
         'blocked' => self::TONE_BLOCKED,
         'failed' => self::TONE_BLOCKED,
         'fail' => self::TONE_BLOCKED,
         'invalid' => self::TONE_BLOCKED,
+        'invalidated' => self::TONE_BLOCKED,
         'rejected' => self::TONE_BLOCKED,
         'superseded' => self::TONE_BLOCKED,
-        // ordinary "not there yet" facts, which are not problems
+        // ordinary historical or "not there yet" facts, which are not problems
         'missing' => self::TONE_NEUTRAL,
         'none' => self::TONE_NEUTRAL,
         'unavailable' => self::TONE_NEUTRAL,
@@ -87,6 +92,8 @@ final class Presentation
         'experiment' => self::TONE_NEUTRAL,
         'command' => self::TONE_NEUTRAL,
         'todo' => self::TONE_NEUTRAL,
+        'retired' => self::TONE_NEUTRAL,
+        'archived' => self::TONE_NEUTRAL,
     ];
 
     public static function tone(?string $state): string
