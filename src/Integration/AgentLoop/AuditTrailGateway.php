@@ -90,7 +90,7 @@ final readonly class AuditTrailGateway
         }
         usort(
             $timeline,
-            static fn (AuditTimelineEntry $left, AuditTimelineEntry $right): int => strcmp($right->at, $left->at),
+            static fn(AuditTimelineEntry $left, AuditTimelineEntry $right): int => strcmp($right->at, $left->at),
         );
 
         return new TaskAuditSnapshot(
