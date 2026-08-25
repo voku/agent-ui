@@ -19,6 +19,7 @@ final class RouterTest extends TestCase
         yield 'board' => [new Request('GET', '/board'), ['route' => 'board']];
         yield 'task' => [new Request('GET', '/task/abc-12'), ['route' => 'task', 'task_id' => 'ABC-12']];
         yield 'context' => [new Request('GET', '/task/ABC-12/context'), ['route' => 'context', 'task_id' => 'ABC-12']];
+        yield 'work' => [new Request('GET', '/task/ABC-12/work'), ['route' => 'work', 'task_id' => 'ABC-12']];
         yield 'evidence' => [new Request('GET', '/task/ABC-12/evidence'), ['route' => 'evidence', 'task_id' => 'ABC-12']];
         yield 'history' => [new Request('GET', '/task/ABC-12/history'), ['route' => 'history', 'task_id' => 'ABC-12']];
         yield 'handoff' => [new Request('GET', '/task/ABC-12/handoff'), ['route' => 'handoff', 'task_id' => 'ABC-12']];
