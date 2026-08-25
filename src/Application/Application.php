@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use Throwable;
 use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Feature\Evidence\EvidenceAction;
+use voku\AgentUi\Feature\Handoff\GuidedHandoffAction;
+use voku\AgentUi\Feature\Handoff\GuidedHandoffBuilder;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Task\TaskAction;
@@ -27,6 +29,7 @@ final readonly class Application
     private BoardAction $board;
     private TaskAction $task;
     private EvidenceAction $evidence;
+    private GuidedHandoffAction $handoff;
     private HumanDecisionAction $humanDecision;
 
     public function __construct(string $projectRoot, string $templateRoot)
@@ -42,6 +45,7 @@ final readonly class Application
         $this->board = new BoardAction($board, $templates);
         $this->task = new TaskAction($board, $workflow, $decisions, $csrf, $templates);
         $this->evidence = new EvidenceAction($workflow, $templates);
+        $this->handoff = new GuidedHandoffAction($board, $workflow, new GuidedHandoffBuilder(), $templates);
         $this->humanDecision = new HumanDecisionAction($decisions, $csrf);
     }
 
@@ -55,6 +59,7 @@ final readonly class Application
                 'board' => ($this->board)(),
                 'task' => ($this->task)($route['task_id'] ?? ''),
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
+                'handoff' => ($this->handoff)($route['task_id'] ?? ''),
                 'approve', 'review_ack', 'learning' => ($this->humanDecision)(
                     $route['task_id'] ?? '',
                     $route['route'],

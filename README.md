@@ -12,7 +12,7 @@ agent-ui          = lets a developer understand and control it
 
 ## Status
 
-The implementation has reached the v0.2 human-decision slice. The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
+The implementation has reached the v0.3 guided coding-agent handoff slice. The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
 
 ## Development install
 
@@ -28,7 +28,9 @@ AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 
 
 Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
-Routes include `/`, `/board`, `/task/{id}`, and `/task/{id}/evidence`. State-changing human decisions are POST-only, CSRF-protected, and redirect back to freshly projected owner state.
+Routes include `/`, `/board`, `/task/{id}`, `/task/{id}/evidence`, and `/task/{id}/handoff`. State-changing human decisions are POST-only, CSRF-protected, and redirect back to freshly projected owner state.
+
+The guided handoff is deliberately presentation-only: it packages board context with the exact owner-projected `state`, `next_action_kind`, and `next_action` for a coding-agent session. It does not advance lifecycle state, compile new authority, or decide whether the agent may perform a human decision.
 
 ## Architecture
 
