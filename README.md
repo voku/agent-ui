@@ -12,7 +12,7 @@ agent-ui          = lets a developer understand and control it
 
 ## Status
 
-The implementation has reached the v0.3 guided coding-agent handoff slice. The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
+The implementation has reached the v0.4 optional managed-execution slice. The staged roadmap through v0.5 is tracked in [issue #1](https://github.com/voku/agent-ui/issues/1).
 
 ## Development install
 
@@ -28,9 +28,18 @@ AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 
 
 Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
-Routes include `/`, `/board`, `/task/{id}`, `/task/{id}/evidence`, and `/task/{id}/handoff`. State-changing human decisions are POST-only, CSRF-protected, and redirect back to freshly projected owner state.
+Routes include `/`, `/board`, `/task/{id}`, `/task/{id}/evidence`, and `/task/{id}/handoff`. Human and Runner state changes are POST-only and CSRF-protected.
 
-The guided handoff is deliberately presentation-only: it packages board context with the exact owner-projected `state`, `next_action_kind`, and `next_action` for a coding-agent session. It does not advance lifecycle state, compile new authority, or decide whether the agent may perform a human decision.
+## Execution modes
+
+The task page makes the executor distinction explicit:
+
+- **Guided coding-agent session**: copy a governed prompt and perform host-native work manually;
+- **Managed runner**: when `voku/agent-loop-runner` is installed, render its typed authority/observation status and invoke only controls that Runner currently projects as legal.
+
+Runner remains optional at runtime and a development dependency here only so tests/PHPStan can prove the integration. `agent-ui` never parses Runner CLI JSON.
+
+`run` and `resume` are synchronous. The one-process PHP development server therefore cannot service a Cancel request while its own Run/Resume request is blocked. Cancel remains useful when another worker/session observes the owned process; the UI states this limitation instead of pretending it has background execution.
 
 ## Architecture
 
@@ -43,7 +52,7 @@ browser
   -> server-rendered HTML
 ```
 
-The lifecycle rule is intentionally severe: **the UI never derives what happens next or which human decision is legal.** `voku/agent-loop` projects lifecycle state, canonical next action, and currently recordable human decisions; the UI renders those values and delegates writes back to the owner service.
+The lifecycle rule is intentionally severe: **the UI never derives what happens next or which human/Runner control is legal.** `voku/agent-loop` projects lifecycle state and human decisions; `voku/agent-loop-runner` projects managed-execution controls and keeps process state observational.
 
 Board config/card parsing similarly comes from `voku/agent-kanban`. There is no duplicated card parser, inferred lane policy, database, ORM, JavaScript framework, or frontend build pipeline.
 

@@ -8,6 +8,7 @@ use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -17,6 +18,7 @@ final readonly class TaskAction
         private BoardProjectionGateway $board,
         private WorkflowProjectionGateway $workflow,
         private HumanDecisionGateway $decisions,
+        private RunnerGateway $runner,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
     ) {
@@ -28,6 +30,7 @@ final readonly class TaskAction
             'card' => $this->board->card($taskId),
             'workflow' => $this->workflow->task($taskId),
             'human_decisions' => $this->decisions->available($taskId),
+            'runner' => $this->runner->status($taskId),
             'csrf_token' => $this->csrf->token(),
         ]));
     }

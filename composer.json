@@ -11,7 +11,8 @@
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
     "phpstan/phpstan": "^2.1",
-    "phpunit/phpunit": "^11.5"
+    "phpunit/phpunit": "^11.5",
+    "voku/agent-loop-runner": "dev-main"
   },
   "autoload": {"psr-4": {"voku\\AgentUi\\": "src/"}},
   "autoload-dev": {"psr-4": {"voku\\AgentUi\\Tests\\": "tests/"}},
@@ -25,5 +26,5 @@
   "config": {"allow-plugins": false, "sort-packages": true},
   "minimum-stability": "dev",
   "prefer-stable": true,
-  "suggest": {"voku/agent-loop-runner": "Optional managed execution plane surfaced by agent-ui from v0.4 onward."}
+  "suggest": {"voku/agent-loop-runner": "Install to enable the optional managed execution surface."}
 }

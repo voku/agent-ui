@@ -12,6 +12,7 @@ use voku\AgentUi\Feature\Handoff\GuidedHandoffAction;
 use voku\AgentUi\Feature\Handoff\GuidedHandoffBuilder;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
+use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Task\TaskAction;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
@@ -19,6 +20,7 @@ use voku\AgentUi\Http\Router;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -31,22 +33,25 @@ final readonly class Application
     private EvidenceAction $evidence;
     private GuidedHandoffAction $handoff;
     private HumanDecisionAction $humanDecision;
+    private RunnerAction $runner;
 
     public function __construct(string $projectRoot, string $templateRoot)
     {
         $board = new BoardProjectionGateway($projectRoot);
         $workflow = new WorkflowProjectionGateway($projectRoot);
         $decisions = new HumanDecisionGateway($projectRoot);
+        $runner = new RunnerGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
 
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $templates);
         $this->board = new BoardAction($board, $templates);
-        $this->task = new TaskAction($board, $workflow, $decisions, $csrf, $templates);
+        $this->task = new TaskAction($board, $workflow, $decisions, $runner, $csrf, $templates);
         $this->evidence = new EvidenceAction($workflow, $templates);
         $this->handoff = new GuidedHandoffAction($board, $workflow, new GuidedHandoffBuilder(), $templates);
         $this->humanDecision = new HumanDecisionAction($decisions, $csrf);
+        $this->runner = new RunnerAction($runner, $csrf);
     }
 
     public function handle(Request $request): Response
@@ -61,6 +66,11 @@ final readonly class Application
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
                 'handoff' => ($this->handoff)($route['task_id'] ?? ''),
                 'approve', 'review_ack', 'learning' => ($this->humanDecision)(
+                    $route['task_id'] ?? '',
+                    $route['route'],
+                    $request,
+                ),
+                'runner_run', 'runner_resume', 'runner_cancel' => ($this->runner)(
                     $route['task_id'] ?? '',
                     $route['route'],
                     $request,
