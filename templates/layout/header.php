@@ -23,6 +23,7 @@ $projectLabel ??= null;
         <nav aria-label="Primary">
             <a href="/"<?= $nav === 'home' ? ' aria-current="page"' : '' ?>>Overview</a>
             <a href="/board"<?= $nav === 'board' ? ' aria-current="page"' : '' ?>>Board</a>
+            <a href="/knowledge"<?= $nav === 'knowledge' ? ' aria-current="page"' : '' ?>>Knowledge</a>
         </nav>
         <?php if ($projectLabel !== null): ?>
             <div class="masthead__meta"><span class="mono"><?= TemplateRenderer::escape($projectLabel) ?></span></div>
