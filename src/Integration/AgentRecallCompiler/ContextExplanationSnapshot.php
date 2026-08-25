@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Integration\AgentRecallCompiler;
 
 use voku\AgentRecallCompiler\Output\CompiledContextExplanation;
+use voku\AgentRecallCompiler\Output\CompiledGuidanceDecision;
 
 /**
  * UI-safe availability wrapper around Recall's persisted explanation.
@@ -62,7 +63,7 @@ final readonly class ContextExplanationSnapshot
 
         return count(array_filter(
             $this->explanation->guidance,
-            static fn ($guidance): bool => $guidance->selected,
+            static fn(CompiledGuidanceDecision $guidance): bool => $guidance->selected,
         ));
     }
 
@@ -74,7 +75,7 @@ final readonly class ContextExplanationSnapshot
 
         return count(array_filter(
             $this->explanation->guidance,
-            static fn ($guidance): bool => !$guidance->selected,
+            static fn(CompiledGuidanceDecision $guidance): bool => !$guidance->selected,
         ));
     }
 }
