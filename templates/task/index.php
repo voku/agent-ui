@@ -1,16 +1,28 @@
 <?php
+use voku\AgentLoop\Workflow\Transparency\ContextCoverage;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, csrf_token: string} $model */
 $card = $model['card'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $runner = $model['runner'];
+$context = $model['context_explanation'];
+$contextCoverage = $model['context_coverage'];
 $csrf = $model['csrf_token'];
+$contextOmittedCount = 0;
+foreach ($contextCoverage->omitted as $omission) {
+    $contextOmittedCount += $omission->count;
+}
+$contextIntegrityProblem = $context->explanation?->hasIntegrityFailures() ?? false;
+$contextTone = $context->status === ContextExplanationSnapshot::INVALID || $contextIntegrityProblem
+    ? 'blocked'
+    : ($context->status === ContextExplanationSnapshot::MISSING ? 'attention' : 'ok');
 $title = $card->id . ' · ' . $card->title . ' · agent-ui';
 $nav = null;
 $projectLabel = null;
@@ -52,6 +64,28 @@ require __DIR__ . '/../layout/header.php';
         <button type="button" class="copy" data-copy-target="next-action">Copy</button>
     </div>
     <p class="note">Rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
+</section>
+
+<p class="eyebrow">Context &amp; constraints</p>
+<section class="panel<?= $contextTone === 'blocked' ? ' panel--danger' : ($contextTone === 'attention' ? ' panel--attention' : '') ?>">
+    <div class="action__head">
+        <span class="pill pill--<?= TemplateRenderer::escape($contextTone) ?>"><?= TemplateRenderer::escape($contextIntegrityProblem ? 'integrity problem' : $context->status) ?></span>
+        <strong>What shaped this coding session?</strong>
+    </div>
+    <?php if ($context->explanation !== null): ?>
+        <dl class="kv" style="margin-top:12px">
+            <dt>Hard constraints</dt><dd><?= count($context->explanation->constraints) ?></dd>
+            <dt>Guidance selected</dt><dd><?= $context->selectedGuidanceCount() ?></dd>
+            <dt>Guidance excluded</dt><dd><?= $context->excludedGuidanceCount() ?></dd>
+            <dt>Inputs skipped</dt><dd><?= count($contextCoverage->skipped) ?></dd>
+            <dt>Budget omitted</dt><dd><?= $contextOmittedCount ?></dd>
+        </dl>
+        <p class="note">Counts come from persisted Recall selection plus agent-loop's typed context coverage. “Omitted” never means “irrelevant”.</p>
+    <?php else: ?>
+        <p class="muted"><?= TemplateRenderer::escape($context->problem ?? 'Persisted context explanation unavailable.') ?></p>
+        <p class="note">Unavailable context is not rendered as an empty or unconstrained session.</p>
+    <?php endif; ?>
+    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Explain context &amp; constraints →</a></p>
 </section>
 
 <?php if ($workflow->disagreements !== []): ?>
@@ -198,6 +232,7 @@ require __DIR__ . '/../layout/header.php';
 </section>
 
 <div class="btn-row">
+    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Context &amp; constraints</a>
     <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
     <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a>
 </div>

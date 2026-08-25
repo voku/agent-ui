@@ -7,8 +7,10 @@ namespace voku\AgentUi\Feature\Task;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -19,6 +21,8 @@ final readonly class TaskAction
         private WorkflowProjectionGateway $workflow,
         private HumanDecisionGateway $decisions,
         private RunnerGateway $runner,
+        private ContextExplanationGateway $context,
+        private TaskTransparencyGateway $transparency,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
     ) {
@@ -31,6 +35,8 @@ final readonly class TaskAction
             'workflow' => $this->workflow->task($taskId),
             'human_decisions' => $this->decisions->available($taskId),
             'runner' => $this->runner->status($taskId),
+            'context_explanation' => $this->context->task($taskId),
+            'context_coverage' => $this->transparency->task($taskId)->context,
             'csrf_token' => $this->csrf->token(),
         ]));
     }

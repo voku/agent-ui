@@ -6,7 +6,8 @@
   "require": {
     "php": "^8.3",
     "voku/agent-kanban": "^0.3.2",
-    "voku/agent-loop": "dev-main"
+    "voku/agent-loop": "dev-main",
+    "voku/agent-recall-compiler": "^0.13.14"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
@@ -25,9 +26,10 @@
   "scripts": {
     "test": "phpunit",
     "phpstan": "phpstan analyse --configuration=phpstan.neon.dist --memory-limit=512M",
+    "template-lint": "find templates -name '*.php' -print0 | xargs -0 -n1 php -l",
     "cs-check": "php-cs-fixer fix --dry-run --diff",
     "cs-fix": "php-cs-fixer fix",
-    "ci": ["@composer validate --strict", "@test", "@phpstan", "@cs-check"]
+    "ci": ["@composer validate --strict", "@test", "@phpstan", "@template-lint", "@cs-check"]
   },
   "config": {"allow-plugins": false, "sort-packages": true},
   "minimum-stability": "dev",
