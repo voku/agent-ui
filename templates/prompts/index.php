@@ -30,7 +30,7 @@ require __DIR__ . '/../layout/header.php';
 <div class="page-head">
     <?php if ($workbench->taskId !== null): ?><span class="page-head__id"><?= TemplateRenderer::escape($workbench->taskId) ?></span><?php endif; ?>
     <h1>Prompt Workbench</h1>
-    <p class="lede">Compose a workflow-owned envelope with an explicitly selected Recall recipe. The UI owns presentation and deterministic composition, not workflow authority or recipe semantics.</p>
+    <p class="lede">Choose what you are trying to do, then compose a workflow-owned envelope with the explicitly selected Recall recipe. The UI owns presentation and deterministic composition, not workflow authority or recipe semantics.</p>
 </div>
 
 <?php if ($workbench->errors !== []): ?>
@@ -72,15 +72,38 @@ require __DIR__ . '/../layout/header.php';
             <?php if ($workbench->taskTitle !== null): ?><p class="muted"><?= TemplateRenderer::escape($workbench->taskTitle) ?></p><?php endif; ?>
         <?php endif; ?>
 
-        <label for="recipe"><strong>Operating-prompt recipe</strong></label>
-        <select id="recipe" name="recipe" required>
-            <option value="">Choose explicitly…</option>
-            <?php foreach ($workbench->recipes as $recipe): ?>
-                <option value="<?= TemplateRenderer::escape($recipe->id) ?>"<?= $recipe->id === $workbench->selectedRecipeId ? ' selected' : '' ?>><?= TemplateRenderer::escape($recipe->purpose . ' · ' . $recipe->title) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <p class="small muted">Recipes, purpose and applicability come directly from agent-recall-compiler. agent-ui does not rank, auto-select or invent authority for them.</p>
-        <button type="submit" name="action" value="select">Load recipe fields</button>
+        <h2>What do you need now?</h2>
+        <p class="small muted">Every choice below comes from agent-recall-compiler. agent-ui groups the typed owner metadata for presentation; it does not rank, auto-select, or infer a recipe from your text.</p>
+
+        <?php foreach ($workbench->recipeGroups() as $group): ?>
+            <p class="eyebrow"><?= TemplateRenderer::escape($group->title) ?></p>
+            <div class="grid">
+                <?php foreach ($group->recipes as $recipe): ?>
+                    <?php
+                    $requiredArguments = array_values(array_filter(
+                        $recipe->arguments,
+                        static fn (OperatingPromptArgument $argument): bool => $argument->required,
+                    ));
+                    ?>
+                    <label class="panel<?= $recipe->id === $workbench->selectedRecipeId ? ' panel--accent' : '' ?>">
+                        <input type="radio" name="recipe" required value="<?= TemplateRenderer::escape($recipe->id) ?>"<?= $recipe->id === $workbench->selectedRecipeId ? ' checked' : '' ?>>
+                        <strong><?= TemplateRenderer::escape($recipe->title) ?></strong>
+                        <p class="small muted"><?= TemplateRenderer::escape($recipe->description) ?></p>
+                        <p>
+                            <span class="pill">L<?= $recipe->level ?></span>
+                            <?php if ($requiredArguments !== []): ?><span class="pill"><?= count($requiredArguments) ?> required field<?= count($requiredArguments) === 1 ? '' : 's' ?></span><?php endif; ?>
+                            <?php if ($recipe->requiresTaskContext()): ?><span class="pill">task context required</span><?php endif; ?>
+                            <?php if ($recipe->requiresMutationAuthority()): ?><span class="pill">mutation authority required</span><?php endif; ?>
+                        </p>
+                        <?php if ($requiredArguments !== []): ?>
+                            <p class="small muted">Required: <?php foreach ($requiredArguments as $index => $argument): ?><?= $index > 0 ? ', ' : '' ?><code><?= TemplateRenderer::escape($argument->name) ?></code><?php endforeach; ?></p>
+                        <?php endif; ?>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        <?php endforeach; ?>
+
+        <button type="submit" name="action" value="select">Load selected recipe</button>
 
         <?php if ($selectedRecipe instanceof OperatingPromptRecipe): ?>
             <hr>
