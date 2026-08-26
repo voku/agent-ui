@@ -22,6 +22,7 @@ $projectLabel ??= null;
         <a class="brand" href="/"><span class="brand__mark" aria-hidden="true"></span>agent-ui</a>
         <nav aria-label="Primary">
             <a href="/"<?= $nav === 'home' ? ' aria-current="page"' : '' ?>>Overview</a>
+            <a href="/setup"<?= $nav === 'setup' ? ' aria-current="page"' : '' ?>>Setup</a>
             <a href="/board"<?= $nav === 'board' ? ' aria-current="page"' : '' ?>>Board</a>
             <a href="/knowledge"<?= $nav === 'knowledge' ? ' aria-current="page"' : '' ?>>Knowledge</a>
         </nav>
