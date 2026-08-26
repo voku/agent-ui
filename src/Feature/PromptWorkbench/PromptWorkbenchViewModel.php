@@ -37,7 +37,7 @@ final readonly class PromptWorkbenchViewModel
             $recipesByPurpose[$recipe->purpose][] = $recipe;
         }
         foreach ($recipesByPurpose as &$recipes) {
-            usort($recipes, static fn (OperatingPromptRecipe $left, OperatingPromptRecipe $right): int => [
+            usort($recipes, static fn(OperatingPromptRecipe $left, OperatingPromptRecipe $right): int => [
                 $left->title,
                 $left->id,
             ] <=> [
