@@ -8,12 +8,15 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'home'|'board'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel', task_id?: string, knowledge_id?: string} */
+    /** @return array{route: 'home'|'board'|'setup'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
             if ($request->path === '/') {
                 return ['route' => 'home'];
+            }
+            if ($request->path === '/setup') {
+                return ['route' => 'setup'];
             }
             if ($request->path === '/board') {
                 return ['route' => 'board'];
@@ -55,6 +58,19 @@ final readonly class Router
         }
 
         if ($request->method === 'POST') {
+            if ($request->path === '/setup/sync-git') {
+                return ['route' => 'setup_sync_git'];
+            }
+            foreach ([
+                'setup_install' => '#^/setup/([a-z0-9_-]+)/install$#',
+                'setup_remove' => '#^/setup/([a-z0-9_-]+)/remove$#',
+                'setup_sync_policy' => '#^/setup/([a-z0-9_-]+)/sync-policy$#',
+            ] as $route => $pattern) {
+                $agent = $this->agent($request->path, $pattern);
+                if ($agent !== null) {
+                    return ['route' => $route, 'agent' => $agent];
+                }
+            }
             foreach ([
                 'approve' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/approve$#',
                 'review_ack' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/review-ack$#',
@@ -83,6 +99,15 @@ final readonly class Router
     }
 
     private function knowledgeId(string $path, string $pattern): ?string
+    {
+        if (preg_match($pattern, $path, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
+    }
+
+    private function agent(string $path, string $pattern): ?string
     {
         if (preg_match($pattern, $path, $matches) !== 1) {
             return null;
