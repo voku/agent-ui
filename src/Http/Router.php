@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'home'|'board'|'setup'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
+    /** @return array{route: 'home'|'board'|'setup'|'prompts'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
@@ -17,6 +17,9 @@ final readonly class Router
             }
             if ($request->path === '/setup') {
                 return ['route' => 'setup'];
+            }
+            if ($request->path === '/prompts') {
+                return ['route' => 'prompts'];
             }
             if ($request->path === '/board') {
                 return ['route' => 'board'];
@@ -33,6 +36,9 @@ final readonly class Router
                 if ($knowledgeId !== null) {
                     return ['route' => $route, 'knowledge_id' => $knowledgeId];
                 }
+            }
+            if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/prompts$#')) !== null) {
+                return ['route' => 'task_prompts', 'task_id' => $taskId];
             }
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)$#')) !== null) {
                 return ['route' => 'task', 'task_id' => $taskId];
@@ -58,8 +64,14 @@ final readonly class Router
         }
 
         if ($request->method === 'POST') {
+            if ($request->path === '/prompts') {
+                return ['route' => 'prompts'];
+            }
             if ($request->path === '/setup/sync-git') {
                 return ['route' => 'setup_sync_git'];
+            }
+            if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/prompts$#')) !== null) {
+                return ['route' => 'task_prompts', 'task_id' => $taskId];
             }
             foreach ([
                 'setup_install' => '#^/setup/([a-z0-9_-]+)/install$#',
