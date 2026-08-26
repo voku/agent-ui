@@ -15,6 +15,8 @@ use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
+use voku\AgentUi\Feature\PromptWorkbench\PromptComposer;
+use voku\AgentUi\Feature\PromptWorkbench\PromptWorkbenchAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Setup\SetupAction;
 use voku\AgentUi\Feature\Task\TaskAction;
@@ -29,8 +31,10 @@ use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowPromptGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\OperatingPromptCatalogGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -42,6 +46,7 @@ final readonly class Application
     private BoardAction $board;
     private KnowledgeAction $knowledge;
     private TaskAction $task;
+    private PromptWorkbenchAction $prompts;
     private ContextAction $context;
     private WorkAction $work;
     private EvidenceAction $evidence;
@@ -54,6 +59,8 @@ final readonly class Application
     {
         $board = new BoardProjectionGateway($projectRoot);
         $workflow = new WorkflowProjectionGateway($projectRoot);
+        $workflowPrompt = new WorkflowPromptGateway($projectRoot);
+        $promptCatalog = new OperatingPromptCatalogGateway();
         $audit = new AuditTrailGateway($projectRoot);
         $decisions = new HumanDecisionGateway($projectRoot);
         $runner = new RunnerGateway($projectRoot);
@@ -79,6 +86,13 @@ final readonly class Application
             $csrf,
             $templates,
         );
+        $this->prompts = new PromptWorkbenchAction(
+            $board,
+            $workflowPrompt,
+            $promptCatalog,
+            new PromptComposer(),
+            $templates,
+        );
         $this->context = new ContextAction($board, $context, $transparency, $templates);
         $this->work = new WorkAction($board, $transparency, $templates);
         $this->evidence = new EvidenceAction($workflow, $audit, $templates);
@@ -96,12 +110,14 @@ final readonly class Application
             return match ($route['route']) {
                 'home' => ($this->home)(),
                 'setup' => $this->setup->overview(),
+                'prompts' => $this->prompts->newTask($request),
                 'board' => ($this->board)(),
                 'knowledge' => $this->knowledge->overview(),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),
                 'task' => ($this->task)($route['task_id'] ?? ''),
+                'task_prompts' => $this->prompts->task($route['task_id'] ?? '', $request),
                 'task_learning' => $this->knowledge->task($route['task_id'] ?? ''),
                 'context' => ($this->context)($route['task_id'] ?? ''),
                 'work' => ($this->work)($route['task_id'] ?? ''),
