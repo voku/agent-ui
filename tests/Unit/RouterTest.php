@@ -17,12 +17,16 @@ final class RouterTest extends TestCase
     {
         yield 'home' => [new Request('GET', '/'), ['route' => 'home']];
         yield 'setup' => [new Request('GET', '/setup'), ['route' => 'setup']];
+        yield 'prompts' => [new Request('GET', '/prompts'), ['route' => 'prompts']];
+        yield 'prompts post' => [new Request('POST', '/prompts'), ['route' => 'prompts']];
         yield 'board' => [new Request('GET', '/board'), ['route' => 'board']];
         yield 'knowledge' => [new Request('GET', '/knowledge'), ['route' => 'knowledge']];
         yield 'knowledge finding' => [new Request('GET', '/knowledge/findings/finding.2026-08-26.ab12cd'), ['route' => 'knowledge_finding', 'knowledge_id' => 'finding.2026-08-26.ab12cd']];
         yield 'knowledge proposal' => [new Request('GET', '/knowledge/proposals/proposal.2026-08-26.123'), ['route' => 'knowledge_proposal', 'knowledge_id' => 'proposal.2026-08-26.123']];
         yield 'knowledge guidance' => [new Request('GET', '/knowledge/guidance/proposal.2026-08-26.123'), ['route' => 'knowledge_guidance', 'knowledge_id' => 'proposal.2026-08-26.123']];
         yield 'task' => [new Request('GET', '/task/abc-12'), ['route' => 'task', 'task_id' => 'ABC-12']];
+        yield 'task prompts' => [new Request('GET', '/task/abc-12/prompts'), ['route' => 'task_prompts', 'task_id' => 'ABC-12']];
+        yield 'task prompts post' => [new Request('POST', '/task/abc-12/prompts'), ['route' => 'task_prompts', 'task_id' => 'ABC-12']];
         yield 'task learning' => [new Request('GET', '/task/abc-12/learning'), ['route' => 'task_learning', 'task_id' => 'ABC-12']];
         yield 'context' => [new Request('GET', '/task/ABC-12/context'), ['route' => 'context', 'task_id' => 'ABC-12']];
         yield 'work' => [new Request('GET', '/task/ABC-12/work'), ['route' => 'work', 'task_id' => 'ABC-12']];
