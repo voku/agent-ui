@@ -27,11 +27,11 @@ final class PromptWorkbenchViewModelTest extends TestCase
             OperatingPromptRecipe::PURPOSE_RECOVER,
             OperatingPromptRecipe::PURPOSE_START,
             OperatingPromptRecipe::PURPOSE_REVIEW,
-        ], array_map(static fn ($group): string => $group->purpose, $groups));
+        ], array_map(static fn($group): string => $group->purpose, $groups));
         self::assertSame('Need help moving forward?', $groups[0]->title);
         self::assertSame(
             ['arbitrary-recovery-a', 'arbitrary-recovery-z'],
-            array_map(static fn (OperatingPromptRecipe $recipe): string => $recipe->id, $groups[0]->recipes),
+            array_map(static fn(OperatingPromptRecipe $recipe): string => $recipe->id, $groups[0]->recipes),
         );
         self::assertSame('', $view->selectedRecipeId);
     }
@@ -51,7 +51,7 @@ final class PromptWorkbenchViewModelTest extends TestCase
             OperatingPromptRecipe::PURPOSE_PLAN,
             OperatingPromptRecipe::PURPOSE_EXECUTE,
             OperatingPromptRecipe::PURPOSE_RECOVER,
-        ], array_map(static fn ($group): string => $group->purpose, $view->recipeGroups()));
+        ], array_map(static fn($group): string => $group->purpose, $view->recipeGroups()));
     }
 
     /** Prove required developer input stays owner-declared on the recipe projection. */
