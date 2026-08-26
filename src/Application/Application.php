@@ -65,7 +65,7 @@ final readonly class Application
         $templates = new TemplateRenderer($templateRoot);
 
         $this->router = new Router();
-        $this->home = new HomeAction($board, $workflow, $templates);
+        $this->home = new HomeAction($board, $workflow, $setup, $learning, $templates);
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->board = new BoardAction($board, $templates);
         $this->knowledge = new KnowledgeAction($learning, $templates);
