@@ -11,6 +11,7 @@ use voku\AgentLoop\Workflow\WorkflowPromptEnvelope;
 use voku\AgentRecallCompiler\OperatingPromptPreview;
 use voku\AgentRecallCompiler\OperatingPromptRecipe;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 
 /**
  * UI-owned deterministic composition only. Workflow and recipe semantics stay with their owners.
@@ -28,6 +29,7 @@ final readonly class PromptComposer
         string $goal = '',
         string $additionalInstruction = '',
         ?CardSnapshot $card = null,
+        ?ContextExplanationSnapshot $context = null,
     ): PromptComposition {
         if (!$preview->validation->valid || $preview->content === null || $preview->templateSha256 === null) {
             throw new LogicException('Cannot compose an invalid operating-prompt preview.');
@@ -42,6 +44,9 @@ final readonly class PromptComposer
         ksort($arguments, SORT_STRING);
         $goal = self::normalizeText($goal);
         $additionalInstruction = self::normalizeText($additionalInstruction);
+        if ($additionalInstruction !== '' && !$recipe->allowsAdditionalInstruction()) {
+            throw new LogicException('Selected operating-prompt recipe does not allow additional developer instructions.');
+        }
 
         $sections = [$workflow->content];
         if ($goal !== '') {
@@ -55,6 +60,19 @@ final readonly class PromptComposer
                 'Summary: ' . self::normalizeInline($card->summary),
             ]);
         }
+        if ($context !== null) {
+            $contextLines = [
+                'Recall-owned context projection:',
+                'Status: ' . $context->status,
+            ];
+            if ($context->explanation !== null) {
+                $contextLines[] = 'Compilation: ' . ($context->explanation->compilationId ?? 'unknown');
+                $contextLines[] = 'Bundle: ' . $context->explanation->bundleSha256;
+                $contextLines[] = 'Selected guidance: ' . $context->selectedGuidanceCount();
+                $contextLines[] = 'Excluded guidance: ' . $context->excludedGuidanceCount();
+            }
+            $sections[] = implode("\n", $contextLines);
+        }
         if ($additionalInstruction !== '') {
             $sections[] = "Additional developer instruction:\n" . $additionalInstruction;
         }
@@ -66,6 +84,7 @@ final readonly class PromptComposer
         );
 
         $prompt = implode("\n\n", $sections);
+        $promptDigest = hash('sha256', $prompt);
         $payload = [
             'schema_version' => '1.0',
             'workflow_digest' => 'sha256:' . $workflow->digest,
@@ -79,7 +98,14 @@ final readonly class PromptComposer
                 'title' => self::normalizeText($card->title),
                 'summary' => self::normalizeText($card->summary),
             ],
-            'prompt' => $prompt,
+            'context' => $context === null ? null : [
+                'status' => $context->status,
+                'compilation_id' => $context->explanation?->compilationId,
+                'bundle_sha256' => $context->explanation?->bundleSha256,
+                'selected_guidance_count' => $context->selectedGuidanceCount(),
+                'excluded_guidance_count' => $context->excludedGuidanceCount(),
+            ],
+            'prompt_sha256' => $promptDigest,
         ];
 
         try {
@@ -93,9 +119,11 @@ final readonly class PromptComposer
 
         return new PromptComposition(
             prompt: $prompt,
-            digest: hash('sha256', $encoded),
+            promptDigest: $promptDigest,
+            compositionDigest: hash('sha256', $encoded),
             workflow: $workflow,
             recipe: $recipe,
+            context: $context,
         );
     }
 
