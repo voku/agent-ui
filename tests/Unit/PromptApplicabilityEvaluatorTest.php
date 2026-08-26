@@ -12,6 +12,7 @@ use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 
 final class PromptApplicabilityEvaluatorTest extends TestCase
 {
+    /** Prove execute recipes cannot become copyable without current mutation authority. */
     public function testExecuteRecipeIsBlockedWithoutMutationAuthority(): void
     {
         $errors = (new PromptApplicabilityEvaluator())->errors(
@@ -24,6 +25,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
         self::assertStringContainsString('requires current workflow mutation authority', $errors[0]);
     }
 
+    /** Prove execution dispatch cannot escape the current task/authority boundary. */
     public function testExecutionDispatchCannotBeGeneratedForNewTaskEnvelope(): void
     {
         $errors = (new PromptApplicabilityEvaluator())->errors(
@@ -37,6 +39,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
         self::assertStringContainsString('requires current workflow mutation authority', $errors[1]);
     }
 
+    /** Prove owner disagreements remain visible blockers rather than advisory decoration. */
     public function testWorkflowDisagreementsAreSurfacedAsOwnerBackedBlockers(): void
     {
         $errors = (new PromptApplicabilityEvaluator())->errors(
@@ -59,6 +62,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
         );
     }
 
+    /** Prove unverifiable persisted Recall context blocks Copy. */
     public function testInvalidRecallContextBlocksCopy(): void
     {
         $errors = (new PromptApplicabilityEvaluator())->errors(
@@ -71,6 +75,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
         self::assertStringContainsString('could not be verified', $errors[0]);
     }
 
+    /** Prove read-only start recipes remain usable before mutation authority exists. */
     public function testStartRecipeRemainsApplicableWithoutMutationAuthority(): void
     {
         self::assertSame([], (new PromptApplicabilityEvaluator())->errors(
@@ -80,6 +85,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
         ));
     }
 
+    /** @param OperatingPromptRecipe::PURPOSE_* $purpose */
     private function recipe(string $id, string $purpose): OperatingPromptRecipe
     {
         return new OperatingPromptRecipe(
@@ -95,7 +101,7 @@ final class PromptApplicabilityEvaluatorTest extends TestCase
     }
 
     /**
-     * @param WorkflowPromptEnvelope::MODE_* $mode
+     * @param 'start'|'continue' $mode
      * @param list<array{code: string, owner: string, message: string}> $disagreements
      */
     private function workflow(string $mode, bool $mutationAllowed, array $disagreements = []): WorkflowPromptEnvelope
