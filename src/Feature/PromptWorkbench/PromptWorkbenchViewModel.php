@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\PromptWorkbench;
 
 use voku\AgentRecallCompiler\OperatingPromptRecipe;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 
 final readonly class PromptWorkbenchViewModel
 {
@@ -22,6 +23,7 @@ final readonly class PromptWorkbenchViewModel
         public array $argumentValues,
         public string $goal,
         public string $additionalInstruction,
+        public ?ContextExplanationSnapshot $context,
         public ?PromptComposition $composition,
         public array $errors,
     ) {
