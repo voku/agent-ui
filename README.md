@@ -8,13 +8,21 @@ agent-loop-runner = optionally makes an agent do it
 agent-ui          = lets a developer understand and control it
 ```
 
-`agent-ui` presents owner state and invokes owner capabilities. It owns **no** workflow, board, approval, execution, verification, review, or Learning truth.
+`agent-ui` presents owner state and invokes owner capabilities. It owns **no** workflow, setup, board, context selection, approval, execution, verification, review, or Learning truth.
 
 ## Status
 
-The initial roadmap has reached v0.5: read-only workflow/board views, typed human decisions, guided coding-agent handoff, optional managed Runner controls, and readable evidence/review/Learning/history UX.
+The v0.1 → v0.10 control-plane roadmap is implemented:
 
-The interface was rebuilt on a proper design system in the same milestone — see [Interface](#interface).
+- read-only workflow/board/task views;
+- typed human decisions and guided coding-agent handoff;
+- optional typed Runner controls, with Runner observation kept separate from workflow authority;
+- readable evidence, review and audit history;
+- repository Setup backed by `agent-loop`'s typed setup service, including stale-plan-bound install/update/remove plus policy/Git sync;
+- persisted Recall context explainability with selected/excluded Guidance, hard constraints, omissions and integrity state;
+- approved-work/scope-drift/review transparency from the typed workflow projection;
+- bounded durable Learning/Knowledge browsing through `agent-learning`;
+- an attention-first cockpit that composes Setup, Needs you, Current work, Knowledge and the board without inventing a universal priority algorithm.
 
 ## Development install
 
@@ -30,7 +38,23 @@ AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 
 
 Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
-Routes include `/`, `/board`, `/task/{id}`, `/task/{id}/evidence`, `/task/{id}/history`, and `/task/{id}/handoff`. Human and Runner state changes are POST-only and CSRF-protected.
+Top-level navigation is `Overview | Setup | Board | Knowledge`. Task routes include `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/learning`, and `/task/{id}/handoff`. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
+
+## Setup
+
+`/setup` consumes `voku\AgentLoop\Init\RepositorySetupService` through a thin typed gateway. It does not shell out to `agent-loop init`, capture stdout, scan owner directories, or parse sync manifests.
+
+The page shows each supported host's runtime/integration projection, canonical repository-owned next action, and only the operations the owner currently reports as legal. Install/update/remove plans carry the owner's stable plan identity and expected-state token back through the POST. The gateway re-plans immediately before mutation and the owner revalidates again before writing, so stale browser state cannot become setup authority.
+
+Removal remains deliberately narrow: package-managed unchanged assets may be removed; locally modified/unverifiable managed assets remain blocked; project-owned/unmanaged files and host/user settings such as trust or Auto Mode stay outside this UI's authority.
+
+## Context, work and knowledge
+
+`/task/{id}/context` reads only the persisted Recall explanation. Viewing it never recompiles Recall. Hard constraints, selected Guidance, deterministic exclusions, skipped inputs, budget omissions and integrity failures remain distinct owner facts.
+
+`/task/{id}/work` renders the approved Contract boundary separately from Git repository observation, implementation snapshot and exact review evidence. Scope drift is visible but never mutates the Contract or advances lifecycle state.
+
+`/knowledge` and `/task/{id}/learning` use `agent-learning`'s bounded typed catalog. Findings, proposals, durable guidance/constraints, rejected/superseded history and owner-recorded usefulness signals remain Learning truth rather than workflow authority.
 
 ## Execution modes
 
@@ -81,7 +105,7 @@ browser
   -> server-rendered HTML
 ```
 
-The lifecycle rule is intentionally severe: **the UI never derives what happens next or which human/Runner control is legal.** `voku/agent-loop` projects lifecycle state and human decisions; `voku/agent-loop-runner` projects managed-execution controls and keeps process state observational.
+The lifecycle rule is intentionally severe: **the UI never derives what happens next or which human/Runner/Setup control is legal.** `voku/agent-loop` projects workflow/setup state and human decisions; `voku/agent-loop-runner` projects managed-execution controls and keeps process state observational; Recall and Learning retain their own truth.
 
 Board config/card parsing similarly comes from `voku/agent-kanban`. There is no duplicated card parser, inferred lane policy, database, ORM, JavaScript framework, or frontend build pipeline.
 
@@ -91,4 +115,6 @@ Board config/card parsing similarly comes from `voku/agent-kanban`. There is no 
 composer ci
 ```
 
-Runs Composer validation, PHPUnit, PHPStan at max level, and php-cs-fixer in check mode on PHP 8.3, 8.4 and 8.5 in CI.
+Runs Composer validation, PHPUnit, PHPStan at max level, template syntax linting, and php-cs-fixer in check mode on PHP 8.3, 8.4 and 8.5 in CI.
+
+The v0.6 and v0.10 merge gates were each proven on PHP 8.3/8.4/8.5 after their owner prerequisites landed. Owner-package tests provide the destructive setup safety proof against real temporary repositories; agent-ui separately proves it does not bypass those owners or turn stale browser state into authority.
