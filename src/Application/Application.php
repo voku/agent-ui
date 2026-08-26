@@ -16,6 +16,7 @@ use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
+use voku\AgentUi\Feature\Setup\SetupAction;
 use voku\AgentUi\Feature\Task\TaskAction;
 use voku\AgentUi\Feature\Work\WorkAction;
 use voku\AgentUi\Http\Request;
@@ -25,6 +26,7 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
@@ -36,6 +38,7 @@ final readonly class Application
 {
     private Router $router;
     private HomeAction $home;
+    private SetupAction $setup;
     private BoardAction $board;
     private KnowledgeAction $knowledge;
     private TaskAction $task;
@@ -57,11 +60,13 @@ final readonly class Application
         $context = new ContextExplanationGateway($projectRoot);
         $transparency = new TaskTransparencyGateway($projectRoot);
         $learning = new LearningCatalogGateway($projectRoot);
+        $setup = new RepositorySetupGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
 
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $templates);
+        $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->board = new BoardAction($board, $templates);
         $this->knowledge = new KnowledgeAction($learning, $templates);
         $this->task = new TaskAction(
@@ -90,6 +95,7 @@ final readonly class Application
 
             return match ($route['route']) {
                 'home' => ($this->home)(),
+                'setup' => $this->setup->overview(),
                 'board' => ($this->board)(),
                 'knowledge' => $this->knowledge->overview(),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
@@ -110,6 +116,11 @@ final readonly class Application
                 'runner_run', 'runner_resume', 'runner_cancel' => ($this->runner)(
                     $route['task_id'] ?? '',
                     $route['route'],
+                    $request,
+                ),
+                'setup_install', 'setup_remove', 'setup_sync_policy', 'setup_sync_git' => $this->setup->mutate(
+                    $route['route'],
+                    $route['agent'] ?? '',
                     $request,
                 ),
             };
