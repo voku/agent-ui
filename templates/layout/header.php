@@ -23,6 +23,7 @@ $projectLabel ??= null;
         <nav aria-label="Primary">
             <a href="/"<?= $nav === 'home' ? ' aria-current="page"' : '' ?>>Overview</a>
             <a href="/setup"<?= $nav === 'setup' ? ' aria-current="page"' : '' ?>>Setup</a>
+            <a href="/prompts"<?= $nav === 'prompts' ? ' aria-current="page"' : '' ?>>Prompts</a>
             <a href="/board"<?= $nav === 'board' ? ' aria-current="page"' : '' ?>>Board</a>
             <a href="/knowledge"<?= $nav === 'knowledge' ? ' aria-current="page"' : '' ?>>Knowledge</a>
         </nav>
