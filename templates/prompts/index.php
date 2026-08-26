@@ -42,6 +42,22 @@ require __DIR__ . '/../layout/header.php';
 </section>
 <?php endif; ?>
 
+<?php if ($workbench->context !== null): ?>
+<p class="eyebrow">Current Recall context</p>
+<section class="panel">
+    <dl class="facts">
+        <div><dt>Status</dt><dd><?= TemplateRenderer::escape($workbench->context->status) ?></dd></div>
+        <?php if ($workbench->context->explanation !== null): ?>
+            <div><dt>Compilation</dt><dd><?= TemplateRenderer::escape($workbench->context->explanation->compilationId ?? 'unknown') ?></dd></div>
+            <div><dt>Bundle</dt><dd class="mono"><?= TemplateRenderer::escape($workbench->context->explanation->bundleSha256) ?></dd></div>
+            <div><dt>Selected guidance</dt><dd><?= $workbench->context->selectedGuidanceCount() ?></dd></div>
+            <div><dt>Excluded guidance</dt><dd><?= $workbench->context->excludedGuidanceCount() ?></dd></div>
+        <?php endif; ?>
+    </dl>
+    <?php if ($workbench->context->problem !== null): ?><p class="note"><?= TemplateRenderer::escape($workbench->context->problem) ?></p><?php endif; ?>
+</section>
+<?php endif; ?>
+
 <p class="eyebrow">Inputs</p>
 <section class="panel">
     <form method="post" action="<?= TemplateRenderer::escape($formAction) ?>">
@@ -63,7 +79,7 @@ require __DIR__ . '/../layout/header.php';
                 <option value="<?= TemplateRenderer::escape($recipe->id) ?>"<?= $recipe->id === $workbench->selectedRecipeId ? ' selected' : '' ?>><?= TemplateRenderer::escape($recipe->purpose . ' · ' . $recipe->title) ?></option>
             <?php endforeach; ?>
         </select>
-        <p class="small muted">Recipes and purpose metadata come directly from agent-recall-compiler. agent-ui does not rank or auto-select them.</p>
+        <p class="small muted">Recipes, purpose and applicability come directly from agent-recall-compiler. agent-ui does not rank, auto-select or invent authority for them.</p>
         <button type="submit" name="action" value="select">Load recipe fields</button>
 
         <?php if ($selectedRecipe instanceof OperatingPromptRecipe): ?>
@@ -75,6 +91,8 @@ require __DIR__ . '/../layout/header.php';
                 <div><dt>Purpose</dt><dd><?= TemplateRenderer::escape($selectedRecipe->purpose) ?></dd></div>
                 <div><dt>Level</dt><dd>L<?= $selectedRecipe->level ?></dd></div>
                 <div><dt>Template</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($selectedRecipe->templateSha256) ?></dd></div>
+                <div><dt>Task context</dt><dd><?= $selectedRecipe->requiresTaskContext() ? 'required' : 'not required' ?></dd></div>
+                <div><dt>Mutation authority</dt><dd><?= $selectedRecipe->requiresMutationAuthority() ? 'required' : 'not required' ?></dd></div>
             </dl>
 
             <?php foreach ($selectedRecipe->arguments as $argument): ?>
@@ -94,8 +112,10 @@ require __DIR__ . '/../layout/header.php';
                 <p class="small muted"><?= TemplateRenderer::escape($argument->description) ?><?php if ($argument->examples !== []): ?> Example: <code><?= TemplateRenderer::escape((string) $argument->examples[0]) ?></code>.<?php endif; ?></p>
             <?php endforeach; ?>
 
-            <label for="additional-instruction"><strong>Additional developer instruction</strong> · optional</label>
-            <textarea id="additional-instruction" name="additional_instruction" rows="4"><?= TemplateRenderer::escape($workbench->additionalInstruction) ?></textarea>
+            <?php if ($selectedRecipe->allowsAdditionalInstruction()): ?>
+                <label for="additional-instruction"><strong>Additional developer instruction</strong> · optional</label>
+                <textarea id="additional-instruction" name="additional_instruction" rows="4"><?= TemplateRenderer::escape($workbench->additionalInstruction) ?></textarea>
+            <?php endif; ?>
 
             <button type="submit" name="action" value="generate">Generate deterministic prompt</button>
         <?php endif; ?>
@@ -119,7 +139,8 @@ require __DIR__ . '/../layout/header.php';
 <p class="eyebrow">Provenance</p>
 <section class="panel">
     <dl class="facts">
-        <div><dt>Final prompt</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($composition->digest) ?></dd></div>
+        <div><dt>Prompt bytes</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($composition->promptDigest) ?></dd></div>
+        <div><dt>Composition</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($composition->compositionDigest) ?></dd></div>
         <div><dt>Workflow envelope</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($workflow->digest) ?></dd></div>
         <div><dt>Recipe</dt><dd><?= TemplateRenderer::escape($composition->recipe->id) ?></dd></div>
         <div><dt>Recipe template</dt><dd class="mono">sha256:<?= TemplateRenderer::escape($composition->recipe->templateSha256) ?></dd></div>
@@ -128,6 +149,7 @@ require __DIR__ . '/../layout/header.php';
         <div><dt>Recall compilation</dt><dd><?= TemplateRenderer::escape($workflow->recallCompilationId ?? 'not available') ?></dd></div>
         <div><dt>Recall bundle</dt><dd class="mono"><?= TemplateRenderer::escape($workflow->recallBundleSha256 ?? 'not available') ?></dd></div>
         <div><dt>Mutation authority</dt><dd><?= $workflow->mutationAllowed ? 'allowed by current owner state' : 'not granted by current owner state' ?></dd></div>
+        <?php if ($composition->context !== null): ?><div><dt>Context projection</dt><dd><?= TemplateRenderer::escape($composition->context->status) ?></dd></div><?php endif; ?>
     </dl>
     <?php if ($workflow->nextAction !== null): ?>
         <h2>Canonical next action</h2>
