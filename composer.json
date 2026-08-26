@@ -7,7 +7,7 @@
     "php": "^8.3",
     "voku/agent-kanban": "^0.3.2",
     "voku/agent-learning": "^0.13.6",
-    "voku/agent-loop": "dev-main",
+    "voku/agent-loop": "^0.18.1",
     "voku/agent-recall-compiler": "^0.13.14"
   },
   "require-dev": {
