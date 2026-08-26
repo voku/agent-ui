@@ -13,6 +13,7 @@ use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowPromptGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\OperatingPromptCatalogGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -22,6 +23,8 @@ final readonly class PromptWorkbenchAction
         private BoardProjectionGateway $board,
         private WorkflowPromptGateway $workflow,
         private OperatingPromptCatalogGateway $catalog,
+        private ContextExplanationGateway $context,
+        private PromptApplicabilityEvaluator $applicability,
         private PromptComposer $composer,
         private TemplateRenderer $templates,
     ) {
@@ -46,6 +49,7 @@ final readonly class PromptWorkbenchAction
         $additionalInstruction = trim($request->body['additional_instruction'] ?? '');
         $selectedRecipeId = trim($request->body['recipe'] ?? '');
         $argumentValues = $this->argumentValues($request->body);
+        $context = $card === null ? null : $this->context->task($card->id);
         $errors = [];
         $composition = null;
 
@@ -75,23 +79,34 @@ final readonly class PromptWorkbenchAction
                 if ($errors === []) {
                     try {
                         $recipe = $this->catalog->recipe($selectedRecipeId);
+                        if ($additionalInstruction !== '' && !$recipe->allowsAdditionalInstruction()) {
+                            $errors[] = 'Selected recipe does not allow additional developer instructions.';
+                        }
+
                         $arguments = $this->normalizeArguments($request->body, $recipe);
                         $preview = $this->catalog->preview(new OperatingPromptRequest($recipe->id, $arguments));
                         if (!$preview->validation->valid) {
-                            $errors = $preview->validation->errors;
-                        } else {
+                            $errors = array_merge($errors, $preview->validation->errors);
+                        }
+
+                        if ($errors === []) {
                             $envelope = $taskAware
                                 ? $this->workflow->continue($taskId)
                                 : $this->workflow->start($taskId);
-                            $composition = $this->composer->compose(
-                                workflow: $envelope,
-                                recipe: $recipe,
-                                preview: $preview,
-                                arguments: $arguments,
-                                goal: $goal,
-                                additionalInstruction: $additionalInstruction,
-                                card: $card,
-                            );
+                            $errors = $this->applicability->errors($recipe, $envelope, $context);
+
+                            if ($errors === []) {
+                                $composition = $this->composer->compose(
+                                    workflow: $envelope,
+                                    recipe: $recipe,
+                                    preview: $preview,
+                                    arguments: $arguments,
+                                    goal: $goal,
+                                    additionalInstruction: $additionalInstruction,
+                                    card: $card,
+                                    context: $context,
+                                );
+                            }
                         }
                     } catch (InvalidArgumentException $exception) {
                         $errors[] = $exception->getMessage();
@@ -112,8 +127,9 @@ final readonly class PromptWorkbenchAction
                 argumentValues: $argumentValues,
                 goal: $goal,
                 additionalInstruction: $additionalInstruction,
+                context: $context,
                 composition: $composition,
-                errors: $errors,
+                errors: array_values(array_unique($errors)),
             ),
         ]), $errors === [] ? 200 : 400);
     }
@@ -163,20 +179,28 @@ final readonly class PromptWorkbenchAction
                 continue;
             }
 
-            $arguments[$name] = match ($argument->type) {
-                OperatingPromptArgument::TYPE_BOOLEAN => match ($rawValue) {
-                    'true' => true,
-                    'false' => false,
-                    default => $rawValue,
-                },
-                OperatingPromptArgument::TYPE_INTEGER => preg_match('/\A-?(?:0|[1-9][0-9]*)\z/', $rawValue) === 1
-                    ? (int) $rawValue
-                    : $rawValue,
-                OperatingPromptArgument::TYPE_SCALAR, OperatingPromptArgument::TYPE_STRING => $rawValue,
-            };
+            $arguments[$name] = $this->normalizeArgumentValue($rawValue, $argument);
         }
         ksort($arguments, SORT_STRING);
 
         return $arguments;
+    }
+
+    private function normalizeArgumentValue(string $rawValue, OperatingPromptArgument $argument): bool|int|string
+    {
+        if ($argument->type === OperatingPromptArgument::TYPE_BOOLEAN) {
+            return match ($rawValue) {
+                'true' => true,
+                'false' => false,
+                default => $rawValue,
+            };
+        }
+        if ($argument->type === OperatingPromptArgument::TYPE_INTEGER) {
+            $integer = filter_var($rawValue, FILTER_VALIDATE_INT);
+
+            return is_int($integer) ? $integer : $rawValue;
+        }
+
+        return $rawValue;
     }
 }
