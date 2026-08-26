@@ -50,40 +50,55 @@ final readonly class PromptWorkbenchAction
         $composition = null;
 
         if ($request->method === 'POST') {
-            if ($taskId === '') {
-                $errors[] = 'Task ID is required.';
-            }
-            if (!$taskAware && $goal === '') {
-                $errors[] = 'Goal is required for a new task prompt.';
-            }
-            if ($selectedRecipeId === '') {
-                $errors[] = 'Choose an operating-prompt recipe explicitly.';
-            }
-
-            if ($errors === []) {
-                try {
-                    $recipe = $this->catalog->recipe($selectedRecipeId);
-                    $arguments = $this->normalizeArguments($request->body, $recipe);
-                    $preview = $this->catalog->preview(new OperatingPromptRequest($recipe->id, $arguments));
-                    if (!$preview->validation->valid) {
-                        $errors = $preview->validation->errors;
-                    } else {
-                        $envelope = $taskAware
-                            ? $this->workflow->continue($taskId)
-                            : $this->workflow->start($taskId);
-                        $composition = $this->composer->compose(
-                            workflow: $envelope,
-                            recipe: $recipe,
-                            preview: $preview,
-                            arguments: $arguments,
-                            goal: $goal,
-                            additionalInstruction: $additionalInstruction,
-                            card: $card,
-                        );
+            $action = $request->body['action'] ?? '';
+            if ($action === 'select') {
+                if ($selectedRecipeId === '') {
+                    $errors[] = 'Choose an operating-prompt recipe explicitly.';
+                } else {
+                    try {
+                        $this->catalog->recipe($selectedRecipeId);
+                    } catch (InvalidArgumentException $exception) {
+                        $errors[] = $exception->getMessage();
                     }
-                } catch (InvalidArgumentException $exception) {
-                    $errors[] = $exception->getMessage();
                 }
+            } elseif ($action === 'generate') {
+                if ($taskId === '') {
+                    $errors[] = 'Task ID is required.';
+                }
+                if (!$taskAware && $goal === '') {
+                    $errors[] = 'Goal is required for a new task prompt.';
+                }
+                if ($selectedRecipeId === '') {
+                    $errors[] = 'Choose an operating-prompt recipe explicitly.';
+                }
+
+                if ($errors === []) {
+                    try {
+                        $recipe = $this->catalog->recipe($selectedRecipeId);
+                        $arguments = $this->normalizeArguments($request->body, $recipe);
+                        $preview = $this->catalog->preview(new OperatingPromptRequest($recipe->id, $arguments));
+                        if (!$preview->validation->valid) {
+                            $errors = $preview->validation->errors;
+                        } else {
+                            $envelope = $taskAware
+                                ? $this->workflow->continue($taskId)
+                                : $this->workflow->start($taskId);
+                            $composition = $this->composer->compose(
+                                workflow: $envelope,
+                                recipe: $recipe,
+                                preview: $preview,
+                                arguments: $arguments,
+                                goal: $goal,
+                                additionalInstruction: $additionalInstruction,
+                                card: $card,
+                            );
+                        }
+                    } catch (InvalidArgumentException $exception) {
+                        $errors[] = $exception->getMessage();
+                    }
+                }
+            } else {
+                $errors[] = 'Unknown prompt workbench action.';
             }
         }
 
