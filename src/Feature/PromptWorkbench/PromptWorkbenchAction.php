@@ -44,7 +44,7 @@ final readonly class PromptWorkbenchAction
     {
         $recipes = $this->catalog->recipes();
         $taskAware = $card !== null;
-        $taskId = $card?->id ?? strtoupper(trim($request->body['task_id'] ?? ''));
+        $taskId = $card->id ?? strtoupper(trim($request->body['task_id'] ?? ''));
         $goal = trim($request->body['goal'] ?? '');
         $additionalInstruction = trim($request->body['additional_instruction'] ?? '');
         $selectedRecipeId = trim($request->body['recipe'] ?? '');
