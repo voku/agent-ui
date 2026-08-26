@@ -16,6 +16,7 @@ final class RouterTest extends TestCase
     public static function routes(): iterable
     {
         yield 'home' => [new Request('GET', '/'), ['route' => 'home']];
+        yield 'setup' => [new Request('GET', '/setup'), ['route' => 'setup']];
         yield 'board' => [new Request('GET', '/board'), ['route' => 'board']];
         yield 'knowledge' => [new Request('GET', '/knowledge'), ['route' => 'knowledge']];
         yield 'knowledge finding' => [new Request('GET', '/knowledge/findings/finding.2026-08-26.ab12cd'), ['route' => 'knowledge_finding', 'knowledge_id' => 'finding.2026-08-26.ab12cd']];
@@ -34,6 +35,10 @@ final class RouterTest extends TestCase
         yield 'runner run' => [new Request('POST', '/task/ABC-12/runner/run'), ['route' => 'runner_run', 'task_id' => 'ABC-12']];
         yield 'runner resume' => [new Request('POST', '/task/ABC-12/runner/resume'), ['route' => 'runner_resume', 'task_id' => 'ABC-12']];
         yield 'runner cancel' => [new Request('POST', '/task/ABC-12/runner/cancel'), ['route' => 'runner_cancel', 'task_id' => 'ABC-12']];
+        yield 'setup install' => [new Request('POST', '/setup/codex/install'), ['route' => 'setup_install', 'agent' => 'codex']];
+        yield 'setup remove' => [new Request('POST', '/setup/claude/remove'), ['route' => 'setup_remove', 'agent' => 'claude']];
+        yield 'setup policy' => [new Request('POST', '/setup/opencode/sync-policy'), ['route' => 'setup_sync_policy', 'agent' => 'opencode']];
+        yield 'setup git' => [new Request('POST', '/setup/sync-git'), ['route' => 'setup_sync_git']];
     }
 
     /** @param array<string, string> $expected */
@@ -59,5 +64,11 @@ final class RouterTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         (new Router())->match(new Request('GET', '/knowledge/findings/../../etc/passwd'));
+    }
+
+    public function testRejectsUnsafeSetupHostIdentifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new Router())->match(new Request('POST', '/setup/../../install'));
     }
 }
