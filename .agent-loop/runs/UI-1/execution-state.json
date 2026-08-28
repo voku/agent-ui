@@ -1,0 +1,13 @@
+{
+    "attention": null,
+    "candidate_revision": "run:run:UI-1:1b0c6845e53cd3aa:initial",
+    "contract_revision": 1,
+    "current_attempt": 0,
+    "current_stage_id": null,
+    "execution_plan_digest": "sha256:2e838acab9732a0f10e6aa26089696bc68ca58cb84d64713af3d9d7f0e2cbfdd",
+    "history": [],
+    "kind": "governed_execution_state",
+    "run_id": "run:UI-1:1b0c6845e53cd3aa",
+    "schema_version": "1.0",
+    "task_id": "UI-1"
+}

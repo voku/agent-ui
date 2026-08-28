@@ -1,0 +1,14 @@
+{
+    "contract_revision": 1,
+    "contract_source": {
+        "path": ".agent-loop/contracts/UI-1/contract.json",
+        "sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b"
+    },
+    "kind": "governed_run",
+    "learning_root": ".agent-loop/learning",
+    "prepared_at": "2026-08-28T20:00:11+00:00",
+    "run_id": "run:UI-1:1b0c6845e53cd3aa",
+    "schema_version": "1.0",
+    "session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+    "task_id": "UI-1"
+}
