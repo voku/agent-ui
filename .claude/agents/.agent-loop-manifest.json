@@ -1,0 +1,37 @@
+{
+    "version": 2,
+    "kind": "subagents",
+    "agent": "claude",
+    "required_capabilities": [
+        "subagent-projection"
+    ],
+    "entries": [
+        {
+            "target": "agent-loop-code-reviewer.md",
+            "source_id": "voku/agent-loop:subagent:agent-loop-code-reviewer",
+            "semantic_owner": "voku/agent-loop",
+            "source_path": "/home/user/agent-ui/vendor/voku/agent-loop/docs/agents/subagents/agent-loop-code-reviewer.md",
+            "source_sha256": "sha256:80c2e0542f01b26b04d574e8fcc6a3903f7f0dc6b948d4082d66ce9333b2eabb",
+            "representation_sha256": "sha256:593dd68b1650d37aa169d794d9d0d7b6eef7341e8406c3cc0f1dec26c135c741",
+            "adopted": false
+        },
+        {
+            "target": "agent-loop-investigator.md",
+            "source_id": "voku/agent-loop:subagent:agent-loop-investigator",
+            "semantic_owner": "voku/agent-loop",
+            "source_path": "/home/user/agent-ui/vendor/voku/agent-loop/docs/agents/subagents/agent-loop-investigator.md",
+            "source_sha256": "sha256:758cb2a5d411943acd0dc5aaeae6632007542d15791257b3fcecd77331707059",
+            "representation_sha256": "sha256:9a728f9d8c627efa61dd661b41ab75532f613cc35ab5eafb78f64afd31024b42",
+            "adopted": false
+        },
+        {
+            "target": "agent-loop-surgical-builder.md",
+            "source_id": "voku/agent-loop:subagent:agent-loop-surgical-builder",
+            "semantic_owner": "voku/agent-loop",
+            "source_path": "/home/user/agent-ui/vendor/voku/agent-loop/docs/agents/subagents/agent-loop-surgical-builder.md",
+            "source_sha256": "sha256:1425a0eef344c2fbc03659f79d9ceb33fc05379c5b41d6686f4e762150223bf3",
+            "representation_sha256": "sha256:c2b68acc7987d68f689d9afedc8e187468810498bc18f3e74d85ca86c6a29c87",
+            "adopted": false
+        }
+    ]
+}
