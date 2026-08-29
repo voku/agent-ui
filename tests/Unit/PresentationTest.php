@@ -51,6 +51,7 @@ final class PresentationTest extends TestCase
     public function testNextActionKindHintExplainsHowToTreatTheAction(): void
     {
         self::assertStringContainsString('exactly as written', Presentation::nextActionKindHint('command'));
+        self::assertStringContainsString('placeholders', Presentation::nextActionKindHint('command_template'));
         self::assertStringContainsString('not a command', Presentation::nextActionKindHint('host_work'));
         self::assertStringContainsString('human decision', Presentation::nextActionKindHint('decision_required'));
         self::assertStringContainsString('Nothing further', Presentation::nextActionKindHint('none'));
