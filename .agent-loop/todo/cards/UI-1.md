@@ -1,10 +1,10 @@
 # UI-1: Fix UI/UX blind-spot findings in the agent-ui control plane
 
 - **Ticket:** UI-1
-- **Lane:** DOING
+- **Lane:** VERIFY
 - **Status:** in_progress
 - **Created:** 2026-08-28T19:53:55+00:00
-- **Updated:** 2026-08-28T19:53:55+00:00
+- **Updated:** 2026-08-29T01:05:00+00:00
 - **Summary:** Blind-spot analysis of every agent-ui view, plus fixes for the medium and high findings.
 - **Format version:** 1
 

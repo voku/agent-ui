@@ -4,7 +4,7 @@ This file records friction found in the **workflow tooling** while dogfooding it
 `agent-ui`. Nothing here is an agent-ui defect, and nothing here has been acted on: each item
 belongs to an owning package and needs its own governed change there.
 
-Board cards `UI-15`–`UI-19` (`domain=workflow`) track the same items.
+Board cards `UI-15`–`UI-20` (`domain=workflow`) track the same items.
 
 | Card | Owner | Item |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Board cards `UI-15`–`UI-19` (`domain=workflow`) track the same items.
 | UI-17 | agent-loop | Board lane and workflow state can disagree silently |
 | UI-18 | agent-loop | `install-assets` cannot tell a live host session to reload |
 | UI-19 | this repository | `composer install` cannot complete behind a restricted egress proxy |
+| UI-20 | agent-loop | `finish --format=json` hides the reason a step refused |
 
 ## UI-15 — nothing steers a board consumer to the loop-owned board root
 
@@ -70,3 +71,18 @@ git and place it under `vendor/phpstan/phpstan`).
 Everything else in the lock installed cleanly from source. Worth deciding: whether the lock
 should carry a source entry for phpstan, or whether the bootstrap documentation should name the
 workaround.
+
+## UI-20 — `finish --format=json` hides the reason a step refused
+
+`agent-loop finish UI-1 --learning follow_up_required --learning-reason "…" --by … --format=json`
+returned the same `next_action` template it had returned before the call, with nothing to indicate
+that anything had failed. The same command without `--format=json` printed:
+
+> [FAIL] finish: follow_up_required requires a follow-up reference.
+
+A host obeying the JSON contract sees an unchanged next step and cannot distinguish a refusal from
+a no-op; the natural response is to re-issue the identical command. (A second, smaller point: the
+`finish` next-action template advertises `[--finding <finding-id> ...]` but not `--follow-up-ref`,
+which is what `follow_up_required` actually needs. `finish --help` does list it.)
+
+Worth considering upstream: carrying the refusal reason into the JSON result.

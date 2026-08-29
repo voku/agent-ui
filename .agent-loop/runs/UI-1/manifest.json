@@ -1,8 +1,8 @@
 {
     "disagreements": [],
     "mode": "governed",
-    "next_action": "perform the approved host-native implementation for UI-1 before calling agent-loop finish UI-1",
-    "next_action_kind": "host_work",
+    "next_action": "none",
+    "next_action_kind": "none",
     "references": {
         "approval": {
             "approved_at": "2026-08-28T20:00:04+00:00",
@@ -74,10 +74,17 @@
             "state": "not_required"
         },
         "learning": {
+            "decided_at": "2026-08-29T01:04:41+00:00",
+            "decided_by": "claude-code-agent",
+            "decision": "follow_up_required",
             "observation_mode": "checked",
             "owner": "agent-learning",
             "run_id": "run:UI-1:1b0c6845e53cd3aa",
-            "state": "missing"
+            "source": {
+                "path": ".agent-loop/learning/history/run-learning/d2ab2e9cc8541d71ecf31c5dbdb104615aa907b28b7ffb2b5214432c3548e775.json",
+                "sha256": "sha256:7b3924d92971ceb59818e1fc2fa32d8712954e97e17920d61aee5b9ca327bb1a"
+            },
+            "state": "decided"
         },
         "map": {
             "observation_mode": "checked",
@@ -106,8 +113,11 @@
         "review": {
             "observation_mode": "checked",
             "owner": "agent-recall-compiler",
-            "path": ".agent-loop/recall/UI-1/reviews/UI-1.blindspots.json",
-            "state": "missing"
+            "source": {
+                "path": ".agent-loop/recall/UI-1/reviews/UI-1.blindspots.json",
+                "sha256": "sha256:16815c7879de13195ab3f91871c959bb5b78db40992c0a5850d52c528b2ec41c"
+            },
+            "state": "warn"
         },
         "search_index": {
             "observation_mode": "checked",
@@ -123,24 +133,27 @@
             "session_id": "2026-08-28-ui-1-r1-ef0cbc23",
             "source": {
                 "path": ".agent-loop/sessions/2026-08-28-ui-1-r1-ef0cbc23/session.json",
-                "sha256": "sha256:2c5fd3dea60babcade32b5afcee9deef52acea879b35ff79887539a74e7b2174"
+                "sha256": "sha256:2e94598a099f06db734ff32c2f2a2cd9db68cad89d55ce89a39e2f96e21c36ac"
             },
-            "state": "active",
+            "state": "done",
             "task_id": "UI-1"
         },
         "verification": {
-            "action": "composer ci",
-            "gate": "validation",
-            "implementation_snapshot": "sha256:7f710d3257b4c13f060fce71c90af2091d5a97444b1701dfbafe5e7bbf4e6bca",
+            "contract_revision": 1,
+            "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
             "observation_mode": "checked",
             "owner": "agent-loop",
-            "reason": "validation evidence missing or not passed for current implementation: composer ci (no current evidence)",
-            "state": "blocked",
-            "validation_failed": false
+            "run_id": "run:UI-1:1b0c6845e53cd3aa",
+            "source": {
+                "path": ".agent-loop/runs/UI-1/verification.json",
+                "sha256": "sha256:53c41cc0a050882179e333e64b333fd940cd9d7f55f5e0a386578dcecf021592"
+            },
+            "source_session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+            "state": "passed"
         }
     },
     "run_id": "run:UI-1:1b0c6845e53cd3aa",
     "schema_version": "1.0",
-    "state": "incomplete",
+    "state": "complete",
     "task_id": "UI-1"
 }
