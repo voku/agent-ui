@@ -15,6 +15,15 @@ require __DIR__ . '/../layout/header.php';
         This page lays them out and adds none of its own.</p>
 </div>
 
+<?php if ($board->cards === []): ?>
+<section class="panel">
+    <p class="empty">This board has no cards yet, so every lane below is empty.</p>
+    <p class="note">agent-kanban owns card creation. From the project root:
+        <code>vendor/bin/agent-loop board card create <?= TemplateRenderer::escape($board->projectPrefix) ?>-1 --title="…"</code>.
+        agent-ui reads the board; it never writes to it.</p>
+</section>
+<?php endif; ?>
+
 <div class="lanes">
     <?php foreach ($board->lanes as $lane): ?>
         <?php

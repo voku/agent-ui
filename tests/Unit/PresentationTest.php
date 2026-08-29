@@ -56,6 +56,15 @@ final class PresentationTest extends TestCase
         self::assertStringContainsString('Nothing further', Presentation::nextActionKindHint('none'));
     }
 
+    public function testEveryActionKindAgentLoopEmitsHasItsOwnGloss(): void
+    {
+        $fallback = Presentation::nextActionKindHint('some_future_kind');
+
+        foreach (['command', 'command_template', 'host_work', 'decision_required', 'none'] as $kind) {
+            self::assertNotSame($fallback, Presentation::nextActionKindHint($kind), $kind . ' falls back');
+        }
+    }
+
     public function testAnUnknownActionKindDefersToAgentLoopRatherThanInventingGuidance(): void
     {
         self::assertStringContainsString('See agent-loop', Presentation::nextActionKindHint('some_future_kind'));

@@ -1,4 +1,5 @@
 <?php
+use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\View\TemplateRenderer;
 /** @var string $title */
 /** @var string|null $nav */
@@ -33,3 +34,7 @@ $projectLabel ??= null;
     </div>
 </header>
 <main class="wrap" id="main">
+<?php $notice = (new FlashNotice())->take(); ?>
+<?php if ($notice !== null): ?>
+    <p class="notice" role="status"><?= TemplateRenderer::escape($notice) ?></p>
+<?php endif; ?>

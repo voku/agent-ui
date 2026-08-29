@@ -62,11 +62,16 @@ require __DIR__ . '/../layout/header.php';
 <section class="panel">
     <form method="post" action="<?= TemplateRenderer::escape($formAction) ?>">
         <?php if (!$workbench->taskAware): ?>
-            <label for="task-id"><strong>Task ID</strong></label>
-            <input id="task-id" name="task_id" type="text" required value="<?= TemplateRenderer::escape($workbench->taskId ?? '') ?>" placeholder="ITPNG-346">
-
-            <label for="goal"><strong>Goal</strong></label>
-            <textarea id="goal" name="goal" rows="5" required><?= TemplateRenderer::escape($workbench->goal) ?></textarea>
+            <div class="form__row">
+                <label class="field" for="task-id"><span>Task ID</span>
+                    <input id="task-id" name="task_id" type="text" required value="<?= TemplateRenderer::escape($workbench->taskId ?? '') ?>" placeholder="ITPNG-346">
+                </label>
+            </div>
+            <div class="form__row" style="margin-top:10px">
+                <label class="field field--wide" for="goal"><span>Goal</span>
+                    <textarea id="goal" name="goal" rows="5" required><?= TemplateRenderer::escape($workbench->goal) ?></textarea>
+                </label>
+            </div>
         <?php else: ?>
             <p><strong>Task:</strong> <?= TemplateRenderer::escape($workbench->taskId ?? '') ?></p>
             <?php if ($workbench->taskTitle !== null): ?><p class="muted"><?= TemplateRenderer::escape($workbench->taskTitle) ?></p><?php endif; ?>
@@ -103,7 +108,7 @@ require __DIR__ . '/../layout/header.php';
             </div>
         <?php endforeach; ?>
 
-        <button type="submit" name="action" value="select">Load selected recipe</button>
+        <div class="btn-row"><button class="btn btn--primary" type="submit" name="action" value="select">Load selected recipe</button></div>
 
         <?php if ($selectedRecipe instanceof OperatingPromptRecipe): ?>
             <hr>
@@ -120,7 +125,8 @@ require __DIR__ . '/../layout/header.php';
 
             <?php foreach ($selectedRecipe->arguments as $argument): ?>
                 <?php $value = $workbench->argumentValues[$argument->name] ?? ''; ?>
-                <label for="arg-<?= TemplateRenderer::escape($argument->name) ?>"><strong><?= TemplateRenderer::escape($argument->name) ?></strong><?= $argument->required ? ' · required' : '' ?></label>
+                <div class="form__row" style="margin-top:12px">
+                <label class="field field--wide" for="arg-<?= TemplateRenderer::escape($argument->name) ?>"><span><?= TemplateRenderer::escape($argument->name) ?><?= $argument->required ? ' · required' : '' ?></span>
                 <?php if ($argument->type === OperatingPromptArgument::TYPE_BOOLEAN): ?>
                     <select id="arg-<?= TemplateRenderer::escape($argument->name) ?>" name="arg_<?= TemplateRenderer::escape($argument->name) ?>"<?= $argument->required ? ' required' : '' ?>>
                         <option value="">Choose…</option>
@@ -132,15 +138,20 @@ require __DIR__ . '/../layout/header.php';
                 <?php else: ?>
                     <input id="arg-<?= TemplateRenderer::escape($argument->name) ?>" name="arg_<?= TemplateRenderer::escape($argument->name) ?>" type="text" value="<?= TemplateRenderer::escape($value) ?>"<?= $argument->required ? ' required' : '' ?>>
                 <?php endif; ?>
+                </label>
+                </div>
                 <p class="small muted"><?= TemplateRenderer::escape($argument->description) ?><?php if ($argument->examples !== []): ?> Example: <code><?= TemplateRenderer::escape((string) $argument->examples[0]) ?></code>.<?php endif; ?></p>
             <?php endforeach; ?>
 
             <?php if ($selectedRecipe->allowsAdditionalInstruction()): ?>
-                <label for="additional-instruction"><strong>Additional developer instruction</strong> · optional</label>
-                <textarea id="additional-instruction" name="additional_instruction" rows="4"><?= TemplateRenderer::escape($workbench->additionalInstruction) ?></textarea>
+                <div class="form__row" style="margin-top:12px">
+                    <label class="field field--wide" for="additional-instruction"><span>Additional developer instruction · optional</span>
+                        <textarea id="additional-instruction" name="additional_instruction" rows="4"><?= TemplateRenderer::escape($workbench->additionalInstruction) ?></textarea>
+                    </label>
+                </div>
             <?php endif; ?>
 
-            <button type="submit" name="action" value="generate">Generate deterministic prompt</button>
+            <div class="btn-row"><button class="btn btn--primary" type="submit" name="action" value="generate">Generate deterministic prompt</button></div>
         <?php endif; ?>
     </form>
 </section>
@@ -155,7 +166,7 @@ require __DIR__ . '/../layout/header.php';
     </div>
     <div class="codeblock">
         <pre id="workbench-prompt"><?= TemplateRenderer::escape($composition->prompt) ?></pre>
-        <button type="button" class="copy" data-copy-target="workbench-prompt">Copy prompt</button>
+        <button type="button" class="copy" hidden data-copy-target="workbench-prompt">Copy prompt</button>
     </div>
 </section>
 
@@ -176,9 +187,12 @@ require __DIR__ . '/../layout/header.php';
     </dl>
     <?php if ($workflow->nextAction !== null): ?>
         <h2>Canonical next action</h2>
-        <div class="codeblock"><pre id="workbench-next"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><button type="button" class="copy" data-copy-target="workbench-next">Copy</button></div>
+        <div class="codeblock"><pre id="workbench-next"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><button type="button" class="copy" hidden data-copy-target="workbench-next">Copy</button></div>
     <?php endif; ?>
 </section>
 <?php endif; ?>
 
+<?php if ($workbench->taskAware && $workbench->taskId !== null): ?>
+<?php $taskNavId = $workbench->taskId; $taskNavCurrent = '/prompts'; require __DIR__ . '/../layout/task-nav.php'; ?>
+<?php endif; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

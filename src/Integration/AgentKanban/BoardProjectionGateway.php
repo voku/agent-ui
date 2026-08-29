@@ -7,16 +7,23 @@ namespace voku\AgentUi\Integration\AgentKanban;
 use voku\AgentKanban\Cli\BoardContextFactory;
 use voku\AgentKanban\Domain\Card;
 use voku\AgentKanban\Domain\CardId;
+use voku\AgentLoop\ProjectLayout;
 
 final readonly class BoardProjectionGateway
 {
-    public function __construct(private string $projectRoot)
+    private string $boardRoot;
+
+    public function __construct(string $projectRoot)
     {
+        // agent-loop owns where board state lives; a repository scaffolded by
+        // `agent-loop init scaffold` keeps it below the state root, not the
+        // project root. Asking the layout owner keeps both answers identical.
+        $this->boardRoot = (new ProjectLayout($projectRoot))->boardRoot();
     }
 
     public function board(): BoardSnapshot
     {
-        $context = (new BoardContextFactory())->create($this->projectRoot, null, null);
+        $context = (new BoardContextFactory())->create($this->boardRoot, null, null);
         $cards = array_map($this->snapshot(...), $context->repository->loadAll()->all());
 
         return new BoardSnapshot($context->config->projectPrefix, $context->config->lanes, $cards);
@@ -24,7 +31,7 @@ final readonly class BoardProjectionGateway
 
     public function card(string $taskId): CardSnapshot
     {
-        $context = (new BoardContextFactory())->create($this->projectRoot, null, null);
+        $context = (new BoardContextFactory())->create($this->boardRoot, null, null);
 
         return $this->snapshot($context->repository->load(CardId::fromString($taskId)));
     }

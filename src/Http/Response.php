@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Http;
 
+use voku\AgentUi\View\ClientScript;
+
 final readonly class Response
 {
     /** @param array<string, string> $headers */
@@ -24,12 +26,26 @@ final readonly class Response
         return new self('', 303, ['Location' => $location]);
     }
 
+    /**
+     * The policy the shipped pages are actually allowed to run under.
+     *
+     * `script-src` names the bundled enhancement script by hash rather than
+     * `'unsafe-inline'`, so the one script this control plane ships executes
+     * and anything injected into a page still does not.
+     */
+    public static function contentSecurityPolicy(): string
+    {
+        return "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src "
+            . ClientScript::cspSource()
+            . "; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+    }
+
     public function send(): void
     {
         http_response_code($this->status);
         header('X-Content-Type-Options: nosniff');
         header('Referrer-Policy: no-referrer');
-        header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        header('Content-Security-Policy: ' . self::contentSecurityPolicy());
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value);
         }

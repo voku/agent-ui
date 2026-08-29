@@ -1,10 +1,10 @@
 # UI-2: Board projection ignores agent-loop's owned board root
 
 - **Ticket:** UI-2
-- **Lane:** READY
-- **Status:** todo
+- **Lane:** VERIFY
+- **Status:** in_review
 - **Created:** 2026-08-28T19:59:11+00:00
-- **Updated:** 2026-08-28T19:59:11+00:00
+- **Updated:** 2026-08-29T00:58:55+00:00
 - **Summary:** High. BoardProjectionGateway passed the project root straight to agent-kanban, so a repository scaffolded by 'agent-loop init scaffold' (board under .agent-loop/todo) answered HTTP 500 on every page.
 - **Format version:** 1
 

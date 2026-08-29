@@ -22,10 +22,9 @@ require __DIR__ . '/../layout/header.php';
     <section class="panel">
         <h2><?= TemplateRenderer::escape(ucfirst($host)) ?></h2>
         <?php if (isset($entry['error'])): ?>
-            <p class="pill pill--attention">Unavailable</p>
+            <p><span class="pill pill--attention">Unavailable</span></p>
             <p class="small muted"><?= TemplateRenderer::escape($entry['error']) ?></p>
-            <?php continue; ?>
-        <?php endif; ?>
+        <?php else: ?>
         <?php $projection = $entry['projection']; $integration = $projection->integration; $legal = $entry['legal']; ?>
         <p><span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($projection->runtime?->status->value ?? 'unavailable')) ?>"><?= TemplateRenderer::escape($projection->runtime?->status->value ?? 'unavailable') ?></span></p>
         <dl class="facts">
@@ -56,14 +55,14 @@ require __DIR__ . '/../layout/header.php';
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <input type="hidden" name="plan_id" value="<?= TemplateRenderer::escape($plan->planId()) ?>">
                 <input type="hidden" name="expected_state" value="<?= TemplateRenderer::escape($plan->expectedState->value) ?>">
-                <button type="submit">Install / update managed assets</button>
+                <button class="btn btn--primary" type="submit">Install / update managed assets</button>
             </form>
         <?php endif; ?>
 
         <?php if (in_array(RepositorySetupOperation::SYNC_POLICY, $legal, true)): ?>
             <form method="post" action="/setup/<?= TemplateRenderer::escape($host) ?>/sync-policy">
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
-                <button type="submit">Sync repository policy</button>
+                <button class="btn" type="submit">Sync repository policy</button>
             </form>
         <?php endif; ?>
 
@@ -77,16 +76,22 @@ require __DIR__ . '/../layout/header.php';
                     <?php foreach ($plan->blocked as $operation): ?><li><strong>protected:</strong> <?= TemplateRenderer::escape($operation->kind->value . ' · ' . $operation->entry . ' · ' . $operation->reason) ?></li><?php endforeach; ?>
                 </ul>
             </details>
-            <form method="post" action="/setup/<?= TemplateRenderer::escape($host) ?>/remove">
+            <form class="danger-zone" method="post" action="/setup/<?= TemplateRenderer::escape($host) ?>/remove">
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <input type="hidden" name="plan_id" value="<?= TemplateRenderer::escape($plan->planId()) ?>">
                 <input type="hidden" name="expected_state" value="<?= TemplateRenderer::escape($plan->expectedState->value) ?>">
-                <button type="submit">Remove managed assets</button>
+                <p class="danger-zone__title">Destructive</p>
+                <label class="confirm">
+                    <input type="checkbox" name="confirm_remove" value="remove" required>
+                    <span>Remove the <?= count($plan->operations) ?> managed asset(s) the owner lists above for <?= TemplateRenderer::escape(ucfirst($host)) ?>.</span>
+                </label>
+                <button class="btn btn--danger" type="submit">Remove managed assets</button>
             </form>
         <?php endif; ?>
 
         <?php if (in_array(RepositorySetupOperation::REVIEW_CONFLICT, $legal, true)): ?>
             <p class="note"><strong>Review required:</strong> the owner reports a setup conflict; no force/adopt action is invented here.</p>
+        <?php endif; ?>
         <?php endif; ?>
     </section>
 <?php endforeach; ?>
@@ -109,7 +114,7 @@ foreach ($hosts as $entry) {
     <p class="muted">Applies only repository-declared hooks/commit-template integration through the owner API.</p>
     <form method="post" action="/setup/sync-git">
         <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
-        <button type="submit">Sync Git integration</button>
+        <button class="btn" type="submit">Sync Git integration</button>
     </form>
 </section>
 <?php endif; ?>

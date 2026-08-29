@@ -33,8 +33,5 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<div class="btn-row">
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($audit->taskId) ?>/evidence">Evidence &amp; audit</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($audit->taskId) ?>">← Back to task</a>
-</div>
+<?php $taskNavId = $audit->taskId; $taskNavCurrent = '/history'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

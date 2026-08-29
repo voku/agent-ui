@@ -135,11 +135,11 @@ require __DIR__ . '/../layout/header.php';
         </dl>
         <?php if ($implementation->files !== []): ?>
             <details class="raw" style="margin-top:12px"><summary>Exact scoped file hashes</summary>
-                <table class="table"><thead><tr><th>Path</th><th>SHA-256</th></tr></thead><tbody>
+                <div class="table-scroll"><table class="table"><thead><tr><th>Path</th><th>SHA-256</th></tr></thead><tbody>
                 <?php foreach ($implementation->files as $file): ?>
                     <tr><td><code><?= TemplateRenderer::escape($file['path']) ?></code></td><td class="mono small"><?= TemplateRenderer::escape($file['sha256']) ?></td></tr>
                 <?php endforeach; ?>
-                </tbody></table>
+                </tbody></table></div>
             </details>
         <?php endif; ?>
     <?php endif; ?>
@@ -215,9 +215,5 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<div class="btn-row">
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Context &amp; constraints</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>">← Task</a>
-</div>
+<?php $taskNavId = $card->id; $taskNavCurrent = '/work'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

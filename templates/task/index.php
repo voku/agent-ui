@@ -69,7 +69,7 @@ require __DIR__ . '/../layout/header.php';
     <p class="action__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($workflow->nextActionKind)) ?></p>
     <div class="codeblock">
         <pre id="next-action"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre>
-        <button type="button" class="copy" data-copy-target="next-action">Copy</button>
+        <button type="button" class="copy" hidden data-copy-target="next-action">Copy</button>
     </div>
     <p class="note">Rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
 </section>
@@ -262,10 +262,5 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </section>
 
-<div class="btn-row">
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Context &amp; constraints</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Work &amp; review</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">History</a>
-</div>
+<?php $taskNavId = $card->id; $taskNavCurrent = ''; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

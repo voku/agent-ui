@@ -1,10 +1,10 @@
 # UI-3: Content-Security-Policy blocks the only JavaScript in the product
 
 - **Ticket:** UI-3
-- **Lane:** READY
-- **Status:** todo
+- **Lane:** VERIFY
+- **Status:** in_review
 - **Created:** 2026-08-28T19:59:11+00:00
-- **Updated:** 2026-08-28T19:59:11+00:00
+- **Updated:** 2026-08-29T00:58:55+00:00
 - **Summary:** High. Response sends script-src 'self' while the layout footer ships an inline <script>. Chromium refuses to execute it on every page, so every Copy button is permanently dead.
 - **Format version:** 1
 

@@ -125,6 +125,7 @@ final class Presentation
     {
         return match ($kind) {
             'command' => 'Run this exactly as written.',
+            'command_template' => 'A command whose placeholders a coding agent fills from the actual request and repository evidence.',
             'host_work' => 'Irreducible implementation work. This is a description, not a command.',
             'decision_required' => 'A human decision is required before this can run.',
             'none' => 'Nothing further is required.',

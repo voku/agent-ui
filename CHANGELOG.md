@@ -6,6 +6,27 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Fixed
+
+- Read the board through `agent-loop`'s `ProjectLayout::boardRoot()` instead of the project root. A repository scaffolded by `agent-loop init scaffold` keeps its board below the state root, and every page of the control plane answered HTTP 500 there.
+- Name the bundled enhancement script in the Content-Security-Policy by hash. `script-src 'self'` had been refusing the layout's inline script on every page, so no Copy button ever worked in a browser. `src/View/ClientScript.php` is now the single source of both the script and the policy source expression that admits it, and a test fails if they drift apart.
+- Render errors, 404s and CSRF rejections through the normal layout with a status, an honest message and navigation, replacing an unstyled stub that dropped the operator out of the control plane.
+- Close the setup host panel on the projection-error path; a `continue` inside the loop had been skipping the closing tag.
+- Wrap wide evidence and work tables in their own scroll container, and let the masthead navigation wrap, so no page scrolls horizontally at a 390px viewport.
+
+### Added
+
+- Report the outcome of every recorded owner mutation — Contract approval, review acknowledgement, Learning decision, and each setup operation — through a one-shot notice on the page the redirect lands on. These say only what the UI invoked; they are never rendered as owner state.
+- Require an explicit confirmation for managed-asset removal and mark it as destructive, so the only setup operation a mis-click cannot undo no longer looks like the install action above it.
+- Give every task view the same navigation across all seven task routes. `/task/{id}/learning` was previously reachable only from Knowledge detail pages, and the task Prompt Workbench offered no way back.
+- Gloss `command_template`, the `next_action_kind` agent-loop emits most often, which had been falling through to the unknown-vocabulary wording. Genuinely unknown kinds still render neutrally.
+- Explain the empty board on Overview and Board, naming the owning package's card-creation command instead of showing a fresh repository five empty lanes and no next step.
+
+### Changed
+
+- Style `dl.facts` and the form controls on Setup and the Prompt Workbench through the existing design system; both pages had been falling back to browser defaults.
+- Render Copy buttons hidden until the enhancement script reveals them, instead of showing controls that do nothing without it.
+
 ## [0.11.0] - 2026-08-26
 
 ### Added

@@ -71,6 +71,7 @@ require __DIR__ . '/../layout/header.php';
     <?php if ($audit->validation === []): ?>
         <p class="empty">No Contract validation obligations are projected.</p>
     <?php else: ?>
+        <div class="table-scroll">
         <table class="table">
             <thead><tr><th>Command</th><th>Status</th><th>Exit</th><th>Executed</th><th>Source</th></tr></thead>
             <tbody>
@@ -85,6 +86,7 @@ require __DIR__ . '/../layout/header.php';
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </section>
 
@@ -128,8 +130,5 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </details>
 
-<div class="btn-row">
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($workflow->taskId) ?>/history">Audit history</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($workflow->taskId) ?>">← Back to task</a>
-</div>
+<?php $taskNavId = $workflow->taskId; $taskNavCurrent = '/evidence'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

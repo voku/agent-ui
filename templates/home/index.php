@@ -99,6 +99,13 @@ require __DIR__ . '/../layout/header.php';
 </section>
 
 <p class="eyebrow">Board</p>
+<?php if ($board->cards === []): ?>
+    <section class="panel">
+        <p class="empty">This board has no cards yet.</p>
+        <p class="note">Cards are agent-kanban's to create. From the project root:
+            <code>vendor/bin/agent-loop board card create <?= TemplateRenderer::escape($board->projectPrefix) ?>-1 --title="…"</code>.</p>
+    </section>
+<?php endif; ?>
 <div class="lanes">
     <?php foreach ($board->lanes as $lane): ?>
         <?php
@@ -129,4 +136,5 @@ require __DIR__ . '/../layout/header.php';
         </section>
     <?php endforeach; ?>
 </div>
+<p style="margin-top:14px"><a href="/board">Open the full board →</a></p>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
