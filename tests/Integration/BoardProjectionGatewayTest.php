@@ -27,12 +27,26 @@ final class BoardProjectionGatewayTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (['/.agent-loop/todo/cards/TEST-1.md', '/.agent-loop/todo/board.md'] as $file) {
+        foreach ([
+            '/relocated-board/todo/cards/MOVE-1.md',
+            '/relocated-board/todo/board.md',
+            '/.agent-loop/init.json',
+            '/.agent-loop/todo/cards/TEST-1.md',
+            '/.agent-loop/todo/board.md',
+        ] as $file) {
             if (is_file($this->root . $file)) {
                 unlink($this->root . $file);
             }
         }
-        foreach (['/.agent-loop/todo/cards', '/.agent-loop/todo', '/.agent-loop', ''] as $directory) {
+        foreach ([
+            '/relocated-board/todo/cards',
+            '/relocated-board/todo',
+            '/relocated-board',
+            '/.agent-loop/todo/cards',
+            '/.agent-loop/todo',
+            '/.agent-loop',
+            '',
+        ] as $directory) {
             if (is_dir($this->root . $directory)) {
                 rmdir($this->root . $directory);
             }
@@ -52,5 +66,29 @@ final class BoardProjectionGatewayTest extends TestCase
         self::assertSame('TEST', $board->projectPrefix);
         self::assertCount(1, $board->cards);
         self::assertSame('TEST-1', $board->cards[0]->id);
+    }
+
+    public function testReevaluatesTheOwnerBoardRootAfterItIsRelocated(): void
+    {
+        $gateway = new BoardProjectionGateway($this->root);
+
+        if (!mkdir($this->root . '/relocated-board/todo/cards', 0o775, true)) {
+            throw new RuntimeException('Unable to create relocated board fixture root.');
+        }
+        file_put_contents($this->root . '/relocated-board/todo/board.md', "# Board Metadata\n\n- **Project prefix:** MOVE\n");
+        file_put_contents(
+            $this->root . '/relocated-board/todo/cards/MOVE-1.md',
+            "# MOVE-1 — Board root moved\n\n- **Lane:** BACKLOG\n- **Status:** todo\n",
+        );
+        file_put_contents(
+            $this->root . '/.agent-loop/init.json',
+            json_encode(['version' => 1, 'paths' => ['board_root' => 'relocated-board']], JSON_THROW_ON_ERROR),
+        );
+
+        $board = $gateway->board();
+
+        self::assertSame('MOVE', $board->projectPrefix);
+        self::assertCount(1, $board->cards);
+        self::assertSame('MOVE-1', $board->cards[0]->id);
     }
 }

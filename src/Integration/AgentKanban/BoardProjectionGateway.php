@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentKanban;
 
+use voku\AgentKanban\Cli\BoardContext;
 use voku\AgentKanban\Cli\BoardContextFactory;
 use voku\AgentKanban\Domain\Card;
 use voku\AgentKanban\Domain\CardId;
@@ -11,19 +12,16 @@ use voku\AgentLoop\ProjectLayout;
 
 final readonly class BoardProjectionGateway
 {
-    private string $boardRoot;
+    private ProjectLayout $layout;
 
     public function __construct(string $projectRoot)
     {
-        // agent-loop owns where board state lives; a repository scaffolded by
-        // `agent-loop init scaffold` keeps it below the state root, not the
-        // project root. Asking the layout owner keeps both answers identical.
-        $this->boardRoot = (new ProjectLayout($projectRoot))->boardRoot();
+        $this->layout = new ProjectLayout($projectRoot);
     }
 
     public function board(): BoardSnapshot
     {
-        $context = (new BoardContextFactory())->create($this->boardRoot, null, null);
+        $context = $this->context();
         $cards = array_map($this->snapshot(...), $context->repository->loadAll()->all());
 
         return new BoardSnapshot($context->config->projectPrefix, $context->config->lanes, $cards);
@@ -31,9 +29,17 @@ final readonly class BoardProjectionGateway
 
     public function card(string $taskId): CardSnapshot
     {
-        $context = (new BoardContextFactory())->create($this->boardRoot, null, null);
+        $context = $this->context();
 
         return $this->snapshot($context->repository->load(CardId::fromString($taskId)));
+    }
+
+    private function context(): BoardContext
+    {
+        // ProjectLayout owns the active board location. Resolve it for each read
+        // so a configured board-root relocation does not leave this long-lived
+        // UI gateway pinned to the path that existed at construction time.
+        return (new BoardContextFactory())->create($this->layout->boardRoot(), null, null);
     }
 
     private function snapshot(Card $card): CardSnapshot

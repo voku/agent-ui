@@ -83,8 +83,8 @@
             "source_id": "voku/agent-loop:skill:agent-loop-review-close",
             "semantic_owner": "voku/agent-loop",
             "source_path": "/home/user/agent-ui/vendor/voku/agent-loop/docs/agents/skills/agent-loop-review-close",
-            "source_sha256": "sha256:98e18a34d93551e74c1d84dabdcf066a3577c9b13bc2db97f720fac1d8757575",
-            "representation_sha256": "sha256:98e18a34d93551e74c1d84dabdcf066a3577c9b13bc2db97f720fac1d8757575",
+            "source_sha256": "sha256:80cd8388cd289db3df43d84289fadf6f6c6bd00ef6ab56f2a0aaf9cc5cbfd80b",
+            "representation_sha256": "sha256:80cd8388cd289db3df43d84289fadf6f6c6bd00ef6ab56f2a0aaf9cc5cbfd80b",
             "adopted": false
         },
         {

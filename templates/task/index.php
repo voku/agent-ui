@@ -202,7 +202,7 @@ require __DIR__ . '/../layout/header.php';
 <p class="eyebrow">Execution</p>
 <section class="panel">
     <p class="note" style="margin:0 0 14px">The same governed workflow, two ways of doing the work.
-        agent-loop owns workflow, approval, validation, review and Learning in both.</p>
+        agent-loop owns lifecycle state and persistence in both; human approval, review acknowledgement and Learning decisions remain human authority.</p>
     <div class="modes">
         <div class="mode mode--primary">
             <h3>Coding-agent session</h3>
