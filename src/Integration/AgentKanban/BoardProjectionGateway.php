@@ -19,27 +19,61 @@ final readonly class BoardProjectionGateway
         $this->layout = new ProjectLayout($projectRoot);
     }
 
-    public function board(): BoardSnapshot
+    public function board(?string $boardId = null): BoardSnapshot
     {
-        $context = $this->context();
-        $cards = array_map($this->snapshot(...), $context->repository->loadAll()->all());
+        $factory = new BoardContextFactory();
+        $allContexts = $factory->createAll($this->layout->boardRoot());
 
-        return new BoardSnapshot($context->config->projectPrefix, $context->config->lanes, $cards);
+        $activeContext = $this->context($boardId);
+        $cards = array_map($this->snapshot(...), $activeContext->repository->loadAll()->all());
+
+        $boards = [];
+        $activeKey = $activeContext->config->id ?? $activeContext->config->projectPrefix;
+        foreach ($allContexts as $key => $ctx) {
+            $boardKey = $ctx->config->id ?? (is_string($key) && $key !== '' ? $key : $ctx->config->projectPrefix);
+            $boardTitle = $ctx->config->title ?? $ctx->config->projectPrefix;
+            $count = $ctx->repository->loadAll()->count();
+            $boards[] = new BoardSummary(
+                id: $boardKey,
+                title: $boardTitle,
+                projectPrefix: $ctx->config->projectPrefix,
+                cardCount: $count,
+                active: $boardKey === $activeKey || $ctx->config->projectPrefix === $activeContext->config->projectPrefix,
+            );
+        }
+
+        return new BoardSnapshot(
+            projectPrefix: $activeContext->config->projectPrefix,
+            lanes: $activeContext->config->lanes,
+            cards: $cards,
+            id: $activeContext->config->id ?? $activeKey,
+            title: $activeContext->config->title ?? $activeContext->config->projectPrefix,
+            boards: $boards,
+        );
     }
 
     public function card(string $taskId): CardSnapshot
     {
+        $factory = new BoardContextFactory();
+        $allContexts = $factory->createAll($this->layout->boardRoot());
+        $cardId = CardId::fromString($taskId);
+
+        foreach ($allContexts as $context) {
+            try {
+                return $this->snapshot($context->repository->load($cardId));
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
         $context = $this->context();
 
-        return $this->snapshot($context->repository->load(CardId::fromString($taskId)));
+        return $this->snapshot($context->repository->load($cardId));
     }
 
-    private function context(): BoardContext
+    private function context(?string $boardId = null): BoardContext
     {
-        // ProjectLayout owns the active board location. Resolve it for each read
-        // so a configured board-root relocation does not leave this long-lived
-        // UI gateway pinned to the path that existed at construction time.
-        return (new BoardContextFactory())->create($this->layout->boardRoot(), null, null);
+        return (new BoardContextFactory())->create($this->layout->boardRoot(), null, null, $boardId);
     }
 
     private function snapshot(Card $card): CardSnapshot

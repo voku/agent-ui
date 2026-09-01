@@ -27,30 +27,22 @@ final class BoardProjectionGatewayTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach ([
-            '/relocated-board/todo/cards/MOVE-1.md',
-            '/relocated-board/todo/board.md',
-            '/.agent-loop/init.json',
-            '/.agent-loop/todo/cards/TEST-1.md',
-            '/.agent-loop/todo/board.md',
-        ] as $file) {
-            if (is_file($this->root . $file)) {
-                unlink($this->root . $file);
-            }
+        $this->removeDirectory($this->root);
+    }
+
+    private function removeDirectory(string $path): void
+    {
+        if (!is_dir($path)) {
+            return;
         }
-        foreach ([
-            '/relocated-board/todo/cards',
-            '/relocated-board/todo',
-            '/relocated-board',
-            '/.agent-loop/todo/cards',
-            '/.agent-loop/todo',
-            '/.agent-loop',
-            '',
-        ] as $directory) {
-            if (is_dir($this->root . $directory)) {
-                rmdir($this->root . $directory);
+        foreach (scandir($path) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
             }
+            $full = $path . '/' . $entry;
+            is_dir($full) ? $this->removeDirectory($full) : unlink($full);
         }
+        rmdir($path);
     }
 
     public function testReadsTheBoardAgentLoopOwnsBelowTheStateRoot(): void
@@ -90,5 +82,58 @@ final class BoardProjectionGatewayTest extends TestCase
         self::assertSame('MOVE', $board->projectPrefix);
         self::assertCount(1, $board->cards);
         self::assertSame('MOVE-1', $board->cards[0]->id);
+    }
+
+    public function testProjectsMultipleBoardsFromConfiguration(): void
+    {
+        mkdir($this->root . '/.agent-loop/todo/jira', 0o775, true);
+        mkdir($this->root . '/.agent-loop/todo/followups', 0o775, true);
+
+        file_put_contents(
+            $this->root . '/.agent-loop/todo/kanban.config.json',
+            json_encode([
+                'defaultBoard' => 'jira',
+                'boards' => [
+                    [
+                        'id' => 'jira',
+                        'title' => 'Jira Tasks',
+                        'projectPrefix' => 'JIRA',
+                        'cardDirectory' => 'todo/jira',
+                    ],
+                    [
+                        'id' => 'followups',
+                        'title' => 'Followups',
+                        'projectPrefix' => 'FOL',
+                        'cardDirectory' => 'todo/followups',
+                    ],
+                ],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        file_put_contents(
+            $this->root . '/.agent-loop/todo/jira/JIRA-1.md',
+            "# JIRA-1 — First\n\n- **Lane:** BACKLOG\n- **Status:** todo\n",
+        );
+        file_put_contents(
+            $this->root . '/.agent-loop/todo/followups/FOL-1.md',
+            "# FOL-1 — Second\n\n- **Lane:** READY\n- **Status:** todo\n- **Task brief:** Brief\n",
+        );
+
+        $gateway = new BoardProjectionGateway($this->root);
+        $defaultBoard = $gateway->board();
+
+        self::assertSame('JIRA', $defaultBoard->projectPrefix);
+        self::assertSame('jira', $defaultBoard->id);
+        self::assertCount(2, $defaultBoard->boards);
+        self::assertCount(1, $defaultBoard->cards);
+
+        $followupsBoard = $gateway->board('followups');
+        self::assertSame('FOL', $followupsBoard->projectPrefix);
+        self::assertSame('followups', $followupsBoard->id);
+        self::assertCount(1, $followupsBoard->cards);
+        self::assertSame('FOL-1', $followupsBoard->cards[0]->id);
+
+        $card = $gateway->card('FOL-1');
+        self::assertSame('FOL-1', $card->id);
     }
 }

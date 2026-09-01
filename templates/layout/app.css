@@ -587,6 +587,37 @@ table.table td.num { font-variant-numeric: tabular-nums; }
 .timeline__title { font-weight: 570; margin: 2px 0 0; }
 .timeline__detail { color: var(--ink-soft); font-size: 13px; margin: 3px 0 0; }
 
+/* ---------- board switcher ---------- */
+
+.board-switcher {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.board-switcher a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 13px;
+}
+.board-switcher a:hover {
+    background: var(--surface-alt);
+    color: var(--ink);
+}
+.board-switcher a[aria-current="page"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
 /* ---------- misc ---------- */
 
 details.raw { margin-top: 20px; }

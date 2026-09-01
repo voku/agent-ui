@@ -99,6 +99,16 @@ require __DIR__ . '/../layout/header.php';
 </section>
 
 <p class="eyebrow">Board</p>
+<?php if (count($board->boards) > 1): ?>
+    <div class="board-switcher" style="margin-bottom: 14px;">
+        <?php foreach ($board->boards as $b): ?>
+            <a href="/board?board=<?= rawurlencode($b->id) ?>"<?= $b->active ? ' aria-current="page"' : '' ?>>
+                <span><?= TemplateRenderer::escape($b->title) ?></span>
+                <span class="pill pill--muted" style="font-size:11px"><?= $b->cardCount ?></span>
+            </a>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
 <?php if ($board->cards === []): ?>
     <section class="panel">
         <p class="empty">This board has no cards yet.</p>

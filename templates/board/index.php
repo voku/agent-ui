@@ -10,10 +10,21 @@ $projectLabel = $board->projectPrefix;
 require __DIR__ . '/../layout/header.php';
 ?>
 <div class="page-head">
-    <h1>Board</h1>
+    <h1><?= TemplateRenderer::escape($board->title ?? 'Board') ?></h1>
     <p class="lede">Lane order, card fields and status vocabulary are agent-kanban's semantics.
         This page lays them out and adds none of its own.</p>
 </div>
+
+<?php if (count($board->boards) > 1): ?>
+<nav class="board-switcher" aria-label="Boards">
+    <?php foreach ($board->boards as $b): ?>
+        <a href="/board?board=<?= rawurlencode($b->id) ?>"<?= $b->active ? ' aria-current="page"' : '' ?>>
+            <span><?= TemplateRenderer::escape($b->title) ?></span>
+            <span class="pill pill--muted" style="font-size:11px"><?= $b->cardCount ?></span>
+        </a>
+    <?php endforeach; ?>
+</nav>
+<?php endif; ?>
 
 <?php if ($board->cards === []): ?>
 <section class="panel">
