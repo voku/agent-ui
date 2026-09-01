@@ -19,3 +19,19 @@ jobs:
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
       - run: composer ci
+
+  lowest-supported:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Resolve declared dependency floors
+        run: composer update --no-interaction --prefer-dist --prefer-lowest --prefer-stable
+      - name: Validate lowest supported graph
+        run: composer ci
