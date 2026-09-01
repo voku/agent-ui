@@ -25,14 +25,14 @@ final readonly class BoardProjectionGateway
         $allContexts = $factory->createAll($this->layout->boardRoot());
 
         $activeContext = $this->context($boardId);
-        $cards = array_map($this->snapshot(...), $activeContext->repository->loadAll()->all());
+        $cards = array_map($this->snapshot(...), $activeContext->repository->loadAllLenient()->cards->all());
 
         $boards = [];
         $activeKey = $activeContext->config->id ?? $activeContext->config->projectPrefix;
         foreach ($allContexts as $key => $ctx) {
             $boardKey = $ctx->config->id ?? (is_string($key) && $key !== '' ? $key : $ctx->config->projectPrefix);
             $boardTitle = $ctx->config->title ?? $ctx->config->projectPrefix;
-            $count = $ctx->repository->loadAll()->count();
+            $count = $ctx->repository->loadAllLenient()->cards->count();
             $boards[] = new BoardSummary(
                 id: $boardKey,
                 title: $boardTitle,
