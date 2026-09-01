@@ -17,6 +17,10 @@ final class TaskTemplateAuthorityTest extends TestCase
         }
 
         self::assertStringContainsString(
+            'agent-loop owns lifecycle state and persistence in both',
+            $template,
+        );
+        self::assertStringContainsString(
             'human approval, review acknowledgement and Learning decisions remain human authority',
             $template,
         );
