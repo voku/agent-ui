@@ -4,7 +4,7 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
-## [Unreleased]
+## [0.12.1] - 2026-09-01
 
 ### Added
 
