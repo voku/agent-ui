@@ -246,8 +246,5 @@ require __DIR__ . '/../layout/header.php';
     </section>
 </div>
 
-<div class="btn-row">
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>">← Task</a>
-    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/evidence">Evidence &amp; audit</a>
-</div>
+<?php $taskNavId = $card->id; $taskNavCurrent = '/context'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

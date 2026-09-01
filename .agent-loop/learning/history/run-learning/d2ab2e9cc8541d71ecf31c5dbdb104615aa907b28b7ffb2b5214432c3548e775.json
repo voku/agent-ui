@@ -1,0 +1,15 @@
+{
+    "schema_version": "1.0",
+    "kind": "run_learning_decision",
+    "run_id": "run:UI-1:1b0c6845e53cd3aa",
+    "decision": "follow_up_required",
+    "decided_by": "claude-code-agent",
+    "decided_at": "2026-08-29T01:04:41+00:00",
+    "reason": "The review produced work this Run deliberately did not do: low-severity UI items (UI-14) and five items of friction in the workflow tooling itself (UI-15..UI-19), recorded in docs/workflow-feedback.md and owned by other packages.",
+    "finding_ids": [],
+    "follow_up_ref": "UI-15",
+    "contract_revision": 1,
+    "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
+    "validation_evidence_sha256": "sha256:91d254084458577cd36e29522af5b7cb603e68d2a693803c9ca9bb6e0db00465",
+    "review_evidence_sha256": "sha256:16815c7879de13195ab3f91871c959bb5b78db40992c0a5850d52c528b2ec41c"
+}

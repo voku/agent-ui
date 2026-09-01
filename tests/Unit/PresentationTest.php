@@ -51,9 +51,19 @@ final class PresentationTest extends TestCase
     public function testNextActionKindHintExplainsHowToTreatTheAction(): void
     {
         self::assertStringContainsString('exactly as written', Presentation::nextActionKindHint('command'));
+        self::assertStringContainsString('placeholders', Presentation::nextActionKindHint('command_template'));
         self::assertStringContainsString('not a command', Presentation::nextActionKindHint('host_work'));
         self::assertStringContainsString('human decision', Presentation::nextActionKindHint('decision_required'));
         self::assertStringContainsString('Nothing further', Presentation::nextActionKindHint('none'));
+    }
+
+    public function testEveryActionKindAgentLoopEmitsHasItsOwnGloss(): void
+    {
+        $fallback = Presentation::nextActionKindHint('some_future_kind');
+
+        foreach (['command', 'command_template', 'host_work', 'decision_required', 'none'] as $kind) {
+            self::assertNotSame($fallback, Presentation::nextActionKindHint($kind), $kind . ' falls back');
+        }
     }
 
     public function testAnUnknownActionKindDefersToAgentLoopRatherThanInventingGuidance(): void

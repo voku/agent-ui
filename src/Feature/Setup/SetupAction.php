@@ -6,6 +6,7 @@ namespace voku\AgentUi\Feature\Setup;
 
 use InvalidArgumentException;
 use voku\AgentLoop\Init\RepositorySetupOperation;
+use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
@@ -21,6 +22,7 @@ final readonly class SetupAction
         private RepositorySetupGateway $setup,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
+        private FlashNotice $notice = new FlashNotice(),
     ) {
     }
 
@@ -62,6 +64,13 @@ final readonly class SetupAction
             default => throw new InvalidArgumentException('Unknown setup action.'),
         };
 
+        $this->notice->record(match ($route) {
+            'setup_install' => sprintf('agent-loop applied the install/update plan for %s.', $agent),
+            'setup_remove' => sprintf('agent-loop applied the removal plan for %s. Assets it reported as protected were kept.', $agent),
+            'setup_sync_policy' => sprintf('agent-loop synchronised the repository policy for %s.', $agent),
+            default => 'agent-loop synchronised the declared local Git integration.',
+        });
+
         return Response::redirect('/setup');
     }
 
@@ -78,6 +87,13 @@ final readonly class SetupAction
 
     private function remove(string $agent, Request $request): void
     {
+        // Removing managed assets is the one setup operation a mis-click cannot
+        // undo, so the form states the intent explicitly rather than relying on
+        // the button label alone.
+        if (($request->body['confirm_remove'] ?? '') !== 'remove') {
+            throw new InvalidArgumentException('Removal was not confirmed, so nothing was removed.');
+        }
+
         $this->requireLegal($agent, [RepositorySetupOperation::REMOVE_ASSETS]);
         $this->setup->remove(
             $agent,

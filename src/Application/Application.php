@@ -53,6 +53,8 @@ final readonly class Application
     private HumanDecisionAction $humanDecision;
     private RunnerAction $runner;
 
+    private TemplateRenderer $templates;
+
     public function __construct(string $projectRoot, string $templateRoot)
     {
         $board = new BoardProjectionGateway($projectRoot);
@@ -68,6 +70,7 @@ final readonly class Application
         $setup = new RepositorySetupGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
+        $this->templates = $templates;
 
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $templates);
@@ -140,18 +143,40 @@ final readonly class Application
                 ),
             };
         } catch (InvalidArgumentException $exception) {
-            return Response::html($this->errorPage($exception->getMessage()), $request->method === 'POST' ? 400 : 404);
+            return $request->method === 'POST'
+                ? $this->errorPage(400, 'Request rejected', $exception->getMessage())
+                : $this->errorPage(404, 'Page not found', $exception->getMessage());
         } catch (Throwable $exception) {
             error_log('agent-ui request failed: ' . $exception->getMessage());
 
-            return Response::html($this->errorPage('Operation failed. Inspect the local server log for details.'), 500);
+            return $this->errorPage(500, 'Something went wrong', 'Operation failed. Inspect the local server log for details.');
         }
     }
 
-    private function errorPage(string $message): string
+    /**
+     * Errors are pages of this control plane, not a way out of it.
+     *
+     * A mistyped URL, an expired CSRF token and an owner failure used to drop
+     * the operator onto an unstyled stub with no navigation, so the fastest
+     * route back into the app was the browser's back button.
+     */
+    private function errorPage(int $status, string $heading, string $message): Response
     {
-        return '<!doctype html><html><body><h1>Agent UI</h1><p>'
-            . TemplateRenderer::escape($message)
-            . '</p></body></html>';
+        try {
+            return Response::html($this->templates->render('error/index', [
+                'status' => $status,
+                'heading' => $heading,
+                'message' => $message,
+            ]), $status);
+        } catch (Throwable) {
+            // The layout itself is unavailable; say so rather than rendering nothing.
+            return Response::html(
+                '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>agent-ui</title></head>'
+                . '<body><h1>' . TemplateRenderer::escape($heading) . '</h1><p>'
+                . TemplateRenderer::escape($message)
+                . '</p><p><a href="/">Overview</a></p></body></html>',
+                $status,
+            );
+        }
     }
 }

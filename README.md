@@ -38,7 +38,7 @@ AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 
 
 Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
-Top-level navigation is `Overview | Setup | Board | Knowledge`. Task routes include `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/learning`, and `/task/{id}/handoff`. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
+Top-level navigation is `Overview | Setup | Prompts | Board | Knowledge`. Task routes are `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, and `/task/{id}/learning`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same navigation across all seven. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
 
 ## Setup
 
@@ -92,7 +92,14 @@ state its owning package reports for it. It reads as a lifecycle at a glance, an
 derived here.
 
 Light and dark themes follow the operating system. Commands and prompts carry copy buttons, which
-are the only JavaScript in the project and which every page works completely without.
+are the only JavaScript in the project and which every page works completely without. That script is
+inlined and named in the Content-Security-Policy by hash, so `src/View/ClientScript.php` is the single
+place both the shipped script and the policy that admits it come from; the buttons stay hidden until
+it runs, rather than rendering as controls that do nothing.
+
+The board is read through `agent-loop`'s `ProjectLayout::boardRoot()` rather than a path spelled here,
+so a repository scaffolded by `agent-loop init scaffold` — which keeps its board below the state root —
+is read correctly.
 
 ## Architecture
 

@@ -1,0 +1,159 @@
+{
+    "disagreements": [],
+    "mode": "governed",
+    "next_action": "none",
+    "next_action_kind": "none",
+    "references": {
+        "approval": {
+            "approved_at": "2026-08-28T20:00:04+00:00",
+            "approved_by": "claude-code-agent",
+            "contract_revision": 1,
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "source": {
+                "path": ".agent-loop/contracts/UI-1/contract.json",
+                "sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b"
+            },
+            "state": "current"
+        },
+        "board": {
+            "card_id": "UI-1",
+            "configuration": {
+                "mode": "json",
+                "source": {
+                    "path": ".agent-loop/todo/kanban.config.json",
+                    "sha256": "sha256:54fae0fbbfda6913afe7ece507e99231c83563b5361dee8f4877add7a2647712"
+                }
+            },
+            "lane": "DOING",
+            "observation_mode": "checked",
+            "owner": "agent-kanban",
+            "revision": "bda03e95f1fa24d0932009a5ecc7bcafa5765271c3216c3494ea9466f18de4dc",
+            "source": {
+                "path": ".agent-loop/todo/cards/UI-1.md",
+                "sha256": "sha256:bda03e95f1fa24d0932009a5ecc7bcafa5765271c3216c3494ea9466f18de4dc"
+            },
+            "state": "linked",
+            "status": "in_progress"
+        },
+        "contract": {
+            "acceptance_criteria": [
+                "Every Copy button executes under the application's own Content-Security-Policy.",
+                "Errors, 404s and CSRF failures render inside the normal layout with navigation.",
+                "Destructive setup removal is visually distinct and requires an explicit confirmation.",
+                "Successful owner mutations report an outcome to the operator.",
+                "Every task view shares one navigation covering all seven task routes.",
+                "No page scrolls horizontally at a 390px viewport.",
+                "composer ci stays green."
+            ],
+            "goal": "Fix the high and medium UI/UX blind-spot findings recorded on cards UI-2 through UI-13 without weakening the owner boundaries in AGENTS.md.",
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "revision": 1,
+            "run_revision": 1,
+            "source": {
+                "path": ".agent-loop/contracts/UI-1/contract.json",
+                "sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b"
+            },
+            "state": "approved"
+        },
+        "edit": {
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "state": "none"
+        },
+        "execution_contract": {
+            "contract_revision": 1,
+            "contract_source": {
+                "path": ".agent-loop/contracts/UI-1/contract.json",
+                "sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b"
+            },
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "required": false,
+            "state": "not_required"
+        },
+        "learning": {
+            "decided_at": "2026-08-29T01:04:41+00:00",
+            "decided_by": "claude-code-agent",
+            "decision": "follow_up_required",
+            "observation_mode": "checked",
+            "owner": "agent-learning",
+            "run_id": "run:UI-1:1b0c6845e53cd3aa",
+            "source": {
+                "path": ".agent-loop/learning/history/run-learning/d2ab2e9cc8541d71ecf31c5dbdb104615aa907b28b7ffb2b5214432c3548e775.json",
+                "sha256": "sha256:7b3924d92971ceb59818e1fc2fa32d8712954e97e17920d61aee5b9ca327bb1a"
+            },
+            "state": "decided"
+        },
+        "map": {
+            "observation_mode": "checked",
+            "owner": "agent-map",
+            "path": ".agent-loop/map/php-symbols.json",
+            "state": "missing"
+        },
+        "outcome_lineage": {
+            "observation_mode": "checked",
+            "owner": "agent-learning",
+            "run_id": "run:UI-1:1b0c6845e53cd3aa",
+            "state": "run_bound"
+        },
+        "recall": {
+            "bundle_sha256": "749798f0ea14fe198ced88c27f7b3cd6b3e39bdffe29eeccb7e68d90ca004c2a",
+            "compilation_id": "compilation.UI-1.2026-08-28-200012.4de8125f",
+            "observation_mode": "checked",
+            "owner": "agent-recall-compiler",
+            "snapshot_sha256": "1e858185b9dab28f082faf4395215831df3b26a3aea6164d626ddcb82a9aea38",
+            "source": {
+                "path": ".agent-loop/recall/UI-1/meta.json",
+                "sha256": "sha256:852999065ecbedb4741f589150a0472a5862514e279835090fd26392dcf2e4d2"
+            },
+            "state": "compiled"
+        },
+        "review": {
+            "observation_mode": "checked",
+            "owner": "agent-recall-compiler",
+            "source": {
+                "path": ".agent-loop/recall/UI-1/reviews/UI-1.blindspots.json",
+                "sha256": "sha256:16815c7879de13195ab3f91871c959bb5b78db40992c0a5850d52c528b2ec41c"
+            },
+            "state": "warn"
+        },
+        "search_index": {
+            "observation_mode": "checked",
+            "owner": "agent-map",
+            "path": ".agent-loop/map/search.sqlite",
+            "state": "unavailable"
+        },
+        "session": {
+            "base_commit": null,
+            "ephemeral": false,
+            "observation_mode": "checked",
+            "owner": "agent-session",
+            "session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+            "source": {
+                "path": ".agent-loop/sessions/2026-08-28-ui-1-r1-ef0cbc23/session.json",
+                "sha256": "sha256:2e94598a099f06db734ff32c2f2a2cd9db68cad89d55ce89a39e2f96e21c36ac"
+            },
+            "state": "done",
+            "task_id": "UI-1"
+        },
+        "verification": {
+            "contract_revision": 1,
+            "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "run_id": "run:UI-1:1b0c6845e53cd3aa",
+            "source": {
+                "path": ".agent-loop/runs/UI-1/verification.json",
+                "sha256": "sha256:53c41cc0a050882179e333e64b333fd940cd9d7f55f5e0a386578dcecf021592"
+            },
+            "source_session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+            "state": "passed"
+        }
+    },
+    "run_id": "run:UI-1:1b0c6845e53cd3aa",
+    "schema_version": "1.0",
+    "state": "complete",
+    "task_id": "UI-1"
+}

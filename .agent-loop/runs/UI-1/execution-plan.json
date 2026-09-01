@@ -1,0 +1,17 @@
+{
+    "base_commit": null,
+    "contract_revision": 1,
+    "contract_source": {
+        "path": ".agent-loop/contracts/UI-1/contract.json",
+        "sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b"
+    },
+    "digest": "sha256:2e838acab9732a0f10e6aa26089696bc68ca58cb84d64713af3d9d7f0e2cbfdd",
+    "kind": "governed_execution_plan",
+    "prepared_at": "2026-08-28T20:00:11+00:00",
+    "profile": "manual",
+    "roles": [],
+    "run_id": "run:UI-1:1b0c6845e53cd3aa",
+    "schema_version": "1.0",
+    "stages": [],
+    "task_id": "UI-1"
+}
