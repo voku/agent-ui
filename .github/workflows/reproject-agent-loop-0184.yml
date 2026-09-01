@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           composer config repositories.agent-loop vcs https://github.com/voku/agent-loop
-          composer update voku/agent-loop --with-all-dependencies --no-interaction --prefer-dist --no-progress --no-ansi
+          composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress --no-ansi
           test "$(composer show voku/agent-loop --format=json | jq -r '.versions[0]')" = '0.18.4'
       - name: Reproject managed Claude assets through the released owner
         shell: bash
