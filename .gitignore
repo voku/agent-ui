@@ -2,3 +2,4 @@
 /var/
 /.php-cs-fixer.cache
 /composer.lock
+/.idea/

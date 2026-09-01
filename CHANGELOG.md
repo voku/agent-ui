@@ -9,6 +9,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Added
 
 - Support multi-board configurations from `agent-kanban`. When multiple boards are configured in `todo/kanban.config.json`, the Board view and Overview render a board switcher with card counts, and individual task routes resolve card details across all available boards.
+- Add complete catalog browsing, status filtering, and `MEMORY.md` durable rules / archived task learnings to the Knowledge view (`/knowledge?tab=rules|findings|proposals|archived`).
 
 ## [0.12.0] - 2026-09-01
 

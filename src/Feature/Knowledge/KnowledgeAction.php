@@ -7,6 +7,7 @@ namespace voku\AgentUi\Feature\Knowledge;
 use InvalidArgumentException;
 use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentLearning\Catalog\ProposalProjection;
+use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\View\TemplateRenderer;
@@ -19,9 +20,12 @@ final readonly class KnowledgeAction
     ) {
     }
 
-    public function overview(): Response
+    public function overview(?Request $request = null): Response
     {
         $overview = $this->learning->overview();
+        $tab = $request?->query['tab'] ?? 'overview';
+        $status = $request?->query['status'] ?? null;
+
         $findings = [];
         foreach ($overview->recentFindingIds as $findingId) {
             $finding = $this->learning->finding($findingId);
@@ -37,10 +41,21 @@ final readonly class KnowledgeAction
             }
         }
 
+        $allFindings = $this->learning->findings($status);
+        $allProposals = $this->learning->proposals($status);
+        $memoryRules = $this->learning->memoryRules();
+        $archivedTasks = $this->learning->archivedTasks();
+
         return Response::html($this->templates->render('knowledge/index', [
             'overview' => $overview,
             'recent_findings' => $findings,
             'recent_proposals' => $proposals,
+            'all_findings' => $allFindings,
+            'all_proposals' => $allProposals,
+            'memory_rules' => $memoryRules,
+            'archived_tasks' => $archivedTasks,
+            'current_tab' => $tab,
+            'current_status' => $status,
         ]));
     }
 

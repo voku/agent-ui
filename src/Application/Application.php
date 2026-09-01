@@ -114,7 +114,7 @@ final readonly class Application
                 'setup' => $this->setup->overview(),
                 'prompts' => $this->prompts->newTask($request),
                 'board' => ($this->board)($request),
-                'knowledge' => $this->knowledge->overview(),
+                'knowledge' => $this->knowledge->overview($request),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),

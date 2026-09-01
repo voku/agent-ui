@@ -22,7 +22,7 @@ final readonly class LearningCatalogGateway
 {
     private LearningCatalog $catalog;
 
-    public function __construct(string $projectRoot)
+    public function __construct(private string $projectRoot)
     {
         $this->catalog = new LearningCatalog((new ProjectLayout($projectRoot))->learningRoot());
     }
@@ -30,6 +30,38 @@ final readonly class LearningCatalogGateway
     public function overview(): LearningOverview
     {
         return $this->catalog->overview();
+    }
+
+    /**
+     * @return list<FindingProjection>
+     */
+    public function findings(?string $status = null): array
+    {
+        return $this->catalog->findings($status);
+    }
+
+    /**
+     * @return list<ProposalProjection>
+     */
+    public function proposals(?string $status = null): array
+    {
+        return $this->catalog->proposals($status);
+    }
+
+    /**
+     * @return list<array{subject: string, rule: string, canonicalHome: string}>
+     */
+    public function memoryRules(): array
+    {
+        return MemoryReader::parse($this->projectRoot)['rules'];
+    }
+
+    /**
+     * @return list<array{archivedOn: string, task: string, summary: string, reason: string, candidate: string, promotedTo: string}>
+     */
+    public function archivedTasks(): array
+    {
+        return MemoryReader::parse($this->projectRoot)['archivedTasks'];
     }
 
     public function finding(string $findingId): ?FindingProjection
