@@ -26,6 +26,7 @@ $projectLabel ??= null;
             <a href="/setup"<?= $nav === 'setup' ? ' aria-current="page"' : '' ?>>Setup</a>
             <a href="/prompts"<?= $nav === 'prompts' ? ' aria-current="page"' : '' ?>>Prompts</a>
             <a href="/board"<?= $nav === 'board' ? ' aria-current="page"' : '' ?>>Board</a>
+            <a href="/map"<?= $nav === 'map' ? ' aria-current="page"' : '' ?>>Map</a>
             <a href="/knowledge"<?= $nav === 'knowledge' ? ' aria-current="page"' : '' ?>>Knowledge</a>
         </nav>
         <?php if ($projectLabel !== null): ?>

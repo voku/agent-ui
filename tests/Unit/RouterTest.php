@@ -24,6 +24,9 @@ final class RouterTest extends TestCase
         yield 'task new' => [new Request('GET', '/task/new'), ['route' => 'board_new']];
         yield 'board create' => [new Request('POST', '/board/new'), ['route' => 'board_create']];
         yield 'task new post' => [new Request('POST', '/task/new'), ['route' => 'board_create']];
+        yield 'map' => [new Request('GET', '/map'), ['route' => 'map']];
+        yield 'map symbol' => [new Request('GET', '/map/symbol'), ['route' => 'map_symbol']];
+        yield 'map context' => [new Request('GET', '/map/context'), ['route' => 'map_context']];
         yield 'knowledge' => [new Request('GET', '/knowledge'), ['route' => 'knowledge']];
         yield 'knowledge finding' => [new Request('GET', '/knowledge/findings/finding.2026-08-26.ab12cd'), ['route' => 'knowledge_finding', 'knowledge_id' => 'finding.2026-08-26.ab12cd']];
         yield 'knowledge proposal' => [new Request('GET', '/knowledge/proposals/proposal.2026-08-26.123'), ['route' => 'knowledge_proposal', 'knowledge_id' => 'proposal.2026-08-26.123']];

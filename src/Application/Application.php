@@ -13,6 +13,7 @@ use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
+use voku\AgentUi\Feature\Map\MapAction;
 use voku\AgentUi\Feature\PromptWorkbench\PromptApplicabilityEvaluator;
 use voku\AgentUi\Feature\PromptWorkbench\PromptComposer;
 use voku\AgentUi\Feature\PromptWorkbench\PromptWorkbenchAction;
@@ -33,6 +34,7 @@ use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowPromptGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\OperatingPromptCatalogGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
@@ -45,6 +47,7 @@ final readonly class Application
     private SetupAction $setup;
     private BoardAction $board;
     private KnowledgeAction $knowledge;
+    private MapAction $map;
     private TaskAction $task;
     private PromptWorkbenchAction $prompts;
     private ContextAction $context;
@@ -70,6 +73,7 @@ final readonly class Application
         $learning = new LearningCatalogGateway($projectRoot);
         $setup = new RepositorySetupGateway($projectRoot);
         $mutation = new CardMutationGateway($projectRoot);
+        $map = new MapProjectionGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;
@@ -79,6 +83,7 @@ final readonly class Application
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->board = new BoardAction($board, $mutation, $csrf, $templates);
         $this->knowledge = new KnowledgeAction($learning, $templates);
+        $this->map = new MapAction($map, $templates);
         $this->task = new TaskAction(
             $board,
             $workflow,
@@ -119,6 +124,9 @@ final readonly class Application
                 'board' => ($this->board)($request),
                 'board_new' => $this->board->newCard($request),
                 'board_create' => $this->board->createCard($request),
+                'map' => $this->map->index($request),
+                'map_symbol' => $this->map->symbol($request),
+                'map_context' => $this->map->context($request),
                 'knowledge' => $this->knowledge->overview($request),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),

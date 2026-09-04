@@ -123,7 +123,12 @@ final readonly class TaskAction
 
         $this->notice->record(sprintf('Card %s moved to %s.', $taskId, $targetLane));
 
-        return Response::redirect('/task/' . rawurlencode($taskId));
+        $returnTo = $this->optionalString($request, 'return_to');
+        $redirectTarget = ($returnTo !== null && str_starts_with($returnTo, '/'))
+            ? $returnTo
+            : '/task/' . rawurlencode($taskId);
+
+        return Response::redirect($redirectTarget);
     }
 
     public function claim(string $taskId, Request $request): Response

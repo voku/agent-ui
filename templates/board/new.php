@@ -2,11 +2,14 @@
 use voku\AgentUi\Integration\AgentKanban\BoardSnapshot;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{board: BoardSnapshot, suggested_id: string, lanes: list<string>, csrf_token: string} $model */
+/** @var array{board: BoardSnapshot, suggested_id: string, lanes: list<string>, csrf_token: string, initial_title?: string, initial_summary?: string, initial_brief?: string} $model */
 $board = $model['board'];
 $suggestedId = $model['suggested_id'];
 $lanes = $model['lanes'];
 $csrf = $model['csrf_token'];
+$initialTitle = $model['initial_title'] ?? '';
+$initialSummary = $model['initial_summary'] ?? '';
+$initialBrief = $model['initial_brief'] ?? '';
 
 $title = 'New card · ' . $board->projectPrefix . ' · agent-ui';
 $nav = 'board';
@@ -63,7 +66,7 @@ require __DIR__ . '/../layout/header.php';
         <div class="form__row" style="margin-top:14px">
             <label class="field field--wide">
                 <span>Title *</span>
-                <input required maxlength="500" name="title" autocomplete="off" placeholder="Short, descriptive summary of the work">
+                <input required maxlength="500" name="title" autocomplete="off" value="<?= TemplateRenderer::escape($initialTitle) ?>" placeholder="Short, descriptive summary of the work">
             </label>
         </div>
 
@@ -98,14 +101,14 @@ require __DIR__ . '/../layout/header.php';
         <div class="form__row" style="margin-top:14px">
             <label class="field field--wide">
                 <span>Summary</span>
-                <textarea rows="2" maxlength="2000" name="summary" placeholder="Brief context or rationale for this task"></textarea>
+                <textarea rows="2" maxlength="2000" name="summary" placeholder="Brief context or rationale for this task"><?= TemplateRenderer::escape($initialSummary) ?></textarea>
             </label>
         </div>
 
         <div class="form__row" style="margin-top:14px">
             <label class="field field--wide">
                 <span>Task Brief</span>
-                <textarea rows="5" maxlength="10000" name="task_brief" placeholder="Detailed requirements, problem statement, or scope description (Markdown format)"></textarea>
+                <textarea rows="5" maxlength="10000" name="task_brief" placeholder="Detailed requirements, problem statement, or scope description (Markdown format)"><?= TemplateRenderer::escape($initialBrief) ?></textarea>
             </label>
         </div>
 

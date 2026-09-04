@@ -3,3 +3,5 @@
 /.php-cs-fixer.cache
 /composer.lock
 /.idea/
+/.agent-map/
+/.agent-loop/

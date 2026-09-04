@@ -27,9 +27,17 @@ final readonly class BoardAction
     public function __invoke(?Request $request = null): Response
     {
         $boardId = $request?->query['board'] ?? null;
+        $filterQuery = trim($request?->query['q'] ?? '');
+        $filterStatus = trim($request?->query['status'] ?? '');
+        $filterPriority = trim($request?->query['priority'] ?? '');
+        $filterAssignee = trim($request?->query['assignee'] ?? '');
 
         return Response::html($this->templates->render('board/index', [
             'board' => $this->board->board($boardId),
+            'filter_query' => $filterQuery,
+            'filter_status' => $filterStatus,
+            'filter_priority' => $filterPriority,
+            'filter_assignee' => $filterAssignee,
             'csrf_token' => $this->csrf->token(),
         ]));
     }
@@ -41,10 +49,17 @@ final readonly class BoardAction
         $suggestedId = $this->mutation->suggestNextId($boardId);
         $lanes = $this->mutation->availableLanes($boardId);
 
+        $initialTitle = $request->query['title'] ?? '';
+        $initialSummary = $request->query['summary'] ?? '';
+        $initialBrief = $request->query['brief'] ?? '';
+
         return Response::html($this->templates->render('board/new', [
             'board' => $board,
             'suggested_id' => $suggestedId,
             'lanes' => $lanes,
+            'initial_title' => $initialTitle,
+            'initial_summary' => $initialSummary,
+            'initial_brief' => $initialBrief,
             'csrf_token' => $this->csrf->token(),
         ]));
     }
