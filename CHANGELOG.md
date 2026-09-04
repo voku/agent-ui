@@ -6,6 +6,14 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-04
+
+### Changed
+
+- Adopt the coordinated pre-1.0 release set: `voku/agent-kanban ^0.4.0`,
+  `voku/agent-learning ^0.16.0`, `voku/agent-loop ^0.19.0`,
+  `voku/agent-map ^0.10.0`, `voku/agent-recall-compiler ^0.15.0`.
+
 ### Added
 
 - Add standalone `bin/agent-ui` executable CLI command supporting `serve` (default), `--port=PORT`, `--host=HOST`, and `--root=PATH` options to easily start the local developer control plane from any project.
