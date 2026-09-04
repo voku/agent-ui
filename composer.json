@@ -3,6 +3,35 @@
   "description": "Local server-rendered human control plane for the governed voku/agent-loop workflow.",
   "type": "library",
   "license": "MIT",
+  "homepage": "https://github.com/voku/agent-ui",
+  "support": {
+    "issues": "https://github.com/voku/agent-ui/issues",
+    "source": "https://github.com/voku/agent-ui"
+  },
+  "keywords": [
+    "agent",
+    "coding-agent",
+    "agent-loop",
+    "ui",
+    "control-plane",
+    "web-interface",
+    "governance",
+    "human-in-the-loop",
+    "ai",
+    "llm"
+  ],
+  "authors": [
+    {
+      "name": "Lars Moelleken",
+      "homepage": "https://github.com/voku"
+    }
+  ],
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/voku"
+    }
+  ],
   "require": {
     "php": "^8.3",
     "voku/agent-kanban": "^0.4.0",
@@ -23,8 +52,16 @@
       "url": "https://github.com/voku/agent-loop-runner"
     }
   ],
-  "autoload": {"psr-4": {"voku\\AgentUi\\": "src/"}},
-  "autoload-dev": {"psr-4": {"voku\\AgentUi\\Tests\\": "tests/"}},
+  "autoload": {
+    "psr-4": {
+      "voku\\AgentUi\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "voku\\AgentUi\\Tests\\": "tests/"
+    }
+  },
   "bin": [
     "bin/agent-ui"
   ],
@@ -34,10 +71,21 @@
     "template-lint": "find templates -name '*.php' -print0 | xargs -0 -n1 php -l",
     "cs-check": "php-cs-fixer fix --dry-run --diff",
     "cs-fix": "php-cs-fixer fix",
-    "ci": ["@composer validate --strict", "@test", "@phpstan", "@template-lint", "@cs-check"]
+    "ci": [
+      "@composer validate --strict",
+      "@test",
+      "@phpstan",
+      "@template-lint",
+      "@cs-check"
+    ]
   },
-  "config": {"allow-plugins": false, "sort-packages": true},
+  "config": {
+    "allow-plugins": false,
+    "sort-packages": true
+  },
   "minimum-stability": "dev",
   "prefer-stable": true,
-  "suggest": {"voku/agent-loop-runner": "Install to enable the optional managed execution surface."}
+  "suggest": {
+    "voku/agent-loop-runner": "Install to enable the optional managed execution surface."
+  }
 }

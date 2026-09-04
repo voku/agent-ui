@@ -1,5 +1,14 @@
 # agent-ui
 
+[![Build Status](https://github.com/voku/agent-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/voku/agent-ui/actions)
+[![Latest Stable Version](https://poser.pugx.org/voku/agent-ui/v/stable)](https://packagist.org/packages/voku/agent-ui)
+[![Total Downloads](https://poser.pugx.org/voku/agent-ui/downloads)](https://packagist.org/packages/voku/agent-ui)
+[![Monthly Downloads](https://poser.pugx.org/voku/agent-ui/d/monthly)](https://packagist.org/packages/voku/agent-ui)
+[![License](https://poser.pugx.org/voku/agent-ui/license)](https://packagist.org/packages/voku/agent-ui)
+[![PHP Version Require](https://poser.pugx.org/voku/agent-ui/require/php)](https://packagist.org/packages/voku/agent-ui)
+[![GitHub Stars](https://img.shields.io/github/stars/voku/agent-ui?style=flat-square)](https://github.com/voku/agent-ui/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/voku/agent-ui?style=flat-square)](https://github.com/voku/agent-ui/network/members)
+
 Local, server-rendered human control plane for the governed [`voku/agent-loop`](https://github.com/voku/agent-loop) workflow.
 
 ```text
