@@ -55,7 +55,7 @@ final class MemoryReader
                 continue;
             }
 
-            if ($mode === 'rules' && count($cells) >= 3) {
+            if ($mode === 'rules') {
                 $rules[] = [
                     'subject' => $cells[0],
                     'rule' => $cells[1],

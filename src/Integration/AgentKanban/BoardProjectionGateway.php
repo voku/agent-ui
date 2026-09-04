@@ -30,7 +30,7 @@ final readonly class BoardProjectionGateway
         $boards = [];
         $activeKey = $activeContext->config->id ?? $activeContext->config->projectPrefix;
         foreach ($allContexts as $key => $ctx) {
-            $boardKey = $ctx->config->id ?? (is_string($key) && $key !== '' ? $key : $ctx->config->projectPrefix);
+            $boardKey = $ctx->config->id ?? ($key !== '' ? $key : $ctx->config->projectPrefix);
             $boardTitle = $ctx->config->title ?? $ctx->config->projectPrefix;
             $count = $ctx->repository->loadAllLenient()->cards->count();
             $boards[] = new BoardSummary(
