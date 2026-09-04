@@ -24,6 +24,7 @@ use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Http\Router;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
@@ -68,6 +69,7 @@ final readonly class Application
         $transparency = new TaskTransparencyGateway($projectRoot);
         $learning = new LearningCatalogGateway($projectRoot);
         $setup = new RepositorySetupGateway($projectRoot);
+        $mutation = new CardMutationGateway($projectRoot);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;
@@ -75,7 +77,7 @@ final readonly class Application
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $templates);
         $this->setup = new SetupAction($setup, $csrf, $templates);
-        $this->board = new BoardAction($board, $templates);
+        $this->board = new BoardAction($board, $mutation, $csrf, $templates);
         $this->knowledge = new KnowledgeAction($learning, $templates);
         $this->task = new TaskAction(
             $board,
@@ -84,6 +86,7 @@ final readonly class Application
             $runner,
             $context,
             $transparency,
+            $mutation,
             $csrf,
             $templates,
         );
@@ -114,11 +117,20 @@ final readonly class Application
                 'setup' => $this->setup->overview(),
                 'prompts' => $this->prompts->newTask($request),
                 'board' => ($this->board)($request),
+                'board_new' => $this->board->newCard($request),
+                'board_create' => $this->board->createCard($request),
                 'knowledge' => $this->knowledge->overview($request),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),
                 'task' => ($this->task)($route['task_id'] ?? ''),
+                'task_edit' => $this->task->edit($route['task_id'] ?? ''),
+                'task_update' => $this->task->update($route['task_id'] ?? '', $request),
+                'task_move' => $this->task->move($route['task_id'] ?? '', $request),
+                'task_claim' => $this->task->claim($route['task_id'] ?? '', $request),
+                'task_release' => $this->task->release($route['task_id'] ?? '', $request),
+                'task_contract' => $this->task->contractView($route['task_id'] ?? ''),
+                'task_contract_propose' => $this->task->contractPropose($route['task_id'] ?? '', $request),
                 'task_prompts' => $this->prompts->task($route['task_id'] ?? '', $request),
                 'task_learning' => $this->knowledge->task($route['task_id'] ?? ''),
                 'context' => ($this->context)($route['task_id'] ?? ''),

@@ -8,6 +8,7 @@ use voku\AgentKanban\Cli\BoardContext;
 use voku\AgentKanban\Cli\BoardContextFactory;
 use voku\AgentKanban\Domain\Card;
 use voku\AgentKanban\Domain\CardId;
+use voku\AgentKanban\Transition\TransitionPolicy;
 use voku\AgentLoop\ProjectLayout;
 
 final readonly class BoardProjectionGateway
@@ -25,10 +26,14 @@ final readonly class BoardProjectionGateway
         $allContexts = $factory->createAll($this->layout->boardRoot());
 
         $activeContext = $this->context($boardId);
-        $cards = array_map($this->snapshot(...), $activeContext->repository->loadAllLenient()->cards->all());
+        $activeKey = $activeContext->config->id ?? $activeContext->config->projectPrefix;
+        $policy = new TransitionPolicy($activeContext->config);
+        $cards = [];
+        foreach ($activeContext->repository->loadAllLenient()->cards->all() as $c) {
+            $cards[] = $this->snapshot($c, $activeKey, $policy->allowedTargets($c->lane));
+        }
 
         $boards = [];
-        $activeKey = $activeContext->config->id ?? $activeContext->config->projectPrefix;
         foreach ($allContexts as $key => $ctx) {
             $boardKey = $ctx->config->id ?? ($key !== '' ? $key : $ctx->config->projectPrefix);
             $boardTitle = $ctx->config->title ?? $ctx->config->projectPrefix;
@@ -60,15 +65,22 @@ final readonly class BoardProjectionGateway
 
         foreach ($allContexts as $context) {
             try {
-                return $this->snapshot($context->repository->load($cardId));
+                $loaded = $context->repository->load($cardId);
+                $transitions = (new TransitionPolicy($context->config))->allowedTargets($loaded->lane);
+                $boardKey = $context->config->id ?? $context->config->projectPrefix;
+
+                return $this->snapshot($loaded, $boardKey, $transitions);
             } catch (\Throwable) {
                 continue;
             }
         }
 
         $context = $this->context();
+        $loaded = $context->repository->load($cardId);
+        $transitions = (new TransitionPolicy($context->config))->allowedTargets($loaded->lane);
+        $boardKey = $context->config->id ?? $context->config->projectPrefix;
 
-        return $this->snapshot($context->repository->load($cardId));
+        return $this->snapshot($loaded, $boardKey, $transitions);
     }
 
     private function context(?string $boardId = null): BoardContext
@@ -76,7 +88,10 @@ final readonly class BoardProjectionGateway
         return (new BoardContextFactory())->create($this->layout->boardRoot(), null, null, $boardId);
     }
 
-    private function snapshot(Card $card): CardSnapshot
+    /**
+     * @param list<string> $allowedTransitions
+     */
+    private function snapshot(Card $card, ?string $boardId = null, array $allowedTransitions = []): CardSnapshot
     {
         return new CardSnapshot(
             id: $card->id->toString(),
@@ -89,6 +104,10 @@ final readonly class BoardProjectionGateway
             priority: $card->priority,
             assignee: $card->assignee,
             taskBrief: $card->taskBrief,
+            revision: $card->revision->toString(),
+            claimActor: $card->claim?->actor,
+            allowedTransitions: $allowedTransitions,
+            boardId: $boardId,
         );
     }
 }

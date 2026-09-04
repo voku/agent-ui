@@ -9,10 +9,15 @@ $nav = 'board';
 $projectLabel = $board->projectPrefix;
 require __DIR__ . '/../layout/header.php';
 ?>
-<div class="page-head">
-    <h1><?= TemplateRenderer::escape($board->title ?? 'Board') ?></h1>
-    <p class="lede">Lane order, card fields and status vocabulary are agent-kanban's semantics.
-        This page lays them out and adds none of its own.</p>
+<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1><?= TemplateRenderer::escape($board->title ?? 'Board') ?></h1>
+        <p class="lede">Lane order, card fields and status vocabulary are agent-kanban's semantics.
+            This page lays them out and adds none of its own.</p>
+    </div>
+    <div>
+        <a class="btn btn--primary" href="/board/new<?= $board->id !== null ? '?board=' . rawurlencode($board->id) : '' ?>">+ New card</a>
+    </div>
 </div>
 
 <?php if (count($board->boards) > 1): ?>
@@ -29,9 +34,8 @@ require __DIR__ . '/../layout/header.php';
 <?php if ($board->cards === []): ?>
 <section class="panel">
     <p class="empty">This board has no cards yet, so every lane below is empty.</p>
-    <p class="note">agent-kanban owns card creation. From the project root:
-        <code>vendor/bin/agent-loop board card create <?= TemplateRenderer::escape($board->projectPrefix) ?>-1 --title="…"</code>.
-        agent-ui reads the board; it never writes to it.</p>
+    <p class="note">Create your first card with the <a href="/board/new<?= $board->id !== null ? '?board=' . rawurlencode($board->id) : '' ?>">+ New card</a> form or via CLI:
+        <code>vendor/bin/agent-loop board card create <?= TemplateRenderer::escape($board->projectPrefix) ?>-1 --title="…"</code>.</p>
 </section>
 <?php endif; ?>
 

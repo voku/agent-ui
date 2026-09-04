@@ -6,6 +6,9 @@ namespace voku\AgentUi\Integration\AgentKanban;
 
 final readonly class CardSnapshot
 {
+    /**
+     * @param list<string> $allowedTransitions
+     */
     public function __construct(
         public string $id,
         public string $title,
@@ -17,6 +20,10 @@ final readonly class CardSnapshot
         public ?int $priority,
         public ?string $assignee,
         public string $taskBrief,
+        public string $revision = '',
+        public ?string $claimActor = null,
+        public array $allowedTransitions = [],
+        public ?string $boardId = null,
     ) {
     }
 }

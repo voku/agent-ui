@@ -1,4 +1,5 @@
 <?php
+use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\Transparency\ContextCoverage;
 use voku\AgentLoop\Workflow\Transparency\TaskTransparencyProjection;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
@@ -8,10 +9,11 @@ use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract?: ?TaskContract, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
+$contract = $model['contract'] ?? null;
 $runner = $model['runner'];
 $context = $model['context_explanation'];
 $contextCoverage = $model['context_coverage'];
@@ -37,10 +39,16 @@ $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><?= TemplateRenderer::escape($card->lane) ?></p>
-<div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
-    <h1><?= TemplateRenderer::escape($card->title) ?></h1>
-    <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
+<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div>
+        <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
+        <h1><?= TemplateRenderer::escape($card->title) ?></h1>
+        <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
+    </div>
+    <div class="btn-row" style="margin:0">
+        <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/edit">Edit card</a>
+        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Contract</a>
+    </div>
 </div>
 
 <?php if ($workflow->references !== []): ?>
@@ -65,7 +73,47 @@ require __DIR__ . '/../layout/header.php';
         <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($workflow->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($workflow->state)) ?></span>
         <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
     </div>
-    <h2 style="margin-top:14px">Canonical next action</h2>
+
+    <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+        <div>
+            <span class="small faint">Lane:</span>
+            <strong><?= TemplateRenderer::escape($card->lane) ?></strong>
+        </div>
+        <?php if ($card->status !== ''): ?>
+            <div>
+                <span class="small faint">Status:</span>
+                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($card->status)) ?>"><?= TemplateRenderer::escape($card->status) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($card->priority !== null): ?>
+            <div>
+                <span class="small faint">Priority:</span>
+                <span class="mono small">P<?= (int) $card->priority ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($card->assignee !== null && $card->assignee !== ''): ?>
+            <div>
+                <span class="small faint">Assignee:</span>
+                <strong><?= TemplateRenderer::escape($card->assignee) ?></strong>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($card->allowedTransitions !== []): ?>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="small faint">Transition lane:</span>
+            <?php foreach ($card->allowedTransitions as $targetLane): ?>
+                <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/move" style="margin:0;display:inline">
+                    <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                    <input type="hidden" name="target_lane" value="<?= TemplateRenderer::escape($targetLane) ?>">
+                    <input type="hidden" name="expected_revision" value="<?= TemplateRenderer::escape($card->revision) ?>">
+                    <button class="btn" type="submit">Move to <?= TemplateRenderer::escape($targetLane) ?></button>
+                </form>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <h2 style="margin-top:16px">Canonical next action</h2>
     <p class="action__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($workflow->nextActionKind)) ?></p>
     <div class="codeblock">
         <pre id="next-action"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre>
@@ -139,6 +187,45 @@ require __DIR__ . '/../layout/header.php';
             corresponding human action as recordable.</p>
 
         <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
+            <?php if ($contract !== null): ?>
+                <div style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <strong>Contract Revision <?= (int) $contract->revision ?> (Candidate)</strong>
+                        <span class="small faint">Planned by: <strong><?= TemplateRenderer::escape($contract->plannedBy) ?></strong></span>
+                    </div>
+                    <p style="margin:4px 0 8px"><strong>Goal:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
+                    <div class="grid" style="font-size:12px;margin:8px 0">
+                        <div>
+                            <span class="faint">Scope (<?= count($contract->scope) ?>):</span>
+                            <div class="stack" style="margin-top:2px">
+                                <?php foreach ($contract->scope as $p): ?><code><?= TemplateRenderer::escape($p) ?></code><?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php if ($contract->validation !== []): ?>
+                            <div>
+                                <span class="faint">Validation (<?= count($contract->validation) ?>):</span>
+                                <div class="stack" style="margin-top:2px">
+                                    <?php foreach ($contract->validation as $v): ?><code class="mono"><?= TemplateRenderer::escape($v) ?></code><?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($contract->nonGoals !== []): ?>
+                        <p class="small faint" style="margin:4px 0">Non-goals: <?= TemplateRenderer::escape(implode(', ', $contract->nonGoals)) ?></p>
+                    <?php endif; ?>
+                    <?php if ($contract->acceptanceCriteria !== []): ?>
+                        <div style="margin-top:4px">
+                            <span class="small faint">Acceptance criteria:</span>
+                            <ul style="margin:2px 0;padding-left:16px" class="small">
+                                <?php foreach ($contract->acceptanceCriteria as $ac): ?>
+                                    <li><?= TemplateRenderer::escape($ac) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
             <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve">
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <h3>Approve the current Contract</h3>
@@ -147,11 +234,22 @@ require __DIR__ . '/../layout/header.php';
                 <div class="form__row">
                     <label class="field"><span>Approver</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is approving"></label>
                     <button class="btn btn--primary" type="submit">Approve Contract</button>
+                    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Revise before approving</a>
                 </div>
             </form>
         <?php endif; ?>
 
         <?php if ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
+            <?php if ($transparency->review->findings !== []): ?>
+                <div style="margin-bottom:12px;padding:10px;background:var(--blocked-soft);border-radius:6px">
+                    <strong>Review findings (<?= count($transparency->review->findings) ?>):</strong>
+                    <ul class="small" style="margin:4px 0 0;padding-left:16px">
+                        <?php foreach ($transparency->review->findings as $f): ?>
+                            <li>[<?= TemplateRenderer::escape($f->severity->value) ?>] <?= TemplateRenderer::escape($f->message) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
             <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/review-ack">
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <input type="hidden" name="report_sha256" value="<?= TemplateRenderer::escape($decisions->reviewReportSha256) ?>">
@@ -161,6 +259,7 @@ require __DIR__ . '/../layout/header.php';
                 <div class="form__row">
                     <label class="field"><span>Reviewer</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who reviewed it"></label>
                     <button class="btn btn--primary" type="submit">Acknowledge review</button>
+                    <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Inspect full review report</a>
                 </div>
             </form>
         <?php endif; ?>
@@ -196,6 +295,28 @@ require __DIR__ . '/../layout/header.php';
             <p class="note">Validated findings are intentionally not offered here. A <span class="mono">findings_recorded</span>
                 decision requires real Finding content through the Learning owner.</p>
         <?php endif; ?>
+    </section>
+<?php endif; ?>
+
+<?php if ($contract !== null && $contract->status === TaskContract::APPROVED): ?>
+    <p class="eyebrow">Approved Contract</p>
+    <section class="panel panel--accent">
+        <div class="action__head">
+            <span class="pill pill--ok">Contract Approved</span>
+            <span class="small faint">Revision <?= (int) $contract->revision ?><?php if ($contract->approvedBy !== null): ?> · Approved by <strong><?= TemplateRenderer::escape($contract->approvedBy) ?></strong><?php endif; ?><?php if ($contract->approvedAt !== null): ?> on <?= TemplateRenderer::escape($contract->approvedAt) ?><?php endif; ?></span>
+        </div>
+        <p style="margin:8px 0 4px"><strong>Goal:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
+        <p class="note" style="margin-top:4px"><a href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">View full contract details or propose revision →</a></p>
+    </section>
+<?php elseif ($contract === null): ?>
+    <p class="eyebrow">Task Contract</p>
+    <section class="panel panel--attention">
+        <div class="action__head">
+            <span class="pill pill--attention">No Contract</span>
+            <span class="small faint">Awaiting contract definition</span>
+        </div>
+        <p class="muted" style="margin:8px 0 12px">No execution contract exists yet. Propose a contract to define the approved boundary before starting work.</p>
+        <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Propose Contract →</a>
     </section>
 <?php endif; ?>
 

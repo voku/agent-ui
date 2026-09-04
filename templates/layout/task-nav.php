@@ -13,6 +13,8 @@ use voku\AgentUi\View\TemplateRenderer;
  */
 $taskNavViews = [
     '' => 'Task',
+    '/contract' => 'Contract',
+    '/edit' => 'Edit card',
     '/context' => 'Context & constraints',
     '/work' => 'Work & review',
     '/evidence' => 'Evidence & audit',

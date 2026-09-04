@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'home'|'board'|'setup'|'prompts'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
+    /** @return array{route: 'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'task'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
@@ -23,6 +23,9 @@ final readonly class Router
             }
             if ($request->path === '/board') {
                 return ['route' => 'board'];
+            }
+            if ($request->path === '/board/new' || $request->path === '/task/new') {
+                return ['route' => 'board_new'];
             }
             if ($request->path === '/knowledge') {
                 return ['route' => 'knowledge'];
@@ -39,6 +42,12 @@ final readonly class Router
             }
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/prompts$#')) !== null) {
                 return ['route' => 'task_prompts', 'task_id' => $taskId];
+            }
+            if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/edit$#')) !== null) {
+                return ['route' => 'task_edit', 'task_id' => $taskId];
+            }
+            if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/contract$#')) !== null) {
+                return ['route' => 'task_contract', 'task_id' => $taskId];
             }
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)$#')) !== null) {
                 return ['route' => 'task', 'task_id' => $taskId];
@@ -67,6 +76,9 @@ final readonly class Router
             if ($request->path === '/prompts') {
                 return ['route' => 'prompts'];
             }
+            if ($request->path === '/board/new' || $request->path === '/task/new') {
+                return ['route' => 'board_create'];
+            }
             if ($request->path === '/setup/sync-git') {
                 return ['route' => 'setup_sync_git'];
             }
@@ -84,6 +96,11 @@ final readonly class Router
                 }
             }
             foreach ([
+                'task_update' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/edit$#',
+                'task_move' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/move$#',
+                'task_claim' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/claim$#',
+                'task_release' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/release$#',
+                'task_contract_propose' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/contract$#',
                 'approve' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/approve$#',
                 'review_ack' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/review-ack$#',
                 'learning' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/learning$#',
