@@ -4,6 +4,18 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.12.2] - 2026-09-04
+
+### Fixed
+
+- Raise the released owner floors to `voku/agent-kanban ^0.3.4` and `voku/agent-learning ^0.14.1`, matching the APIs already used by the 0.12.1 UI instead of advertising older incompatible versions.
+- Require the maintained `voku/agent-loop ^0.18.6` release so the published dependency graph can resolve Learning 0.14 without pulling the breaking resource-layout changes already present on Loop `main`.
+- Remove two redundant runtime guards exposed by the stronger released owner types, keeping PHPStan clean on both the current and lowest-supported dependency graphs without weakening analysis.
+
+### Changed
+
+- Add a PHP 8.3 lowest-supported CI lane using `composer update --prefer-lowest --prefer-stable`, so declared dependency floors are executed rather than merely documented.
+
 ## [0.12.1] - 2026-09-01
 
 ### Added
