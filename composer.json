@@ -46,12 +46,6 @@
     "phpunit/phpunit": "^11.5",
     "voku/agent-loop-runner": "^0.1.0"
   },
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/voku/agent-loop-runner"
-    }
-  ],
   "autoload": {
     "psr-4": {
       "voku\\AgentUi\\": "src/"
@@ -83,8 +77,6 @@
     "allow-plugins": false,
     "sort-packages": true
   },
-  "minimum-stability": "dev",
-  "prefer-stable": true,
   "suggest": {
     "voku/agent-loop-runner": "Install to enable the optional managed execution surface."
   }
