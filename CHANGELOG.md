@@ -4,6 +4,15 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Add standalone `bin/agent-ui` executable CLI command supporting `serve` (default), `--port=PORT`, `--host=HOST`, and `--root=PATH` options to easily start the local developer control plane from any project.
+- Expose `"bin": ["bin/agent-ui"]` in `composer.json` for installed Composer consumers.
+- Add CLI application unit test coverage in `tests/Unit/CliApplicationTest.php`.
+- Document standalone `bin/agent-ui` CLI usage and installation in `README.md`.
+
 ## [0.12.2] - 2026-09-04
 
 ### Fixed

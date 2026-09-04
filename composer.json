@@ -24,6 +24,9 @@
   ],
   "autoload": {"psr-4": {"voku\\AgentUi\\": "src/"}},
   "autoload-dev": {"psr-4": {"voku\\AgentUi\\Tests\\": "tests/"}},
+  "bin": [
+    "bin/agent-ui"
+  ],
   "scripts": {
     "test": "phpunit",
     "phpstan": "phpstan analyse --configuration=phpstan.neon.dist --memory-limit=512M",

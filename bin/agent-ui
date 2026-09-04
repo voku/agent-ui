@@ -1,0 +1,97 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoload = null;
+foreach ([
+    $_composer_autoload_path ?? null,
+    dirname(__DIR__) . '/vendor/autoload.php',
+    dirname(__DIR__, 3) . '/autoload.php',
+] as $candidate) {
+    if (is_string($candidate) && is_file($candidate)) {
+        $autoload = $candidate;
+        break;
+    }
+}
+
+if ($autoload === null) {
+    fwrite(STDERR, "Dependencies are not installed. Run composer install.\n");
+    exit(1);
+}
+
+require $autoload;
+
+$args = array_slice($argv, 1);
+$host = '127.0.0.1';
+$port = 8088;
+$projectRoot = getcwd();
+
+foreach ($args as $arg) {
+    if ($arg === 'help' || $arg === '--help' || $arg === '-h') {
+        echo <<<HELP
+agent-ui - Local server-rendered human control plane for voku/agent-loop
+
+Usage:
+  agent-ui [serve] [--port=PORT] [--host=HOST] [--root=PATH]
+  agent-ui help
+
+Options:
+  --port=PORT    Port to bind server to (default: 8088)
+  --host=HOST    Host address to bind server to (default: 127.0.0.1)
+  --root=PATH    Target project root path (default: current working directory)
+  -h, --help     Show this help message
+
+HELP;
+        exit(0);
+    }
+    if (str_starts_with($arg, '--port=')) {
+        $port = (int) substr($arg, 7);
+    } elseif (str_starts_with($arg, '--host=')) {
+        $host = substr($arg, 7);
+    } elseif (str_starts_with($arg, '--root=')) {
+        $projectRoot = substr($arg, 7);
+    } elseif ($arg === 'serve') {
+        // default action
+    }
+}
+
+if (!is_string($projectRoot) || !is_dir($projectRoot)) {
+    fwrite(STDERR, "Error: Project root directory does not exist: {$projectRoot}\n");
+    exit(1);
+}
+
+$realProjectRoot = realpath($projectRoot);
+if ($realProjectRoot === false) {
+    fwrite(STDERR, "Error: Unable to resolve realpath for project root: {$projectRoot}\n");
+    exit(1);
+}
+
+$publicDir = dirname(__DIR__) . '/public';
+$routerScript = $publicDir . '/index.php';
+
+if (!file_exists($routerScript)) {
+    fwrite(STDERR, "Error: Router script not found: {$routerScript}\n");
+    exit(1);
+}
+
+echo "Starting agent-ui local control plane...\n";
+echo "  Project root: {$realProjectRoot}\n";
+echo "  URL:          http://{$host}:{$port}\n";
+echo "Press Ctrl-C to stop.\n\n";
+
+putenv('AGENT_UI_PROJECT_ROOT=' . $realProjectRoot);
+$_ENV['AGENT_UI_PROJECT_ROOT'] = $realProjectRoot;
+
+$phpBinary = PHP_BINARY;
+$command = sprintf(
+    '%s -S %s:%d -t %s %s',
+    escapeshellarg($phpBinary),
+    escapeshellarg($host),
+    $port,
+    escapeshellarg($publicDir),
+    escapeshellarg($routerScript)
+);
+
+passthru($command, $exitCode);
+exit($exitCode);

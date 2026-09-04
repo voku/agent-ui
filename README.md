@@ -24,19 +24,47 @@ The v0.1 → v0.10 control-plane roadmap is implemented:
 - bounded durable Learning/Knowledge browsing through `agent-learning`;
 - an attention-first cockpit that composes Setup, Needs you, Current work, Knowledge and the board without inventing a universal priority algorithm.
 
-## Development install
+## Installation
+
+```bash
+composer require --dev voku/agent-ui
+```
+
+The package exposes the standalone local control-plane server CLI:
+
+```bash
+vendor/bin/agent-ui
+```
+
+## Quick Start
+
+Start the local control plane in your project root:
+
+```bash
+vendor/bin/agent-ui
+```
+
+Then open `http://127.0.0.1:8088` in your browser. Bind to loopback; this is a local developer control plane.
+
+### CLI Options
+
+```bash
+# Custom port
+vendor/bin/agent-ui --port=8080
+
+# Explicit project root
+vendor/bin/agent-ui --root=/path/to/project
+
+# Custom host binding
+vendor/bin/agent-ui --host=127.0.0.1 --port=9000
+```
+
+### Development Run
 
 ```bash
 composer install
+AGENT_UI_PROJECT_ROOT=/path/to/project php -S 127.0.0.1:8088 -t public
 ```
-
-## Run
-
-```bash
-AGENT_UI_PROJECT_ROOT=/path/to/a/project/using-agent-loop php -S 127.0.0.1:8088 -t public
-```
-
-Then open `http://127.0.0.1:8088`. Bind to loopback; this is a local developer control plane.
 
 Top-level navigation is `Overview | Setup | Prompts | Board | Knowledge`. Task routes are `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, and `/task/{id}/learning`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same navigation across all seven. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
 
