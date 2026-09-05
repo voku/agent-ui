@@ -125,6 +125,7 @@ final readonly class Application
                 'board_new' => $this->board->newCard($request),
                 'board_create' => $this->board->createCard($request),
                 'map' => $this->map->index($request),
+                'map_graph' => $this->map->graph($request),
                 'map_symbol' => $this->map->symbol($request),
                 'map_context' => $this->map->context($request),
                 'knowledge' => $this->knowledge->overview($request),
