@@ -233,7 +233,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
 
         $precedentFacts = array_values(array_filter(
             $recallOutput->facts(),
-            static fn ($fact): bool => $fact->type === 'learning_precedent',
+            static fn($fact): bool => $fact->type === 'learning_precedent',
         ));
         self::assertCount(1, $precedentFacts);
         $precedent = $precedentFacts[0];
