@@ -113,7 +113,7 @@ if ($graph !== null) {
                 $maximumEdgeWeight = max($maximumEdgeWeight, $edge->weight);
             }
             ?>
-            <svg viewBox="0 0 1000 700" role="img" aria-labelledby="map-graph-title map-graph-desc" style="display:block;width:100%;min-width:760px;min-height:520px;background:var(--surface-alt);border:1px solid var(--rule);border-radius:var(--radius-sm)">
+            <svg viewBox="0 0 1000 700" aria-labelledby="map-graph-title map-graph-desc" style="display:block;width:100%;min-width:760px;min-height:520px;background:var(--surface-alt);border:1px solid var(--rule);border-radius:var(--radius-sm)">
                 <title id="map-graph-title"><?= TemplateRenderer::escape($graph->title) ?></title>
                 <desc id="map-graph-desc">A bounded agent-map coupling graph. Nodes are ordered by weighted degree and edges by coupling weight. The tables below contain the same information.</desc>
 
