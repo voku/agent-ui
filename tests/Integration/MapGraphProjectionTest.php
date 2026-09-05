@@ -38,6 +38,7 @@ final class MapGraphProjectionTest extends TestCase
         self::assertCount(2, $graph->nodes);
         self::assertSame(3, $graph->totalEdgeCount);
         self::assertCount(1, $graph->edges);
+        self::assertArrayHasKey('references_type', $graph->edges[0]->signals);
         self::assertArrayHasKey('path', $graph->edges[0]->signals);
         self::assertTrue($graph->isTruncated());
     }
@@ -53,17 +54,33 @@ final class MapGraphProjectionTest extends TestCase
         self::assertStringContainsString('<svg', $response->body);
         self::assertStringContainsString('Edges &amp; evidence', $response->body);
         self::assertStringContainsString('agent-map discovery projection', $response->body);
+        self::assertStringContainsString('references_type', $response->body);
     }
 
     private function writeMap(): void
     {
         $files = [];
         foreach (['Alpha.php', 'Beta.php', 'Gamma.php'] as $name) {
+            $className = substr($name, 0, -4);
             $files[] = [
                 'path' => 'src/Feature/' . $name,
                 'sha256' => hash('sha256', $name),
                 'namespace' => 'App\\Feature',
-                'symbols' => [],
+                'symbols' => [[
+                    'kind' => 'class',
+                    'name' => $className,
+                    'fqn' => 'App\\Feature\\' . $className,
+                    'line_start' => 1,
+                    'line_end' => 20,
+                    'methods' => [],
+                    'extends' => [],
+                    'implements' => [],
+                    'parameters' => [],
+                    'attributes' => [],
+                    'uses' => [],
+                    'templates' => [],
+                    'reconciliation_status' => 'structural_only',
+                ]],
                 'semantic_status' => 'analyzed',
             ];
         }
@@ -73,7 +90,15 @@ final class MapGraphProjectionTest extends TestCase
             'root' => $this->root,
             'backend' => 'simple-php-code-parser+phpstan',
             'files' => $files,
-            'relations' => [],
+            'relations' => [[
+                'source_id' => 'class:App\\Feature\\Alpha',
+                'kind' => 'references_type',
+                'target_ids' => ['class:App\\Feature\\Beta'],
+                'file' => 'src/Feature/Alpha.php',
+                'line_start' => 8,
+                'line_end' => 8,
+                'resolution' => 'definite',
+            ]],
             'diagnostics' => [],
         ];
 
