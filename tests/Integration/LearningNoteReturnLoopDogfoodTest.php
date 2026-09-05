@@ -121,8 +121,8 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
             scope: ['composer.json'],
             observation: 'Issue #16 required released owner APIs before the downstream UI integration instead of dev-main coupling.',
             evidence: [[
-                'type' => 'repository_task',
-                'summary' => 'agent-ui#16 explicitly required replacing dev-main with the latest compatible published stable owner before integration.',
+                'type' => 'manual_verification',
+                'summary' => 'Verified against agent-ui#16: replace dev-main with the latest compatible published stable owner before integration.',
             ]],
             hypothesis: 'Release the semantic owner first, then consume the stable owner contract downstream.',
             validatedConclusion: 'Cross-package UI work should consume a released semantic-owner API instead of dev-main or private storage.',
