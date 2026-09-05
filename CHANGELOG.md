@@ -6,6 +6,15 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Add region quick-jump navigation bar to the architecture graph view, listing all available regions with file counts.
+- Support querying the architecture graph by file path, mapping files directly to their owning architecture regions.
+- Gracefully handle unknown region queries in graph projection instead of throwing unhandled exceptions.
+- Add direct "Architecture Graph" action on the symbol detail page.
+- Add progressive hover connection highlighting for graph nodes and edges in bundled client script.
+- Support `nodes` and `edges` query parameters on `/map/graph` to configure projection bounds.
+
 ## [0.13.0] - 2026-09-04
 
 ### Changed

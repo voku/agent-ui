@@ -11,6 +11,7 @@ final readonly class MapGraphSnapshot
      * @param list<MapGraphNode> $nodes
      * @param list<MapGraphEdge> $edges
      * @param list<array{id: string, label: string}> $breadcrumbs
+     * @param list<array{id: string, label: string, fileCount: int}> $availableRegions
      */
     public function __construct(
         public string $mapDigest,
@@ -23,6 +24,7 @@ final readonly class MapGraphSnapshot
         public array $breadcrumbs = [],
         public ?string $regionId = null,
         public ?string $regionLabel = null,
+        public array $availableRegions = [],
     ) {
     }
 

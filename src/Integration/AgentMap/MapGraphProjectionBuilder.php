@@ -29,22 +29,48 @@ final readonly class MapGraphProjectionBuilder
 
         $graph = (new FileCouplingGraphBuilder())->build($index);
         $architecture = (new ArchitectureMapBuilder())->build($index);
-        $regionQuery = trim((string) $regionQuery);
-
-        if ($regionQuery !== '') {
-            return $this->fileSnapshot(
-                $graph,
-                $architecture,
-                $architecture->resolveRegion($regionQuery),
-                $maximumNodes,
-                $maximumEdges,
-            );
-        }
 
         $finestRegions = [];
         foreach ($architecture->regions as $region) {
             if ($region->level === 1) {
                 $finestRegions[] = $region;
+            }
+        }
+
+        $availableRegions = [];
+        foreach ($finestRegions as $r) {
+            $availableRegions[] = [
+                'id' => $r->id,
+                'label' => $r->label,
+                'fileCount' => count($r->files),
+            ];
+        }
+        usort(
+            $availableRegions,
+            static fn(array $left, array $right): int =>
+            $right['fileCount'] <=> $left['fileCount']
+            ?: strcasecmp($left['label'], $right['label']),
+        );
+
+        $regionQuery = trim((string) $regionQuery);
+        if ($regionQuery !== '') {
+            $targetRegion = null;
+            try {
+                $targetRegion = $architecture->resolveRegion($regionQuery);
+            } catch (InvalidArgumentException) {
+                $targetRegion = $architecture->regionForFile($regionQuery, 1)
+                    ?? $architecture->regionForFile($regionQuery);
+            }
+
+            if ($targetRegion !== null) {
+                return $this->fileSnapshot(
+                    $graph,
+                    $architecture,
+                    $targetRegion,
+                    $maximumNodes,
+                    $maximumEdges,
+                    $availableRegions,
+                );
             }
         }
 
@@ -55,14 +81,16 @@ final readonly class MapGraphProjectionBuilder
                 $finestRegions,
                 $maximumNodes,
                 $maximumEdges,
+                $availableRegions,
             );
         }
 
-        return $this->fileSnapshot($graph, $architecture, null, $maximumNodes, $maximumEdges);
+        return $this->fileSnapshot($graph, $architecture, null, $maximumNodes, $maximumEdges, $availableRegions);
     }
 
     /**
      * @param list<ArchitectureRegion> $regions
+     * @param list<array{id: string, label: string, fileCount: int}> $availableRegions
      */
     private function architectureSnapshot(
         WeightedFileGraph $graph,
@@ -70,6 +98,7 @@ final readonly class MapGraphProjectionBuilder
         array $regions,
         int $maximumNodes,
         int $maximumEdges,
+        array $availableRegions,
     ): MapGraphSnapshot {
         /** @var array<string, ArchitectureRegion> $regionsById */
         $regionsById = [];
@@ -168,15 +197,20 @@ final readonly class MapGraphProjectionBuilder
             edges: $edges,
             totalNodeCount: $totalNodeCount,
             totalEdgeCount: $totalEdgeCount,
+            availableRegions: $availableRegions,
         );
     }
 
+    /**
+     * @param list<array{id: string, label: string, fileCount: int}> $availableRegions
+     */
     private function fileSnapshot(
         WeightedFileGraph $graph,
         ArchitectureMapReport $architecture,
         ?ArchitectureRegion $region,
         int $maximumNodes,
         int $maximumEdges,
+        array $availableRegions,
     ): MapGraphSnapshot {
         $files = $region->files ?? $graph->files;
         $fileSet = array_fill_keys($files, true);
@@ -260,6 +294,7 @@ final readonly class MapGraphProjectionBuilder
             breadcrumbs: $breadcrumbs,
             regionId: $region?->id,
             regionLabel: $region?->label,
+            availableRegions: $availableRegions,
         );
     }
 

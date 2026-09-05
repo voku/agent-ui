@@ -22,3 +22,25 @@ document.querySelectorAll('.copy').forEach(function (button) {
         });
     });
 });
+
+/* Graph connection highlighting on node hover */
+document.querySelectorAll('.graph-node-link').forEach(function (node) {
+    var nodeId = node.dataset.nodeId;
+    if (!nodeId) { return; }
+    node.addEventListener('mouseenter', function () {
+        document.querySelectorAll('.graph-edge').forEach(function (edge) {
+            if (edge.dataset.source === nodeId || edge.dataset.target === nodeId) {
+                edge.setAttribute('stroke', 'var(--accent)');
+                edge.setAttribute('stroke-opacity', '0.9');
+            } else {
+                edge.setAttribute('stroke-opacity', '0.12');
+            }
+        });
+    });
+    node.addEventListener('mouseleave', function () {
+        document.querySelectorAll('.graph-edge').forEach(function (edge) {
+            edge.setAttribute('stroke', 'var(--ink-faint)');
+            edge.setAttribute('stroke-opacity', '0.38');
+        });
+    });
+});

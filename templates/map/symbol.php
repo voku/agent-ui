@@ -23,6 +23,7 @@ require __DIR__ . '/../layout/header.php';
         <p class="lede">Defined in <code><?= TemplateRenderer::escape($symbol->file) ?>:<?= (int) $symbol->lineStart ?>-<?= (int) $symbol->lineEnd ?></code></p>
     </div>
     <div style="display:flex;gap:8px">
+        <a class="btn" href="/map/graph?region=<?= rawurlencode($symbol->file) ?>">Architecture Graph</a>
         <?php if ($symbol->kind === 'method'): ?>
             <a class="btn btn--primary" href="/map/context?target=<?= rawurlencode($symbol->fqn) ?>">Edit Context Plan</a>
         <?php endif; ?>

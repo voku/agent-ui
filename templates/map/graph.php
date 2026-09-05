@@ -86,6 +86,21 @@ if ($graph !== null) {
         </p>
     <?php endif; ?>
 
+    <?php if ($graph->availableRegions !== []): ?>
+        <nav class="panel" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;margin-bottom:16px" aria-label="Available architecture regions">
+            <span class="small faint" style="font-weight:600;margin-right:4px">Regions:</span>
+            <a href="/map/graph" class="pill <?= $graph->scope === 'architecture' ? 'pill--accent' : 'pill--neutral' ?>" style="text-decoration:none">All regions (<?= count($graph->availableRegions) ?>)</a>
+            <?php foreach ($graph->availableRegions as $regionItem): ?>
+                <a href="/map/graph?region=<?= rawurlencode($regionItem['id']) ?>"
+                   class="pill <?= ($graph->regionId === $regionItem['id']) ? 'pill--accent' : 'pill--neutral' ?>"
+                   style="text-decoration:none"
+                   title="<?= TemplateRenderer::escape($regionItem['label']) ?> (<?= $regionItem['fileCount'] ?> files)">
+                    <?= TemplateRenderer::escape($regionItem['label']) ?> <span class="faint">(<?= $regionItem['fileCount'] ?>)</span>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+    <?php endif; ?>
+
     <section class="panel panel--accent">
         <div class="action__head">
             <strong><?= TemplateRenderer::escape($graph->scope === 'architecture' ? 'Architecture overview' : 'File coupling') ?></strong>
@@ -114,6 +129,12 @@ if ($graph !== null) {
             }
             ?>
             <svg viewBox="0 0 1000 700" aria-labelledby="map-graph-title map-graph-desc" style="display:block;width:100%;min-width:760px;min-height:520px;background:var(--surface-alt);border:1px solid var(--rule);border-radius:var(--radius-sm)">
+                <style>
+                    .graph-edge { transition: stroke 0.15s ease, stroke-opacity 0.15s ease; }
+                    .graph-node-link { cursor: pointer; text-decoration: none; }
+                    .graph-node-link:hover rect { fill: var(--surface-alt); stroke: var(--accent); stroke-width: 2.5px; }
+                    .graph-node-link:focus rect { stroke: var(--accent); stroke-width: 3px; }
+                </style>
                 <title id="map-graph-title"><?= TemplateRenderer::escape($graph->title) ?></title>
                 <desc id="map-graph-desc">A bounded agent-map coupling graph. Nodes are ordered by weighted degree and edges by coupling weight. The tables below contain the same information.</desc>
 
@@ -135,6 +156,9 @@ if ($graph !== null) {
                     $targetLabel = $nodesById[$edge->targetId]->label ?? $edge->targetId;
                     ?>
                     <line
+                        class="graph-edge"
+                        data-source="<?= TemplateRenderer::escape($edge->sourceId) ?>"
+                        data-target="<?= TemplateRenderer::escape($edge->targetId) ?>"
                         x1="<?= number_format($source['x'], 2, '.', '') ?>"
                         y1="<?= number_format($source['y'], 2, '.', '') ?>"
                         x2="<?= number_format($target['x'], 2, '.', '') ?>"
@@ -159,8 +183,8 @@ if ($graph !== null) {
                         ? '/map/graph?region=' . rawurlencode($node->regionId)
                         : '/map?q=' . rawurlencode($node->file ?? $node->label);
                     ?>
-                    <a href="<?= TemplateRenderer::escape($href) ?>">
-                        <g>
+                    <a href="<?= TemplateRenderer::escape($href) ?>" class="graph-node-link" data-node-id="<?= TemplateRenderer::escape($node->id) ?>">
+                        <g class="graph-node">
                             <title><?= TemplateRenderer::escape($nodeTitle) ?></title>
                             <rect
                                 x="<?= number_format($position['x'] - 78.0, 2, '.', '') ?>"

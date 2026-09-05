@@ -35,8 +35,10 @@ final readonly class MapAction
     {
         $readiness = $this->map->readiness();
         $region = trim($request->query['region'] ?? '');
+        $maximumNodes = isset($request->query['nodes']) ? max(2, min(100, (int) $request->query['nodes'])) : 30;
+        $maximumEdges = isset($request->query['edges']) ? max(1, min(200, (int) $request->query['edges'])) : 80;
         $graph = $readiness->isUsable()
-            ? $this->map->graph($region !== '' ? $region : null)
+            ? $this->map->graph($region !== '' ? $region : null, $maximumNodes, $maximumEdges)
             : null;
 
         return Response::html($this->templates->render('map/graph', [

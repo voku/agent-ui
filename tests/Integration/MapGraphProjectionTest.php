@@ -55,6 +55,39 @@ final class MapGraphProjectionTest extends TestCase
         self::assertStringContainsString('Edges &amp; evidence', $response->body);
         self::assertStringContainsString('agent-map discovery projection', $response->body);
         self::assertStringContainsString('references_type', $response->body);
+        self::assertStringContainsString('class="graph-edge"', $response->body);
+        self::assertStringContainsString('class="graph-node-link"', $response->body);
+    }
+
+    public function testGraphProjectionSupportsQueryByFilePathAndGracefulFallback(): void
+    {
+        $gateway = new MapProjectionGateway($this->root);
+
+        // Resolving by file path
+        $byFile = $gateway->graph('src/Feature/Alpha.php');
+        self::assertNotNull($byFile);
+        self::assertNotEmpty($byFile->nodes);
+
+        // Graceful fallback on unknown region
+        $unknown = $gateway->graph('nonexistent-region-id-999');
+        self::assertNotNull($unknown);
+        self::assertNotEmpty($unknown->nodes);
+
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $action = new MapAction($gateway, $templates);
+        $response = $action->graph(new Request('GET', '/map/graph', query: ['region' => 'nonexistent-xyz']));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('<svg', $response->body);
+    }
+
+    public function testGraphActionSupportsCustomNodeAndEdgeBoundsFromQuery(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $action = new MapAction(new MapProjectionGateway($this->root), $templates);
+
+        $response = $action->graph(new Request('GET', '/map/graph', query: ['nodes' => '2', 'edges' => '1']));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('<svg', $response->body);
     }
 
     private function writeMap(): void
