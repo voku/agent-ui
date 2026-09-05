@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Composer\InstalledVersions;
-use RuntimeException;
 use voku\AgentLoop\Workflow\HostFrontDoorCommand;
 use voku\AgentLoop\Workflow\WorkflowApproveCommand;
 use voku\AgentLoop\Workflow\WorkflowExecutionProfileCommand;
@@ -133,7 +132,8 @@ try {
     ensure($snapshot->allowRun === $ownerStatus->allows('run'), 'UI run control drifted from Runner owner status.');
     ensure($snapshot->allowResume === $ownerStatus->allows('resume'), 'UI resume control drifted from Runner owner status.');
     ensure($snapshot->allowCancel === $ownerStatus->allows('cancel'), 'UI cancel control drifted from Runner owner status.');
-    ensure(str_contains($taskResponse->body, 'Loop authority'), 'Task UI no longer labels Loop authority separately from Runner observation.');
+    ensure(str_contains($taskResponse->body, 'agent-loop authority'), 'Task UI no longer labels agent-loop authority.');
+    ensure(str_contains($taskResponse->body, 'runner observation'), 'Task UI no longer labels Runner observation separately.');
 
     echo 'runner-optional-matrix: installed shape OK (' . $prettyVersion . ")\n";
 } finally {
@@ -149,7 +149,7 @@ function git(string $root, array $arguments): string
         $pipes,
     );
     if (!is_resource($process)) {
-        throw new RuntimeException('Unable to start git.');
+        throw new \RuntimeException('Unable to start git.');
     }
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);
@@ -157,7 +157,7 @@ function git(string $root, array $arguments): string
     fclose($pipes[2]);
     $exit = proc_close($process);
     if ($exit !== 0) {
-        throw new RuntimeException('git failed: ' . trim((string) $stderr));
+        throw new \RuntimeException('git failed: ' . trim((string) $stderr));
     }
 
     return (string) $stdout;
@@ -178,7 +178,7 @@ function silent(callable $operation): void
 function ensure(bool $condition, string $message): void
 {
     if (!$condition) {
-        throw new RuntimeException($message);
+        throw new \RuntimeException($message);
     }
 }
 
