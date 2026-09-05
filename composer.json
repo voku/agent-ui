@@ -46,6 +46,12 @@
     "phpunit/phpunit": "^11.5",
     "voku/agent-loop-runner": "^0.1.0"
   },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/voku/agent-loop-runner"
+    }
+  ],
   "autoload": {
     "psr-4": {
       "voku\\AgentUi\\": "src/"
