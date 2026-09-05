@@ -6,23 +6,26 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-05
+
 ### Added
 
-- Add bounded human-readable architecture and file-coupling graph projection from agent-map owner projections with deterministic SVG rendering, region drill-down, and evidence tables on `/map/graph` (#30).
-- Add "Explore architecture graph" entrypoint from the Code Map index page.
-- Add region quick-jump navigation bar to the architecture graph view, listing all available regions with file counts.
-- Support querying the architecture graph by file path, mapping files directly to their owning architecture regions.
-- Gracefully handle unknown region queries in graph projection instead of throwing unhandled exceptions.
-- Add direct "Architecture Graph" action on the symbol detail page.
-- Add progressive hover connection highlighting for graph nodes and edges in bundled client script.
-- Support `nodes` and `edges` query parameters on `/map/graph` to configure projection bounds.
-- Transform the home overview into a unified Developer Cockpit featuring an Action Deck (`+ New Kanban Task`, `Architecture Graph`, `Prompt Workbench`, `Setup & Runtime`), System Vitals ribbon (Code Map health, Kanban flow velocity, Attention radar, Loop Runner state), and Architecture Pulse region coupling preview.
-- Wire `MapProjectionGateway` and `RunnerGateway` into `HomeAction` to project code map and runner status on the main cockpit view.
-- Expose `isInstalled()` method on `RunnerGateway`.
+- Add bounded human-readable architecture and file-coupling graph projection from agent-map owner projections with deterministic SVG rendering, region drill-down, evidence tables, file-path lookup, region navigation, quick jumps, and bounded node/edge controls on `/map/graph` (#30).
+- Transform the home overview into a unified Developer Cockpit with an Action Deck, System Vitals, Architecture Pulse, Code Map health, Kanban flow, attention state, and optional Loop Runner status.
+- Add released-consumer dogfood for the LearningNote return loop: a completed task can expose optional LearningNote work, lose its transient Session, and a later normal `enter` deterministically receives the current precedent through Recall without private Learning storage access (#31, #32).
+- Add the Runner optional-installation matrix: a `--no-dev` consumer proves the UI remains usable with Runner absent, while the installed shape proves the tagged Runner owner projection remains observational and cannot advance Loop authority (#33).
+- Add repository contribution, security, issue/PR template, funding, editor, and release-archive metadata for the public package.
 
 ### Changed
 
-- Require released `voku/agent-loop-runner ^0.1.0` instead of `dev-main`, and remove the runner VCS repository declaration.
+- Raise the released owner floors to `voku/agent-learning ^0.16.1` and `voku/agent-loop ^0.20.0` for the LearningNote return-loop contract exercised by the UI.
+- Require released `voku/agent-loop-runner ^0.1.1` instead of `dev-main`. Keep the stable Runner VCS discovery entry because normal Composer discovery still does not resolve the tagged package; `minimum-stability: dev` remains removed.
+- Keep Runner optional in `require-dev`/`suggest`: normal production installation and read-only UI use do not require the managed-execution package.
+
+### Validation
+
+- PR #31 exact head `2b6be113cfad6b4650b0dae975148eee222adf63` passed PHP 8.3/8.4/8.5 plus `prefer-lowest` against released Learning `0.16.1`, Loop `0.20.0`, Recall `0.15.0`, and Runner `0.1.1`; follow-up #32 kept the observed Run-B outcome evidence-bound as `NO_EFFECT` because delivery was proven but downstream use was not observed.
+- PR #33 exact head `62922e186d18130bde7e0ebe3d3fb8bea48d1ab1` passed PHP 8.3/8.4/8.5 plus `prefer-lowest`, and its dedicated Runner matrix passed both the production `--no-dev` absent shape and released tagged installed shape.
 
 ## [0.13.0] - 2026-09-04
 
