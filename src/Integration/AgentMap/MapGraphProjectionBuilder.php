@@ -178,7 +178,7 @@ final readonly class MapGraphProjectionBuilder
         int $maximumNodes,
         int $maximumEdges,
     ): MapGraphSnapshot {
-        $files = $region?->files ?? $graph->files;
+        $files = $region->files ?? $graph->files;
         $fileSet = array_fill_keys($files, true);
 
         /** @var array<string, float> $nodeWeights */
