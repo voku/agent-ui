@@ -10,6 +10,8 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
 final readonly class HomeAction
@@ -19,6 +21,8 @@ final readonly class HomeAction
         private WorkflowProjectionGateway $workflow,
         private RepositorySetupGateway $setup,
         private LearningCatalogGateway $learning,
+        private MapProjectionGateway $map,
+        private RunnerGateway $runner,
         private TemplateRenderer $templates,
     ) {
     }
@@ -58,6 +62,44 @@ final readonly class HomeAction
             $learningError = $exception->getMessage();
         }
 
+        $mapReadiness = null;
+        $graph = null;
+        try {
+            $mapReadiness = $this->map->readiness();
+            if ($mapReadiness->isUsable()) {
+                $graph = $this->map->graph();
+            }
+        } catch (Throwable) {
+            // map remains defensive
+        }
+
+        $runnerInstalled = $this->runner->isInstalled();
+        $activeRunnerTasks = [];
+        if ($runnerInstalled) {
+            foreach ($board->cards as $card) {
+                try {
+                    $runnerSnapshot = $this->runner->status($card->id);
+                    if ($runnerSnapshot->observationStatus === 'running') {
+                        $activeRunnerTasks[] = [
+                            'taskId' => $card->id,
+                            'title' => $card->title,
+                            'stage' => $runnerSnapshot->observationStageId ?? $runnerSnapshot->currentStageId,
+                        ];
+                    }
+                } catch (Throwable) {
+                    // runner status probe stays safe
+                }
+            }
+        }
+
+        $laneCounts = [];
+        foreach ($board->lanes as $lane) {
+            $laneCounts[$lane] = 0;
+        }
+        foreach ($board->cards as $card) {
+            $laneCounts[$card->lane] = ($laneCounts[$card->lane] ?? 0) + 1;
+        }
+
         return Response::html($this->templates->render('home/index', [
             'board' => $board,
             'attention' => $attention,
@@ -66,6 +108,11 @@ final readonly class HomeAction
             'setup_error' => $setupError,
             'learning' => $learning,
             'learning_error' => $learningError,
+            'map_readiness' => $mapReadiness,
+            'graph' => $graph,
+            'runner_installed' => $runnerInstalled,
+            'active_runner_tasks' => $activeRunnerTasks,
+            'lane_counts' => $laneCounts,
         ]));
     }
 }

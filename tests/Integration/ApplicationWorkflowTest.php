@@ -138,4 +138,21 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Contract Approved', $taskApprovedResponse->body);
         self::assertStringContainsString('Approved by <strong>lead-engineer</strong>', $taskApprovedResponse->body);
     }
+
+    public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void
+    {
+        $app = new Application($this->root, $this->templates);
+
+        $response = $app->handle(new Request('GET', '/'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Developer Cockpit', $response->body);
+        self::assertStringContainsString('System Vitals', $response->body);
+        self::assertStringContainsString('Code Map', $response->body);
+        self::assertStringContainsString('Kanban Flow', $response->body);
+        self::assertStringContainsString('Attention Radar', $response->body);
+        self::assertStringContainsString('Loop Runner', $response->body);
+        self::assertStringContainsString('+ New Kanban Task', $response->body);
+        self::assertStringContainsString('Architecture Graph', $response->body);
+        self::assertStringContainsString('Prompt Workbench', $response->body);
+    }
 }

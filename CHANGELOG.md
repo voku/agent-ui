@@ -16,6 +16,9 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - Add direct "Architecture Graph" action on the symbol detail page.
 - Add progressive hover connection highlighting for graph nodes and edges in bundled client script.
 - Support `nodes` and `edges` query parameters on `/map/graph` to configure projection bounds.
+- Transform the home overview into a unified Developer Cockpit featuring an Action Deck (`+ New Kanban Task`, `Architecture Graph`, `Prompt Workbench`, `Setup & Runtime`), System Vitals ribbon (Code Map health, Kanban flow velocity, Attention radar, Loop Runner state), and Architecture Pulse region coupling preview.
+- Wire `MapProjectionGateway` and `RunnerGateway` into `HomeAction` to project code map and runner status on the main cockpit view.
+- Expose `isInstalled()` method on `RunnerGateway`.
 
 ### Changed
 

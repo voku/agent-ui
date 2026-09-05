@@ -1,11 +1,28 @@
 <?php
+
 use voku\AgentLearning\Catalog\LearningOverview;
 use voku\AgentLoop\Init\RepositorySetupProjection;
 use voku\AgentUi\Integration\AgentKanban\BoardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
+use voku\AgentUi\Integration\AgentMap\MapGraphSnapshot;
+use voku\AgentUi\Integration\AgentMap\MapReadinessSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{board: BoardSnapshot, attention: list<WorkflowSnapshot>, work: list<WorkflowSnapshot>, setup: RepositorySetupProjection|null, setup_error: string|null, learning: LearningOverview|null, learning_error: string|null} $model */
+
+/** @var array{
+ *     board: BoardSnapshot,
+ *     attention: list<WorkflowSnapshot>,
+ *     work: list<WorkflowSnapshot>,
+ *     setup: RepositorySetupProjection|null,
+ *     setup_error: string|null,
+ *     learning: LearningOverview|null,
+ *     learning_error: string|null,
+ *     map_readiness: MapReadinessSnapshot|null,
+ *     graph: MapGraphSnapshot|null,
+ *     runner_installed: bool,
+ *     active_runner_tasks: list<array{taskId: string, title: string, stage: ?string}>,
+ *     lane_counts: array<string, int>,
+ * } $model */
 $board = $model['board'];
 $attention = $model['attention'];
 $work = $model['work'];
@@ -13,7 +30,13 @@ $setup = $model['setup'];
 $setupError = $model['setup_error'];
 $learning = $model['learning'];
 $learningError = $model['learning_error'];
-$title = 'Overview · ' . $board->projectPrefix . ' · agent-ui';
+$mapReadiness = $model['map_readiness'] ?? null;
+$graph = $model['graph'] ?? null;
+$runnerInstalled = (bool) ($model['runner_installed'] ?? false);
+$activeRunnerTasks = $model['active_runner_tasks'] ?? [];
+$laneCounts = $model['lane_counts'] ?? [];
+
+$title = 'Developer Cockpit · ' . $board->projectPrefix . ' · agent-ui';
 $nav = 'home';
 $projectLabel = $board->projectPrefix;
 $titles = [];
@@ -22,26 +45,112 @@ foreach ($board->cards as $card) {
 }
 require __DIR__ . '/../layout/header.php';
 ?>
-<div class="page-head">
-    <h1><?= TemplateRenderer::escape($board->projectPrefix) ?> control plane</h1>
-    <p class="lede">One cockpit, multiple owners. Workflow authority, setup state, Recall/Learning truth and repository observation stay visibly separate.</p>
+<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+    <div>
+        <h1><?= TemplateRenderer::escape($board->projectPrefix) ?> Developer Cockpit</h1>
+        <p class="lede">Unified control plane across workflow authority, repository observation, autonomous execution, and durable learning.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <a class="btn btn--primary" href="/board/new">+ New Kanban Task</a>
+        <a class="btn" href="/map/graph">Architecture Graph</a>
+        <a class="btn" href="/prompts">Prompt Workbench</a>
+        <a class="btn" href="/setup">Setup &amp; Runtime</a>
+    </div>
 </div>
 
-<p class="eyebrow">Setup</p>
-<section class="panel<?= $setupError !== null ? ' panel--danger' : '' ?>">
-    <?php if ($setupError !== null): ?>
-        <h2>Setup state unavailable</h2>
-        <p class="muted"><?= TemplateRenderer::escape($setupError) ?></p>
-    <?php elseif ($setup !== null): ?>
-        <h2>Repository readiness</h2>
-        <p>
-            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($setup->runtime?->status->value ?? 'unavailable')) ?>"><?= TemplateRenderer::escape($setup->runtime?->status->value ?? 'unavailable') ?></span>
-            <?php if ($setup->host !== null): ?><span class="mono"><?= TemplateRenderer::escape($setup->host) ?></span><?php endif; ?>
+<p class="eyebrow">System Vitals</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">
+    <section class="panel panel--accent">
+        <div class="action__head">
+            <span class="small faint" style="font-weight:600">Code Map</span>
+            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($mapReadiness?->status ?? 'missing')) ?>">
+                <?= TemplateRenderer::escape($mapReadiness?->status ?? 'missing') ?>
+            </span>
+        </div>
+        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
+            <?= (int) ($mapReadiness?->fileCount ?? 0) ?> <span class="small muted" style="font-weight:normal">files</span> · <?= (int) ($mapReadiness?->symbolCount ?? 0) ?> <span class="small muted" style="font-weight:normal">symbols</span>
         </p>
-        <p class="small muted"><?= TemplateRenderer::escape($setup->nextAction ?? 'No repository-owned setup action is currently projected.') ?></p>
-        <p><a href="/setup">Inspect setup and safe owner actions →</a></p>
-    <?php endif; ?>
-</section>
+        <p class="small muted" style="margin:0">
+            <?= count($graph?->availableRegions ?? []) ?> architecture regions
+        </p>
+        <p style="margin:10px 0 0"><a href="/map/graph" class="small">Explore architecture →</a></p>
+    </section>
+
+    <section class="panel">
+        <div class="action__head">
+            <span class="small faint" style="font-weight:600">Kanban Flow</span>
+            <span class="pill pill--neutral"><?= count($board->cards) ?> cards</span>
+        </div>
+        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
+            <?= (int) ($laneCounts['in_progress'] ?? ($laneCounts['In Progress'] ?? 0)) ?> <span class="small muted" style="font-weight:normal">active</span> · <?= (int) ($laneCounts['review'] ?? ($laneCounts['Review'] ?? 0)) ?> <span class="small muted" style="font-weight:normal">in review</span>
+        </p>
+        <p class="small muted" style="margin:0">
+            <?= (int) ($laneCounts['done'] ?? ($laneCounts['Done'] ?? 0)) ?> completed tasks
+        </p>
+        <p style="margin:10px 0 0"><a href="/board" class="small">Open board →</a></p>
+    </section>
+
+    <section class="panel <?= $attention !== [] ? 'panel--attention' : '' ?>">
+        <div class="action__head">
+            <span class="small faint" style="font-weight:600">Attention Radar</span>
+            <span class="pill pill--<?= $attention !== [] ? 'attention' : 'ok' ?>">
+                <?= $attention !== [] ? count($attention) . ' waiting' : 'clear' ?>
+            </span>
+        </div>
+        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
+            <?= count($attention) ?> <span class="small muted" style="font-weight:normal"><?= count($attention) === 1 ? 'decision required' : 'decisions required' ?></span>
+        </p>
+        <p class="small muted" style="margin:0">
+            <?= $attention !== [] ? 'Human authority requested' : 'No blockers in flight' ?>
+        </p>
+        <?php if ($attention !== []): ?>
+            <p style="margin:10px 0 0"><a href="#needs-you" class="small" style="font-weight:600">Review blockers ↓</a></p>
+        <?php else: ?>
+            <p style="margin:10px 0 0"><span class="small faint">All autonomous steps clear</span></p>
+        <?php endif; ?>
+    </section>
+
+    <section class="panel">
+        <div class="action__head">
+            <span class="small faint" style="font-weight:600">Loop Runner</span>
+            <span class="pill pill--<?= $activeRunnerTasks !== [] ? 'ok' : ($runnerInstalled ? 'neutral' : 'muted') ?>">
+                <?= $activeRunnerTasks !== [] ? 'running' : ($runnerInstalled ? 'idle' : 'uninstalled') ?>
+            </span>
+        </div>
+        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
+            <?= $activeRunnerTasks !== [] ? count($activeRunnerTasks) : ($runnerInstalled ? 'Ready' : 'Manual') ?>
+            <span class="small muted" style="font-weight:normal"><?= $activeRunnerTasks !== [] ? 'task(s) in flight' : ($runnerInstalled ? 'managed execution' : 'CLI-only') ?></span>
+        </p>
+        <p class="small muted" style="margin:0">
+            <?= $activeRunnerTasks !== [] ? TemplateRenderer::escape($activeRunnerTasks[0]['taskId'] . ' active') : ($runnerInstalled ? 'Background runner available' : 'Install agent-loop-runner') ?>
+        </p>
+        <p style="margin:10px 0 0"><a href="/setup" class="small">Inspect runtime setup →</a></p>
+    </section>
+</div>
+
+<?php if ($graph !== null && $graph->availableRegions !== []): ?>
+    <p class="eyebrow">Architecture Pulse</p>
+    <section class="panel">
+        <div class="action__head">
+            <div>
+                <strong>Architecture Regions (<?= count($graph->availableRegions) ?>)</strong>
+                <span class="small faint" style="margin-left:8px">Coupling boundaries from agent-map</span>
+            </div>
+            <a href="/map/graph" class="small">Explore interactive coupling graph →</a>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+            <a href="/map/graph" class="pill pill--accent" style="text-decoration:none">All regions (<?= count($graph->availableRegions) ?>)</a>
+            <?php foreach (array_slice($graph->availableRegions, 0, 8) as $regionPill): ?>
+                <a href="/map/graph?region=<?= rawurlencode($regionPill['id']) ?>" class="pill pill--neutral" style="text-decoration:none" title="<?= TemplateRenderer::escape($regionPill['label']) ?> (<?= $regionPill['fileCount'] ?> files)">
+                    <?= TemplateRenderer::escape($regionPill['label']) ?> <span class="faint">(<?= $regionPill['fileCount'] ?>)</span>
+                </a>
+            <?php endforeach; ?>
+            <?php if (count($graph->availableRegions) > 8): ?>
+                <a href="/map/graph" class="pill pill--neutral faint" style="text-decoration:none">+<?= count($graph->availableRegions) - 8 ?> more…</a>
+            <?php endif; ?>
+        </div>
+    </section>
+<?php endif; ?>
 
 <p class="eyebrow">Needs you</p>
 <section class="panel<?= $attention === [] ? '' : ' panel--attention' ?>">

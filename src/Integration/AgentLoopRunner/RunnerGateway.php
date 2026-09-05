@@ -49,6 +49,11 @@ final readonly class RunnerGateway
         $service->cancel($taskId);
     }
 
+    public function isInstalled(): bool
+    {
+        return $this->installed();
+    }
+
     private function installed(): bool
     {
         return class_exists(RunnerControlService::class);
