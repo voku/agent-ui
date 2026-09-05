@@ -90,11 +90,14 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         $contracts->approve($taskA, 'agent-ui-maintainer');
 
         $dispatcherA = new Dispatcher($this->root);
-        $recallRunnerA = static fn (array $recallRest): int => $dispatcherA->run(array_values([
-            'agent-loop',
-            'recall',
-            ...$recallRest,
-        ]));
+        $recallRunnerA = static function (array $recallRest) use ($dispatcherA): int {
+            /** @var list<string> $recallRest */
+            return $dispatcherA->run([
+                'agent-loop',
+                'recall',
+                ...$recallRest,
+            ]);
+        };
         $appA = new HostFrontDoorApplication($this->root, $recallRunnerA);
 
         $enterA = $this->runApp($appA, 'enter', [$taskA, '--format=json']);
@@ -211,11 +214,14 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         $contractsB->approve($taskB, 'agent-ui-maintainer');
 
         $dispatcherB = new Dispatcher($this->root);
-        $recallRunnerB = static fn (array $recallRest): int => $dispatcherB->run(array_values([
-            'agent-loop',
-            'recall',
-            ...$recallRest,
-        ]));
+        $recallRunnerB = static function (array $recallRest) use ($dispatcherB): int {
+            /** @var list<string> $recallRest */
+            return $dispatcherB->run([
+                'agent-loop',
+                'recall',
+                ...$recallRest,
+            ]);
+        };
         $appB = new HostFrontDoorApplication($this->root, $recallRunnerB);
 
         $enterB = $this->runApp($appB, 'enter', [$taskB, '--format=json']);
@@ -239,7 +245,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         self::assertSame($publishedNote->digest, $precedent->payload['note_digest']);
         self::assertSame('current', $precedent->payload['evidence_state']);
         self::assertTrue($precedent->payload['render']);
-        self::assertContains('scope_match', $precedent->payload['match_reasons'] ?? []);
+        self::assertContains('scope_match', (array) ($precedent->payload['match_reasons'] ?? []));
 
         $systemPrompt = (string) file_get_contents($recallDir . '/system.md');
         self::assertStringContainsString('Relevant Learning Precedents', $systemPrompt);
@@ -247,7 +253,6 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         self::assertStringContainsString('Do not use dev-main', $systemPrompt);
 
         $runBOutcome = str_contains($systemPrompt, 'Release semantic owners before downstream integration')
-            && ($precedent->payload['evidence_state'] ?? null) === 'current'
             ? 'HELPED'
             : 'MISSING';
         self::assertSame('HELPED', $runBOutcome);
@@ -272,6 +277,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
             throw new RuntimeException('Application JSON did not decode to an object: ' . $stdout);
         }
 
+        /** @var array<string, mixed> $payload */
         return ['exit' => $exit, 'payload' => $payload];
     }
 }
