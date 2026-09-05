@@ -130,7 +130,7 @@ final readonly class MapGraphProjectionBuilder
                 regionId: $region->id,
             );
         }
-        usort($nodes, static fn (MapGraphNode $left, MapGraphNode $right): int =>
+        usort($nodes, static fn(MapGraphNode $left, MapGraphNode $right): int =>
             $right->weight <=> $left->weight
             ?: $right->fileCount <=> $left->fileCount
             ?: $left->label <=> $right->label
@@ -138,7 +138,7 @@ final readonly class MapGraphProjectionBuilder
 
         $totalNodeCount = count($nodes);
         $nodes = array_slice($nodes, 0, $maximumNodes);
-        $selected = array_fill_keys(array_map(static fn (MapGraphNode $node): string => $node->id, $nodes), true);
+        $selected = array_fill_keys(array_map(static fn(MapGraphNode $node): string => $node->id, $nodes), true);
 
         $edges = [];
         foreach ($aggregated as $entry) {
@@ -152,7 +152,7 @@ final readonly class MapGraphProjectionBuilder
                 signals: $this->sortedSignals($entry['signals']),
             );
         }
-        usort($edges, static fn (MapGraphEdge $left, MapGraphEdge $right): int =>
+        usort($edges, static fn(MapGraphEdge $left, MapGraphEdge $right): int =>
             $right->weight <=> $left->weight
             ?: $left->sourceId <=> $right->sourceId
             ?: $left->targetId <=> $right->targetId);
@@ -214,14 +214,14 @@ final readonly class MapGraphProjectionBuilder
                 regionId: $region?->id,
             );
         }
-        usort($nodes, static fn (MapGraphNode $left, MapGraphNode $right): int =>
+        usort($nodes, static fn(MapGraphNode $left, MapGraphNode $right): int =>
             $right->weight <=> $left->weight
             ?: $left->label <=> $right->label
             ?: $left->id <=> $right->id);
 
         $totalNodeCount = count($nodes);
         $nodes = array_slice($nodes, 0, $maximumNodes);
-        $selected = array_fill_keys(array_map(static fn (MapGraphNode $node): string => $node->id, $nodes), true);
+        $selected = array_fill_keys(array_map(static fn(MapGraphNode $node): string => $node->id, $nodes), true);
 
         $edges = [];
         foreach ($allEdges as $entry) {
@@ -235,7 +235,7 @@ final readonly class MapGraphProjectionBuilder
                 signals: $entry['signals'],
             );
         }
-        usort($edges, static fn (MapGraphEdge $left, MapGraphEdge $right): int =>
+        usort($edges, static fn(MapGraphEdge $left, MapGraphEdge $right): int =>
             $right->weight <=> $left->weight
             ?: $left->sourceId <=> $right->sourceId
             ?: $left->targetId <=> $right->targetId);
