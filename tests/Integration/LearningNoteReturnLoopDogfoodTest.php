@@ -29,7 +29,8 @@ use voku\AgentSession\SessionStore;
 /**
  * Released-consumer replay for agent-loop#349 using real agent-ui task semantics:
  * issue #16 teaches the released-owner-before-consumer rule, then issue #24 enters
- * normally and receives that durable precedent through Recall.
+ * normally and receives that durable precedent through Recall. The replay proves
+ * delivery and provenance; it does not infer implementation usefulness from rendering.
  */
 final class LearningNoteReturnLoopDogfoodTest extends TestCase
 {
@@ -73,7 +74,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         }
     }
 
-    public function testReleasedOwnerLearningFromIssue16HelpsIssue24WithoutTransientContext(): void
+    public function testReleasedOwnerLearningFromIssue16ReachesIssue24WithoutTransientContext(): void
     {
         $layout = new ProjectLayout($this->root);
         $contracts = new TaskContractStore($this->root);
@@ -252,10 +253,9 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         self::assertStringContainsString('Release semantic owners before downstream integration', $systemPrompt);
         self::assertStringContainsString('Do not use dev-main', $systemPrompt);
 
-        $runBOutcome = str_contains($systemPrompt, 'Release semantic owners before downstream integration')
-            ? 'HELPED'
-            : 'MISSING';
-        self::assertSame('HELPED', $runBOutcome);
+        // Presence in the compiled prompt proves delivery, not usefulness. This replay does
+        // not execute or review Task B after enter, so outcome classification belongs to the
+        // recorded dogfood observation rather than being inferred from rendered text.
     }
 
     /**
