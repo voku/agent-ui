@@ -31,6 +31,20 @@ final readonly class MapAction
         ]));
     }
 
+    public function graph(Request $request): Response
+    {
+        $readiness = $this->map->readiness();
+        $region = trim($request->query['region'] ?? '');
+        $graph = $readiness->isUsable()
+            ? $this->map->graph($region !== '' ? $region : null)
+            : null;
+
+        return Response::html($this->templates->render('map/graph', [
+            'readiness' => $readiness,
+            'graph' => $graph,
+        ]));
+    }
+
     public function symbol(Request $request): Response
     {
         $id = trim($request->query['id'] ?? '');

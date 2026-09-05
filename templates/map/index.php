@@ -17,6 +17,7 @@ require __DIR__ . '/../layout/header.php';
 <div class="page-head">
     <h1>Code Map &amp; Architecture</h1>
     <p class="lede">Deterministic repository symbols, caller/callee graphs, and bounded edit contexts from agent-map. Dogfood the map to locate code, trace impact, and plan tasks.</p>
+    <p style="margin:12px 0 0"><a class="btn btn--primary" href="/map/graph">Explore architecture graph</a></p>
 </div>
 
 <p class="eyebrow">Map Readiness</p>
