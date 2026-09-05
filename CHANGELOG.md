@@ -8,12 +8,18 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Added
 
+- Add bounded human-readable architecture and file-coupling graph projection from agent-map owner projections with deterministic SVG rendering, region drill-down, and evidence tables on `/map/graph` (#30).
+- Add "Explore architecture graph" entrypoint from the Code Map index page.
 - Add region quick-jump navigation bar to the architecture graph view, listing all available regions with file counts.
 - Support querying the architecture graph by file path, mapping files directly to their owning architecture regions.
 - Gracefully handle unknown region queries in graph projection instead of throwing unhandled exceptions.
 - Add direct "Architecture Graph" action on the symbol detail page.
 - Add progressive hover connection highlighting for graph nodes and edges in bundled client script.
 - Support `nodes` and `edges` query parameters on `/map/graph` to configure projection bounds.
+
+### Changed
+
+- Require released `voku/agent-loop-runner ^0.1.0` instead of `dev-main`, and remove the runner VCS repository declaration.
 
 ## [0.13.0] - 2026-09-04
 
