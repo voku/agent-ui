@@ -266,6 +266,16 @@ final readonly class MapProjectionGateway
         }
     }
 
+    public function graph(?string $region = null, int $maximumNodes = 30, int $maximumEdges = 80): ?MapGraphSnapshot
+    {
+        $index = $this->loadIndex();
+        if ($index === null) {
+            return null;
+        }
+
+        return (new MapGraphProjectionBuilder())->build($index, $region, $maximumNodes, $maximumEdges);
+    }
+
     private function loadIndex(): ?AgentMapIndex
     {
         if (is_file($this->paths->indexJson())) {
