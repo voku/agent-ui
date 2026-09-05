@@ -31,6 +31,31 @@ final class RunnerSnapshotTest extends TestCase
         self::assertFalse($snapshot->allowCancel);
     }
 
+    public function testRunnerObservationCannotAdvanceCompletedLoopAuthority(): void
+    {
+        $authority = new ExecutionProjection('TASK-1', 'run:TASK-1', 1, ExecutionProfileName::SURGICAL, 'sha256:plan', null, 3, null, [], 'abc');
+        $observation = new RuntimeAttempt(
+            'TASK-1',
+            'run:TASK-1',
+            1,
+            'sha256:plan',
+            'implementation',
+            2,
+            'codex',
+            'sha256:workspace',
+            'submission-1',
+            AttemptStatus::ProcessStarted,
+            process: ['pid' => 4242, 'process_fingerprint' => 'sha256:process'],
+        );
+
+        $snapshot = RunnerSnapshot::fromStatus(new RunnerStatus($authority, $observation));
+
+        self::assertTrue($snapshot->complete);
+        self::assertFalse($snapshot->allowRun);
+        self::assertFalse($snapshot->allowResume);
+        self::assertTrue($snapshot->allowCancel, 'Cancel remains Runner observation control, not workflow authority.');
+    }
+
     public function testNotInstalledProjectsNoManagedControls(): void
     {
         $snapshot = RunnerSnapshot::notInstalled();
