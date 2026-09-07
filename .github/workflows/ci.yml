@@ -2,54 +2,49 @@ name: CI
 on:
   push:
   pull_request:
+permissions:
+  contents: write
 jobs:
-  release-render:
+  release-cut:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Render 0.14.1 changelog payload
+        with:
+          ref: release/0.14.1
+      - name: Cut 0.14.1 from Unreleased once
         shell: bash
         run: |
+          if grep -Fq '## [0.14.1] - 2026-09-07' CHANGELOG.md; then
+            echo '0.14.1 changelog already cut.'
+            exit 0
+          fi
           python <<'PY'
           from pathlib import Path
           path = Path('CHANGELOG.md')
-          text = path.read_text()
-          old = '''## [Unreleased]
-
-### Fixed
-
-- Require `voku/agent-loop ^0.20.1` so lowest-supported installs include the released Recall-floor bridge instead of falling back to Loop 0.20.0.
-- Exclude the broken Recall 0.17.0 patch while preserving the older supported lines: `voku/agent-recall-compiler ^0.15.0 || ^0.16.0 || ^0.17.1`.
-- Require `voku/agent-learning ^0.18.2`, the first released owner patch that returns active LearningNotes as precedents for new tasks without direct findings, matching the UI return-loop dogfood.
-
-## [0.14.0] - 2026-09-05
-'''
-          new = '''## [Unreleased]
-
-## [0.14.1] - 2026-09-07
-
-### Fixed
-
-- Require `voku/agent-loop ^0.20.1` so lowest-supported installs include the released Recall-floor bridge instead of falling back to Loop 0.20.0.
-- Exclude the broken Recall 0.17.0 patch while preserving the older supported lines: `voku/agent-recall-compiler ^0.15.0 || ^0.16.0 || ^0.17.1`.
-- Require `voku/agent-learning ^0.18.2`, the first released owner patch that returns active LearningNotes as precedents for new tasks without direct findings, matching the UI return-loop dogfood.
-
-### Validation
-
-- PR #37 passed `composer ci` on PHP 8.3, 8.4 and 8.5; its PHP 8.3 `--prefer-lowest --prefer-stable` lane resolved released Learning 0.18.2, Loop 0.20.1, Recall 0.17.1, Map 0.10.0 and Runner 0.1.1, then passed the real LearningNote return-loop dogfood.
-- The Runner optional-installation matrix passed on the same PR head.
-
-## [0.14.0] - 2026-09-05
-'''
-          if text.count(old) != 1:
-              raise SystemExit('Expected exactly one 0.14.1 Unreleased block')
-          path.write_text(text.replace(old, new, 1))
+          lines = path.read_text().splitlines()
+          unreleased = lines.index('## [Unreleased]')
+          previous = lines.index('## [0.14.0] - 2026-09-05')
+          body = lines[unreleased + 1:previous]
+          replacement = [
+              '',
+              '## [0.14.1] - 2026-09-07',
+              *body,
+              '### Validation',
+              '',
+              '- PR #37 passed `composer ci` on PHP 8.3, 8.4 and 8.5; its PHP 8.3 `--prefer-lowest --prefer-stable` lane resolved released Learning 0.18.2, Loop 0.20.1, Recall 0.17.1, Map 0.10.0 and Runner 0.1.1, then passed the real LearningNote return-loop dogfood.',
+              '- The Runner optional-installation matrix passed on the same PR head.',
+              '',
+          ]
+          lines[unreleased + 1:previous] = replacement
+          path.write_text(chr(10).join(lines) + chr(10))
           PY
           git diff --check
-          echo 'CHANGELOG_BASE64_BEGIN'
-          base64 -w0 CHANGELOG.md
-          echo
-          echo 'CHANGELOG_BASE64_END'
+          grep -Fq '## [0.14.1] - 2026-09-07' CHANGELOG.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git commit -m 'chore(release): cut 0.14.1 changelog'
+          git push origin HEAD:release/0.14.1
 
   test:
     runs-on: ubuntu-latest
