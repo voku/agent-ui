@@ -7,7 +7,9 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use voku\AgentUi\Feature\Map\MapAction;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
 final class MapGraphProjectionTest extends TestCase
@@ -46,7 +48,7 @@ final class MapGraphProjectionTest extends TestCase
     public function testGraphActionRendersSvgAndTextFallback(): void
     {
         $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
-        $action = new MapAction(new MapProjectionGateway($this->root), $templates);
+        $action = $this->action(new MapProjectionGateway($this->root), $templates);
 
         $response = $action->graph(new Request('GET', '/map/graph'));
 
@@ -74,7 +76,7 @@ final class MapGraphProjectionTest extends TestCase
         self::assertNotEmpty($unknown->nodes);
 
         $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
-        $action = new MapAction($gateway, $templates);
+        $action = $this->action($gateway, $templates);
         $response = $action->graph(new Request('GET', '/map/graph', query: ['region' => 'nonexistent-xyz']));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('<svg', $response->body);
@@ -83,7 +85,7 @@ final class MapGraphProjectionTest extends TestCase
     public function testGraphActionSupportsCustomNodeAndEdgeBoundsFromQuery(): void
     {
         $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
-        $action = new MapAction(new MapProjectionGateway($this->root), $templates);
+        $action = $this->action(new MapProjectionGateway($this->root), $templates);
 
         $response = $action->graph(new Request('GET', '/map/graph', query: ['nodes' => '2', 'edges' => '1']));
         self::assertSame(200, $response->status);
@@ -161,5 +163,17 @@ final class MapGraphProjectionTest extends TestCase
         }
 
         rmdir($dir);
+    }
+
+    private function action(MapProjectionGateway $map, TemplateRenderer $templates): MapAction
+    {
+        $source = new SourceViewGateway($this->root);
+
+        return new MapAction(
+            $map,
+            $templates,
+            new CodeSearchGateway($this->root, null, $map, $source),
+            $source,
+        );
     }
 }

@@ -5,28 +5,23 @@ declare(strict_types=1);
 namespace voku\AgentUi\Integration\AgentMap;
 
 use Throwable;
-use voku\AgentLoop\ProjectLayout;
 use voku\AgentMap\Context\EditContextPlan;
 use voku\AgentMap\Context\EditContextPlanner;
 use voku\AgentMap\Context\EditContextPolicy;
+use voku\AgentMap\Discovery\ImpactAnalyzer;
 use voku\AgentMap\Index\AgentMapIndex;
-use voku\AgentMap\Index\IndexReader;
 use voku\AgentMap\Inspect\MapReadinessInspector;
 use voku\AgentMap\MapArtifactPaths;
 
 final readonly class MapProjectionGateway
 {
-    private string $projectRoot;
+    private MapArtifactLocator $locator;
     private MapArtifactPaths $paths;
 
-    public function __construct(string $projectRoot)
+    public function __construct(string $projectRoot, ?MapArtifactLocator $locator = null)
     {
-        $this->projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
-        $layout = new ProjectLayout($this->projectRoot);
-        $mapRoot = is_dir($this->projectRoot . '/.agent-map')
-            ? '.agent-map'
-            : $layout->mapRoot();
-        $this->paths = MapArtifactPaths::forProject($this->projectRoot, $mapRoot);
+        $this->locator = $locator ?? new MapArtifactLocator($projectRoot);
+        $this->paths = $this->locator->paths;
     }
 
     public function readiness(): MapReadinessSnapshot
@@ -266,6 +261,64 @@ final readonly class MapProjectionGateway
         }
     }
 
+    /**
+     * agent-map's reverse-dependency traversal for one indexed node.
+     *
+     * The target may be a symbol id, a `Class::method` target or a plain
+     * qualified name; resolution is agent-map's, and a target it does not know
+     * is reported as unknown rather than approximated by a name search.
+     */
+    public function impact(string $target, int $maximumDepth = 2, int $maximumNodes = 60): ?MapImpactSnapshot
+    {
+        $index = $this->loadIndex();
+        if ($index === null) {
+            return null;
+        }
+
+        $maximumDepth = max(1, min(4, $maximumDepth));
+        $maximumNodes = max(1, min(200, $maximumNodes));
+
+        try {
+            $analyzer = new ImpactAnalyzer();
+            $report = str_contains($target, '::') && !str_starts_with($target, 'method:')
+                ? $analyzer->forMethod($index, $target, $maximumDepth, $maximumNodes)
+                : $analyzer->fromNodeId($index, $target, $maximumDepth, $maximumNodes);
+        } catch (Throwable) {
+            return null;
+        }
+
+        $impacts = [];
+        foreach ($report->impacts as $impact) {
+            $impacts[] = new MapImpactNode(
+                id: $impact->node->id,
+                kind: $impact->node->kind,
+                name: $impact->node->name,
+                file: $impact->node->file,
+                lineStart: $impact->node->lineStart,
+                lineEnd: $impact->node->lineEnd,
+                depth: $impact->depth,
+                relationKinds: $impact->relationKinds,
+                viaNodeIds: $impact->viaNodeIds,
+                uncertain: $impact->uncertain,
+                evidenceCount: count($impact->evidenceIds),
+            );
+        }
+
+        return new MapImpactSnapshot(
+            targetId: $report->target->id,
+            targetKind: $report->target->kind,
+            targetName: $report->target->name,
+            targetFile: $report->target->file,
+            targetLineStart: $report->target->lineStart,
+            targetLineEnd: $report->target->lineEnd,
+            impacts: $impacts,
+            maximumDepth: $report->maximumDepth,
+            maximumNodes: $report->maximumNodes,
+            truncated: $report->truncated,
+            mapDigest: $report->mapDigest,
+        );
+    }
+
     public function graph(?string $region = null, int $maximumNodes = 30, int $maximumEdges = 80): ?MapGraphSnapshot
     {
         $index = $this->loadIndex();
@@ -278,22 +331,6 @@ final readonly class MapProjectionGateway
 
     private function loadIndex(): ?AgentMapIndex
     {
-        if (is_file($this->paths->indexJson())) {
-            try {
-                return (new IndexReader())->read($this->paths->indexJson());
-            } catch (Throwable) {
-                // ignore
-            }
-        }
-
-        if (is_file($this->paths->indexToon())) {
-            try {
-                return (new IndexReader())->read($this->paths->indexToon());
-            } catch (Throwable) {
-                // ignore
-            }
-        }
-
-        return null;
+        return $this->locator->loadIndex();
     }
 }

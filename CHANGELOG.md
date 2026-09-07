@@ -6,6 +6,22 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Answer code search on `/map` through `agent-map`'s `HybridSearch` over its derived chunk index, so a query reaches method bodies, comments and error strings instead of symbol names alone. Every result set renders the owner-reported channel mode, degraded reason, recognised structural terms, and both the map and search-index snapshots, and every hit lists the per-channel ranks it earned.
+- Fall back to the structural symbol query, which needs no derived index, whenever the chunk index is missing, unusable or unreadable, and label the fallback rather than letting an unindexed repository look like a repository with no matching code.
+- Add `/map/source`: bounded repository source windows materialized by `agent-map`'s own `SourceMaterializer` and refused when the recorded file hash no longer matches the working tree, so a stale map is reported as stale instead of rendering code the rest of the page is not describing. Search hits and symbol pages carry the same verified windows inline.
+- Add `/map/impact`: `agent-map`'s bounded reverse-dependency traversal drawn as concentric depth rings with dashed uncertain paths, backed by the same nodes listed as text with their relation kinds and evidence counts. Depth, node bounds, truncation and uncertainty stay exactly as the owner reported them.
+- Add a search-index readiness projection alongside map readiness, separating "no FTS5 in this PHP build", "index never built", "index behind the map" and "index reports integrity failures", each with the command that repairs it.
+
+### Changed
+
+- Resolve agent-map artifact locations once through a shared `MapArtifactLocator`, so the map, source and search gateways cannot disagree about which index this repository's map is.
+
+### Notes
+
+- The semantic channel stays owner-reported as `semantic_channel_unavailable`. Enabling it from a consumer would require reconstructing the embedding provider from agent-map's store metadata, which would place a second copy of an owner's vector-space contract in the UI; it becomes available here once agent-map exposes a typed factory for it.
+
 ## [0.14.1] - 2026-09-07
 
 ### Fixed

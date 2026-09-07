@@ -28,6 +28,8 @@ final class RouterTest extends TestCase
         yield 'map graph' => [new Request('GET', '/map/graph'), ['route' => 'map_graph']];
         yield 'map symbol' => [new Request('GET', '/map/symbol'), ['route' => 'map_symbol']];
         yield 'map context' => [new Request('GET', '/map/context'), ['route' => 'map_context']];
+        yield 'map source' => [new Request('GET', '/map/source'), ['route' => 'map_source']];
+        yield 'map impact' => [new Request('GET', '/map/impact'), ['route' => 'map_impact']];
         yield 'knowledge' => [new Request('GET', '/knowledge'), ['route' => 'knowledge']];
         yield 'knowledge finding' => [new Request('GET', '/knowledge/findings/finding.2026-08-26.ab12cd'), ['route' => 'knowledge_finding', 'knowledge_id' => 'finding.2026-08-26.ab12cd']];
         yield 'knowledge proposal' => [new Request('GET', '/knowledge/proposals/proposal.2026-08-26.123'), ['route' => 'knowledge_proposal', 'knowledge_id' => 'proposal.2026-08-26.123']];

@@ -32,6 +32,7 @@ The v0.1 → v0.10 control-plane roadmap is implemented:
 - approved-work/scope-drift/review transparency from the typed workflow projection;
 - bounded durable Learning/Knowledge browsing through `agent-learning`;
 - an attention-first cockpit that composes Setup, Needs you, Current work, Knowledge and the board without inventing a universal priority algorithm.
+- a code search and code visualization surface driven by `agent-map`: hybrid chunk search with visible channel provenance, hash-verified source windows, and a bounded reverse-dependency impact projection.
 
 ## Installation
 
@@ -109,6 +110,43 @@ Runner remains optional at runtime and a development dependency here only so tes
 `/task/{id}/evidence` adapts `agent-loop`'s public `WorkflowReportCommand::buildReport()` plus typed review-acknowledgement and Learning-decision records into immutable UI snapshots. Raw lifecycle references remain available as a disclosure, but the primary view presents Contract, validation, verification, Recall, review and Learning facts directly.
 
 `/task/{id}/history` sorts only timestamped owner facts: Contract approval, validation executions, exact review acknowledgement, and Learning decisions. It does not infer missing events or treat generated evidence as authority.
+
+## Code search and code visualization
+
+The Map surface answers three questions a developer actually asks about a repository, and `agent-map`
+answers all three — the UI adds routing, bounds and rendering, nothing semantic.
+
+**Where is this?** `/map` runs `agent-map`'s `HybridSearch` over its derived chunk index, so a query
+reaches method bodies, comments and error strings rather than only symbol names. When that derived
+index has not been built the page falls back to the structural symbol query, which needs no cache, and
+says so: a miss from an unindexed repository never reads like "no such code". Every result set carries
+the channel mode agent-map reports (`structural+lexical`, and `semantic_channel_unavailable` when the
+vector channel is not in play), the structural terms it recognised, and the map and search-index
+snapshots it answered from. Each hit lists the ranks it earned per channel, because an opaque ranking
+is the first thing people stop trusting.
+
+```bash
+vendor/bin/agent-map build --root=. --paths=src,tests
+vendor/bin/agent-map search-index build --root=.
+```
+
+**What does it look like?** `/map/source` and the previews under each hit render real repository source
+through `agent-map`'s own `SourceMaterializer`. The window is bounded, and the file hash recorded in the
+map is checked before a single line is rendered. A working tree that has moved past the map is reported
+as stale instead of being displayed, so the code you read is always the code the callers, the impact
+view and the edit context are describing.
+
+**What breaks if I change it?** `/map/impact` projects `agent-map`'s reverse-dependency traversal as
+concentric rings around the target: distance is traversal depth, dashed edges are uncertain paths, and
+every drawn node is repeated below as text with its relation kinds and evidence counts. The picture is a
+shortcut to the evidence, never a replacement for it. Depth, node bounds, truncation and uncertainty are
+agent-map's answers, preserved rather than rounded off — a dynamic call that *might* reach the target
+stays marked uncertain.
+
+The semantic channel is deliberately left to agent-map to report as unavailable. Enabling it from a
+consumer would mean restoring the embedding provider from the store metadata that describes it, which
+would put a second copy of an owner's vector-space contract in the UI. It becomes available here when
+`agent-map` exposes a typed factory for it.
 
 ## Interface
 

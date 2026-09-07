@@ -7,27 +7,43 @@ namespace voku\AgentUi\Feature\Map;
 use InvalidArgumentException;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
+use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
 final readonly class MapAction
 {
+    /** How many lines of context a search hit carries when previews are on. */
+    private const int PREVIEW_CONTEXT_LINES = 2;
+
     public function __construct(
         private MapProjectionGateway $map,
         private TemplateRenderer $templates,
+        private CodeSearchGateway $search,
+        private SourceViewGateway $source,
     ) {
     }
 
     public function index(Request $request): Response
     {
         $readiness = $this->map->readiness();
+        $searchReadiness = $this->search->readiness();
         $query = trim($request->query['q'] ?? '');
-        $results = $query !== '' ? $this->map->search($query) : [];
+        $limit = $this->boundedInt($request->query['limit'] ?? null, CodeSearchGateway::DEFAULT_LIMIT, 5, CodeSearchGateway::MAXIMUM_LIMIT);
+        $withPreviews = ($request->query['preview'] ?? '1') !== '0';
+
+        $result = $query === ''
+            ? null
+            : $this->search->search($query, $limit, $withPreviews ? self::PREVIEW_CONTEXT_LINES : 0);
 
         return Response::html($this->templates->render('map/index', [
             'readiness' => $readiness,
+            'searchReadiness' => $searchReadiness,
             'query' => $query,
-            'results' => $results,
+            'limit' => $limit,
+            'withPreviews' => $withPreviews,
+            'result' => $result,
         ]));
     }
 
@@ -61,6 +77,13 @@ final readonly class MapAction
 
         return Response::html($this->templates->render('map/symbol', [
             'symbol' => $symbol,
+            'source' => $this->source->slice(
+                $symbol->file,
+                $symbol->lineStart,
+                $symbol->lineEnd,
+                0,
+                SourceViewGateway::MAXIMUM_PREVIEW_LINES,
+            ),
         ]));
     }
 
@@ -91,5 +114,63 @@ final readonly class MapAction
             'target' => $target,
             'plan' => $plan,
         ]));
+    }
+
+    /** Bounded source reading, anchored on the map that indexed the file. */
+    public function sourceView(Request $request): Response
+    {
+        $path = trim($request->query['path'] ?? '');
+        if ($path === '') {
+            return Response::redirect('/map');
+        }
+
+        $line = isset($request->query['line']) ? max(1, (int) $request->query['line']) : null;
+        $view = $this->source->file($path, $line, SourceViewGateway::MAXIMUM_FILE_LINES);
+
+        return Response::html($this->templates->render('map/source', [
+            'view' => $view,
+            'path' => $path,
+            'line' => $line,
+        ]));
+    }
+
+    /** The reverse-dependency picture for one symbol: what can notice a change here. */
+    public function impact(Request $request): Response
+    {
+        $target = trim($request->query['target'] ?? '');
+        if ($target === '') {
+            return Response::redirect('/map');
+        }
+
+        $depth = $this->boundedInt($request->query['depth'] ?? null, 2, 1, 4);
+        $nodes = $this->boundedInt($request->query['nodes'] ?? null, 60, 5, 200);
+        $impact = $this->map->impact($target, $depth, $nodes);
+        if ($impact === null) {
+            $readiness = $this->map->readiness();
+            if ($readiness->status === 'missing') {
+                throw new InvalidArgumentException('No code map index found. Run "vendor/bin/agent-map build" first.');
+            }
+
+            throw new InvalidArgumentException(sprintf(
+                'agent-map does not know an indexed node for target "%s". Use a symbol id from the map, or Class::method syntax.',
+                $target,
+            ));
+        }
+
+        return Response::html($this->templates->render('map/impact', [
+            'impact' => $impact,
+            'target' => $target,
+            'depth' => $depth,
+            'nodes' => $nodes,
+        ]));
+    }
+
+    private function boundedInt(?string $raw, int $default, int $minimum, int $maximum): int
+    {
+        if ($raw === null || trim($raw) === '') {
+            return $default;
+        }
+
+        return max($minimum, min($maximum, (int) $raw));
     }
 }

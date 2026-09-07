@@ -1,17 +1,19 @@
 <?php
 use voku\AgentUi\Integration\AgentMap\MapSymbolDetail;
+use voku\AgentUi\Integration\AgentMap\SourceView;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{symbol: MapSymbolDetail} $model */
+/** @var array{symbol: MapSymbolDetail, source: SourceView} $model */
 $symbol = $model['symbol'];
+$source = $model['source'];
 
 $title = $symbol->name . ' · Code Map · agent-ui';
 $nav = 'map';
 $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
-<p class="crumbs"><a href="/map">Code Map</a><span>/</span><?= TemplateRenderer::escape($symbol->name) ?></p>
+<p class="crumbs"><a href="/map">Code Search</a><span>/</span><?= TemplateRenderer::escape($symbol->name) ?></p>
 
 <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div>
@@ -22,7 +24,9 @@ require __DIR__ . '/../layout/header.php';
         <h1 style="margin-top:4px"><?= TemplateRenderer::escape($symbol->fqn) ?></h1>
         <p class="lede">Defined in <code><?= TemplateRenderer::escape($symbol->file) ?>:<?= (int) $symbol->lineStart ?>-<?= (int) $symbol->lineEnd ?></code></p>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="/map/source?path=<?= rawurlencode($symbol->file) ?>&amp;line=<?= (int) $symbol->lineStart ?>">Open Source</a>
+        <a class="btn" href="/map/impact?target=<?= rawurlencode($symbol->id) ?>">Impact</a>
         <a class="btn" href="/map/graph?region=<?= rawurlencode($symbol->file) ?>">Architecture Graph</a>
         <?php if ($symbol->kind === 'method'): ?>
             <a class="btn btn--primary" href="/map/context?target=<?= rawurlencode($symbol->fqn) ?>">Edit Context Plan</a>
@@ -53,6 +57,21 @@ require __DIR__ . '/../layout/header.php';
             <dt>Uses traits</dt><dd><span class="mono small"><?= TemplateRenderer::escape(implode(', ', $symbol->uses)) ?></span></dd>
         <?php endif; ?>
     </dl>
+</section>
+
+<p class="eyebrow" style="margin-top:24px">Source</p>
+<section class="panel">
+    <?php
+    $view = $source;
+    require __DIR__ . '/_source-lines.php';
+    ?>
+    <?php if ($view->isRendered()): ?>
+        <p class="note" style="margin-top:12px">
+            Verified against the map's recorded hash for this file.
+            <a href="/map/source?path=<?= rawurlencode($symbol->file) ?>&amp;line=<?= (int) $symbol->lineStart ?>">Open the file view</a>
+            to read around it.
+        </p>
+    <?php endif; ?>
 </section>
 
 <?php if ($symbol->methods !== []): ?>
