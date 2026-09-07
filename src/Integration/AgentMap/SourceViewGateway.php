@@ -94,8 +94,12 @@ final readonly class SourceViewGateway
                 false,
             );
         } catch (Throwable $exception) {
-            // agent-map refuses to materialize source whose hash left the map behind.
-            // That refusal is the honest answer, so it is surfaced as state.
+            // Only indexed paths reach this call and `../` is already refused, so the
+            // escapes-the-root refusal cannot fire here. What remains - a hash that no
+            // longer matches, or a file that has gone - is exactly what agent-map's own
+            // `staleEntries()` classifies as stale. Calling it stale is therefore the
+            // remaining classification rather than a guess at the cause, and the owner's
+            // message travels with it either way.
             return SourceView::unavailable($path, 'stale', $exception->getMessage());
         }
 

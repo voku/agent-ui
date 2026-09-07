@@ -56,6 +56,18 @@ final class SourceViewGatewayTest extends TestCase
         self::assertNotNull($view->failure);
     }
 
+    public function testADeletedFileIsReportedAsStaleRatherThanRenderedEmpty(): void
+    {
+        $this->writeIndexedFile();
+        unlink($this->fixture->root . '/src/Greeter.php');
+
+        $view = (new SourceViewGateway($this->fixture->root))->file('src/Greeter.php');
+
+        self::assertSame('stale', $view->status);
+        self::assertFalse($view->isRendered());
+        self::assertNotNull($view->failure);
+    }
+
     public function testUnindexedAndEscapingPathsAreRefused(): void
     {
         $this->writeIndexedFile();
