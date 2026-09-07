@@ -6,6 +6,11 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Fixed
+
+- Require `voku/agent-loop ^0.20.1` so lowest-supported installs include the released Recall-floor bridge instead of falling back to Loop 0.20.0.
+- Exclude the broken Recall 0.17.0 patch while preserving the older supported lines: `voku/agent-recall-compiler ^0.15.0 || ^0.16.0 || ^0.17.1`.
+
 ## [0.14.0] - 2026-09-05
 
 ### Added
