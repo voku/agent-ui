@@ -10,6 +10,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 - Require `voku/agent-loop ^0.20.1` so lowest-supported installs include the released Recall-floor bridge instead of falling back to Loop 0.20.0.
 - Exclude the broken Recall 0.17.0 patch while preserving the older supported lines: `voku/agent-recall-compiler ^0.15.0 || ^0.16.0 || ^0.17.1`.
+- Require `voku/agent-learning ^0.18.2`, the first released owner patch that returns active LearningNotes as precedents for new tasks without direct findings, matching the UI return-loop dogfood.
 
 ## [0.14.0] - 2026-09-05
 
