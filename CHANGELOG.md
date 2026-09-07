@@ -6,11 +6,18 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-07
+
 ### Fixed
 
 - Require `voku/agent-loop ^0.20.1` so lowest-supported installs include the released Recall-floor bridge instead of falling back to Loop 0.20.0.
 - Exclude the broken Recall 0.17.0 patch while preserving the older supported lines: `voku/agent-recall-compiler ^0.15.0 || ^0.16.0 || ^0.17.1`.
 - Require `voku/agent-learning ^0.18.2`, the first released owner patch that returns active LearningNotes as precedents for new tasks without direct findings, matching the UI return-loop dogfood.
+
+### Validation
+
+- PR #37 passed `composer ci` on PHP 8.3, 8.4 and 8.5; its PHP 8.3 `--prefer-lowest --prefer-stable` lane resolved released Learning 0.18.2, Loop 0.20.1, Recall 0.17.1, Map 0.10.0 and Runner 0.1.1, then passed the real LearningNote return-loop dogfood.
+- The Runner optional-installation matrix passed on the same PR head.
 
 ## [0.14.0] - 2026-09-05
 
