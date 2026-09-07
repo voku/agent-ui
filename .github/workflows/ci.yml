@@ -2,23 +2,14 @@ name: CI
 on:
   push:
   pull_request:
-permissions:
-  contents: write
 jobs:
-  release-cut:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/release/0.14.1'
+  release-render:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: release/0.14.1
-      - name: Cut 0.14.1 from Unreleased once
+      - name: Render 0.14.1 changelog payload
         shell: bash
         run: |
-          if grep -Fq '## [0.14.1] - 2026-09-07' CHANGELOG.md; then
-            echo '0.14.1 changelog already cut.'
-            exit 0
-          fi
           python <<'PY'
           from pathlib import Path
           path = Path('CHANGELOG.md')
@@ -55,11 +46,10 @@ jobs:
           path.write_text(text.replace(old, new, 1))
           PY
           git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add CHANGELOG.md
-          git commit -m 'chore(release): cut 0.14.1 changelog'
-          git push origin HEAD:release/0.14.1
+          echo 'CHANGELOG_BASE64_BEGIN'
+          base64 -w0 CHANGELOG.md
+          echo
+          echo 'CHANGELOG_BASE64_END'
 
   test:
     runs-on: ubuntu-latest
