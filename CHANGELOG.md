@@ -17,10 +17,11 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Changed
 
 - Resolve agent-map artifact locations once through a shared `MapArtifactLocator`, so the map, source and search gateways cannot disagree about which index this repository's map is.
+- Require `voku/agent-map ^0.11.1` and pass `SearchIndexStore::semanticProvider()` into `HybridSearch`, enabling the owner-restored semantic channel when the stored vectors, sqlite-vec runtime, persisted embedding state and fingerprint are compatible without teaching agent-ui any of those storage semantics.
 
 ### Notes
 
-- The semantic channel stays owner-reported as `semantic_channel_unavailable`. Enabling it from a consumer would require reconstructing the embedding provider from agent-map's store metadata, which would place a second copy of an owner's vector-space contract in the UI; it becomes available here once agent-map exposes a typed factory for it.
+- The semantic channel remains fail-closed and owner-reported. When `agent-map` cannot restore the exact provider that produced the stored vectors, `HybridSearch` continues reporting `semantic_channel_unavailable`; agent-ui never refits or substitutes a provider.
 
 ## [0.14.1] - 2026-09-07
 
@@ -95,7 +96,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Fixed
 
 - Read the board through `agent-loop`'s `ProjectLayout::boardRoot()` instead of the project root. A repository scaffolded by `agent-loop init scaffold` keeps its board below the state root, and every page of the control plane answered HTTP 500 there.
-- Name the bundled enhancement script in the Content-Security-Policy by hash. `script-src 'self'` had been refusing the layout's inline script on every page, so no Copy button ever worked in a browser. `src/View/ClientScript.php` is now the single source of both the script and the policy source expression that admits it, and a test fails if they drift apart.
+- Name the bundled enhancement script in the Content-Security-Policy by hash. `script-src 'self'` had been refusing the layout's inline script on every page, so no Copy button ever worked in a browser.
 - Render errors, 404s and CSRF rejections through the normal layout with a status, an honest message and navigation, replacing an unstyled stub that dropped the operator out of the control plane.
 - Close the setup host panel on the projection-error path; a `continue` inside the loop had been skipping the closing tag.
 - Wrap wide evidence and work tables in their own scroll container, and let the masthead navigation wrap, so no page scrolls horizontally at a 390px viewport.
