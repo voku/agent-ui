@@ -24,6 +24,43 @@ require __DIR__ . '/../layout/header.php';
     <p class="lede">Approved scope, current Git observation and the exact persisted review are shown side by side without turning repository activity into workflow truth.</p>
 </div>
 
+<p class="eyebrow">Work ↔ Architecture</p>
+<section class="panel">
+    <div class="action__head">
+        <div>
+            <h2 style="margin:0">Follow owner-declared paths into the code map</h2>
+            <p class="muted" style="margin:6px 0 0">Contract scope remains Loop authority; changed paths remain Git observation. These links only carry either fact into agent-map search, where source, symbols and impact stay Map-owned.</p>
+        </div>
+        <a class="btn" href="/map/graph">Architecture overview</a>
+    </div>
+    <div class="split" style="margin-top:16px">
+        <div>
+            <p class="provenance provenance--authority">Loop · approved scope</p>
+            <?php if (!$contract->exists || $contract->scope === []): ?>
+                <p class="empty">No Contract scope is available to navigate.</p>
+            <?php else: ?>
+                <div class="stack">
+                    <?php foreach ($contract->scope as $path): ?>
+                        <div><a href="/map?q=<?= rawurlencode($path) ?>"><code><?= TemplateRenderer::escape($path) ?></code> <span aria-hidden="true">→</span></a></div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div>
+            <p class="provenance provenance--observation">Git · changed paths</p>
+            <?php if (!$observation->isObserved() || $observation->changedFiles === []): ?>
+                <p class="empty">No changed paths are currently observed.</p>
+            <?php else: ?>
+                <div class="stack">
+                    <?php foreach ($observation->changedFiles as $path): ?>
+                        <div><a href="/map?q=<?= rawurlencode($path) ?>"><code><?= TemplateRenderer::escape($path) ?></code> <span aria-hidden="true">→</span></a></div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</section>
+
 <p class="eyebrow">Approved Contract boundary</p>
 <section class="panel<?= $contract->exists && !$contract->isApproved() ? ' panel--attention' : '' ?>">
     <div class="action__head">

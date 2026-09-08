@@ -79,6 +79,9 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(200, $taskResponse->status);
         self::assertStringContainsString('Build login system', $taskResponse->body);
         self::assertStringContainsString('Edit card', $taskResponse->body);
+        self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
+        self::assertStringContainsString('Architecture', $taskResponse->body);
+        self::assertStringContainsString('Development trace', $taskResponse->body);
         self::assertStringContainsString('Move to READY', $taskResponse->body);
         self::assertStringContainsString('No Contract', $taskResponse->body);
 
@@ -137,6 +140,16 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(200, $taskApprovedResponse->status);
         self::assertStringContainsString('Contract Approved', $taskApprovedResponse->body);
         self::assertStringContainsString('Approved by <strong>lead-engineer</strong>', $taskApprovedResponse->body);
+
+        // 11. Work connects Loop-owned scope to Map navigation without merging it
+        // with Git observation or deriving an impact result in the UI.
+        $workResponse = $app->handle(new Request('GET', '/task/APP-1/work'));
+        self::assertSame(200, $workResponse->status);
+        self::assertStringContainsString('Work ↔ Architecture', $workResponse->body);
+        self::assertStringContainsString('Loop · approved scope', $workResponse->body);
+        self::assertStringContainsString('Git · changed paths', $workResponse->body);
+        self::assertStringContainsString('/map?q=src%2FAuth%2F', $workResponse->body);
+        self::assertStringContainsString('/map/graph', $workResponse->body);
     }
 
     public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void

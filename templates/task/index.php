@@ -46,7 +46,9 @@ require __DIR__ . '/../layout/header.php';
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
     <div class="btn-row" style="margin:0">
-        <a class="btn" href="/map?q=<?= rawurlencode($card->title) ?>">Search Map</a>
+        <a class="btn" href="/map?q=<?= rawurlencode($card->title) ?>">Find code &amp; impact</a>
+        <a class="btn" href="/map/graph">Architecture</a>
+        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">Development trace</a>
         <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/edit">Edit card</a>
         <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Contract</a>
     </div>
