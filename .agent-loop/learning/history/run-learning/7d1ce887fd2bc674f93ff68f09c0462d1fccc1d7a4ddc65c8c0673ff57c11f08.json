@@ -1,0 +1,17 @@
+{
+    "schema_version": "1.0",
+    "kind": "run_learning_decision",
+    "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+    "decision": "findings_recorded",
+    "decided_by": "claude-code-agent",
+    "decided_at": "2026-09-08T06:25:22+00:00",
+    "reason": "Recorded in this Run's lineage: finding.2026-09-08.9f554d - a consumer read model mixing owner-reported and consumer-composed fields needs an explicit provenance discriminator, and a classification of an owner failure must come from a separate owner query rather than from an argument about which exceptions are reachable. Two further validated findings from this task's revision-1 session remain in the Learning root and are being carried upstream to voku/agent-map: finding.2026-09-07.5803da (search-index refresh aborts on duplicate canonical symbol ids the build path tolerates) and finding.2026-09-07.1d55f7 (no typed factory for restoring the embedding provider, which is why the semantic channel stays off in agent-ui).",
+    "finding_ids": [
+        "finding.2026-09-08.9f554d"
+    ],
+    "follow_up_ref": null,
+    "contract_revision": 2,
+    "implementation_snapshot": "sha256:1585cdada8314dd950ac1026c02274131dda5808a06fd69158742eeaf7ee79c5",
+    "validation_evidence_sha256": "sha256:8796e31e66ba997f2b7de19857c3fbb28733eacba1e6754983c9f59f01122d1a",
+    "review_evidence_sha256": "sha256:7e62d17b474b3e68618b6745bdc7081917485d68602b5385023a4349fa388ec3"
+}

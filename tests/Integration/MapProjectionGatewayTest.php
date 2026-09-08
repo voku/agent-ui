@@ -142,12 +142,17 @@ final class MapProjectionGatewayTest extends TestCase
 
         $response = $app->handle(new Request('GET', '/map'));
         self::assertSame(200, $response->status);
-        self::assertStringContainsString('Code Map &amp; Architecture', $response->body);
+        self::assertStringContainsString('Code Search &amp; Architecture', $response->body);
         self::assertStringContainsString('Map Readiness', $response->body);
+        self::assertStringContainsString('Search Index Readiness', $response->body);
 
         $searchResponse = $app->handle(new Request('GET', '/map', query: ['q' => 'Router']));
         self::assertSame(200, $searchResponse->status);
-        self::assertStringContainsString('Search Results for', $searchResponse->body);
+        self::assertStringContainsString('Results for', $searchResponse->body);
+        // The channel mode is owner-reported on every result set, whichever
+        // channel answered, so the page never presents a ranking without saying
+        // which index produced it.
+        self::assertStringContainsString('Result Provenance', $searchResponse->body);
     }
 
     private function removeDir(string $dir): void

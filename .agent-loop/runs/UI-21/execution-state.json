@@ -1,0 +1,13 @@
+{
+    "attention": null,
+    "candidate_revision": "run:run:UI-21:d3e9a28eb8be1f3c:initial",
+    "contract_revision": 2,
+    "current_attempt": 0,
+    "current_stage_id": null,
+    "execution_plan_digest": "sha256:a9774e240cdfc03e59f8bb9f8628ba220e6f84e6c740cd810f57d84360ba8725",
+    "history": [],
+    "kind": "governed_execution_state",
+    "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+    "schema_version": "1.0",
+    "task_id": "UI-21"
+}

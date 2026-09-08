@@ -34,7 +34,10 @@ use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowPromptGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
+use voku\AgentUi\Integration\AgentMap\MapArtifactLocator;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\OperatingPromptCatalogGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
@@ -73,7 +76,10 @@ final readonly class Application
         $learning = new LearningCatalogGateway($projectRoot);
         $setup = new RepositorySetupGateway($projectRoot);
         $mutation = new CardMutationGateway($projectRoot);
-        $map = new MapProjectionGateway($projectRoot);
+        $mapArtifacts = new MapArtifactLocator($projectRoot);
+        $map = new MapProjectionGateway($projectRoot, $mapArtifacts);
+        $source = new SourceViewGateway($projectRoot, $mapArtifacts);
+        $codeSearch = new CodeSearchGateway($projectRoot, $mapArtifacts, $map, $source);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;
@@ -83,7 +89,7 @@ final readonly class Application
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->board = new BoardAction($board, $mutation, $csrf, $templates);
         $this->knowledge = new KnowledgeAction($learning, $templates);
-        $this->map = new MapAction($map, $templates);
+        $this->map = new MapAction($map, $templates, $codeSearch, $source);
         $this->task = new TaskAction(
             $board,
             $workflow,
@@ -128,6 +134,8 @@ final readonly class Application
                 'map_graph' => $this->map->graph($request),
                 'map_symbol' => $this->map->symbol($request),
                 'map_context' => $this->map->context($request),
+                'map_source' => $this->map->sourceView($request),
+                'map_impact' => $this->map->impact($request),
                 'knowledge' => $this->knowledge->overview($request),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),

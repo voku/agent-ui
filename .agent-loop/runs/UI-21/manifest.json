@@ -1,0 +1,160 @@
+{
+    "disagreements": [],
+    "mode": "governed",
+    "next_action": "none",
+    "next_action_kind": "none",
+    "references": {
+        "approval": {
+            "approved_at": "2026-09-08T06:23:22+00:00",
+            "approved_by": "claude-code-agent",
+            "contract_revision": 2,
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "source": {
+                "path": ".agent-loop/contracts/UI-21/contract.json",
+                "sha256": "sha256:892dcddf91ba710a76eb52d509cdf641cbb0e6186d89809466c728d5c669411e"
+            },
+            "state": "current"
+        },
+        "board": {
+            "card_id": "UI-21",
+            "configuration": {
+                "mode": "json",
+                "source": {
+                    "path": ".agent-loop/todo/kanban.config.json",
+                    "sha256": "sha256:54fae0fbbfda6913afe7ece507e99231c83563b5361dee8f4877add7a2647712"
+                }
+            },
+            "lane": "DOING",
+            "observation_mode": "checked",
+            "owner": "agent-kanban",
+            "revision": "c60c1d5d89612ab16cd7d3c4c6b5043b4796073cd2cd9d0924558bc96498f1d7",
+            "source": {
+                "path": ".agent-loop/todo/cards/UI-21.md",
+                "sha256": "sha256:c60c1d5d89612ab16cd7d3c4c6b5043b4796073cd2cd9d0924558bc96498f1d7"
+            },
+            "state": "linked",
+            "status": "in_progress"
+        },
+        "contract": {
+            "acceptance_criteria": [
+                "Code search runs through agent-map HybridSearch when the derived chunk index is usable, and falls back to AgentMapIndex::query() otherwise.",
+                "A hybrid result set renders only agent-map's own mode, degraded reason, structural terms, per-channel ranks and both snapshots.",
+                "The fallback result set is attributed to agent-ui, labels its own mode and reason as agent-ui labels, and reports absent channel ranks, structural terms and search-index snapshot as absent instead of synthesizing owner-shaped values.",
+                "Source windows are bounded and hash-verified through agent-map SourceMaterializer before any line is rendered.",
+                "A refused source window is classified from AgentMapIndex::staleEntries(): a file agent-map names stale renders as stale with the owner reason, and any other materialization failure stays distinguishable as unavailable.",
+                "A symbol projects agent-map's bounded reverse-dependency impact with depth, relation kinds, truncation and uncertainty preserved, drawn and also listed as text.",
+                "All new pages are server-rendered and useful without JavaScript.",
+                "composer ci is green on the exact implementation head."
+            ],
+            "goal": "Turn the agent-ui Code Map into a code search, verified source reading and impact visualization surface by consuming agent-map's typed hybrid search, source materialization and impact analysis, so that every rendered claim is either produced by the semantic owner or explicitly attributed to agent-ui.",
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "revision": 2,
+            "run_revision": 2,
+            "source": {
+                "path": ".agent-loop/contracts/UI-21/contract.json",
+                "sha256": "sha256:892dcddf91ba710a76eb52d509cdf641cbb0e6186d89809466c728d5c669411e"
+            },
+            "state": "approved"
+        },
+        "edit": {
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "state": "none"
+        },
+        "execution_contract": {
+            "contract_revision": 2,
+            "contract_source": {
+                "path": ".agent-loop/contracts/UI-21/contract.json",
+                "sha256": "sha256:892dcddf91ba710a76eb52d509cdf641cbb0e6186d89809466c728d5c669411e"
+            },
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "required": false,
+            "state": "not_required"
+        },
+        "learning": {
+            "decided_at": "2026-09-08T06:25:22+00:00",
+            "decided_by": "claude-code-agent",
+            "decision": "findings_recorded",
+            "observation_mode": "checked",
+            "owner": "agent-learning",
+            "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+            "source": {
+                "path": ".agent-loop/learning/history/run-learning/7d1ce887fd2bc674f93ff68f09c0462d1fccc1d7a4ddc65c8c0673ff57c11f08.json",
+                "sha256": "sha256:2f2da315999ab5723274e05ac7f0fbd3c98f1796c8252ee076951691695e1d49"
+            },
+            "state": "decided"
+        },
+        "map": {
+            "observation_mode": "checked",
+            "owner": "agent-map",
+            "path": ".agent-loop/map/php-symbols.json",
+            "state": "missing"
+        },
+        "outcome_lineage": {
+            "observation_mode": "checked",
+            "owner": "agent-learning",
+            "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+            "state": "run_bound"
+        },
+        "recall": {
+            "bundle_sha256": "57d0813c0774e6cad6405774b571b25580a87e7e56d20f3ec04b67fb452683a1",
+            "compilation_id": "compilation.UI-21.2026-09-08-062343.420fa2e6",
+            "observation_mode": "checked",
+            "owner": "agent-recall-compiler",
+            "snapshot_sha256": "367633847f59e3dfbfd006e5411aadd16d79b1a8af8eae739e55ac17c3ab7d6a",
+            "source": {
+                "path": ".agent-loop/recall/UI-21/meta.json",
+                "sha256": "sha256:bf1437a63f2381f7e32d0270145fa9fc8237dba89e7f33978409a4d7a12d71a2"
+            },
+            "state": "compiled"
+        },
+        "review": {
+            "observation_mode": "checked",
+            "owner": "agent-recall-compiler",
+            "source": {
+                "path": ".agent-loop/recall/UI-21/reviews/UI-21.blindspots.json",
+                "sha256": "sha256:7e62d17b474b3e68618b6745bdc7081917485d68602b5385023a4349fa388ec3"
+            },
+            "state": "warn"
+        },
+        "search_index": {
+            "observation_mode": "checked",
+            "owner": "agent-map",
+            "path": ".agent-loop/map/search.sqlite",
+            "state": "unavailable"
+        },
+        "session": {
+            "base_commit": null,
+            "ephemeral": false,
+            "observation_mode": "checked",
+            "owner": "agent-session",
+            "session_id": "2026-09-08-ui-21-r2-db1213c0",
+            "source": {
+                "path": ".agent-loop/sessions/2026-09-08-ui-21-r2-db1213c0/session.json",
+                "sha256": "sha256:9f65629c79853358c3317cb9a0fe02fe30e5940a0e6aad6f6fb496f8273ed6ec"
+            },
+            "state": "done",
+            "task_id": "UI-21"
+        },
+        "verification": {
+            "contract_revision": 2,
+            "implementation_snapshot": "sha256:1585cdada8314dd950ac1026c02274131dda5808a06fd69158742eeaf7ee79c5",
+            "observation_mode": "checked",
+            "owner": "agent-loop",
+            "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+            "source": {
+                "path": ".agent-loop/runs/UI-21/verification.json",
+                "sha256": "sha256:ca29d5f581db9f77888e2963fdae25f99ddec0580674a9d0c66490717556e0f3"
+            },
+            "source_session_id": "2026-09-08-ui-21-r2-db1213c0",
+            "state": "passed"
+        }
+    },
+    "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+    "schema_version": "1.0",
+    "state": "complete",
+    "task_id": "UI-21"
+}

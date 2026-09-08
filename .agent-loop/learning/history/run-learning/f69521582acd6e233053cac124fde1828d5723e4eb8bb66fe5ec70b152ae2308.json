@@ -1,0 +1,18 @@
+{
+    "schema_version": "1.0",
+    "kind": "run_learning_decision",
+    "run_id": "run:UI-21:ca63250a2571ff48",
+    "decision": "findings_recorded",
+    "decided_by": "claude-code-agent",
+    "decided_at": "2026-09-07T23:27:56+00:00",
+    "reason": "Two durable owner-scoped findings came out of building consumer-side code search: agent-map's search-index refresh path aborts on duplicate canonical symbol ids that its build path tolerates, and agent-map exposes no typed factory for restoring the semantic embedding provider from a SearchIndexStore, which is why the semantic channel stays owner-reported as unavailable here instead of being reconstructed in the UI.",
+    "finding_ids": [
+        "finding.2026-09-07.1d55f7",
+        "finding.2026-09-07.5803da"
+    ],
+    "follow_up_ref": null,
+    "contract_revision": 1,
+    "implementation_snapshot": "sha256:ffdda2dcae6c88d755309c7a8d6fee4c7fc4057f2001a92df8bad6ae4a1ac501",
+    "validation_evidence_sha256": "sha256:993d3d2d7d2b76ba67af7240aff2c196047e11754ac2dc763b3499c155804a44",
+    "review_evidence_sha256": "sha256:5ce407ecd73015e5a08fd05edbfbcb44fff55bc4054b973ac8ca89797e7d01e1"
+}

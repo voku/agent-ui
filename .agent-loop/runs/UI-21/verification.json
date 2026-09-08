@@ -1,0 +1,22 @@
+{
+    "contract_revision": 2,
+    "contract_sha256": "sha256:892dcddf91ba710a76eb52d509cdf641cbb0e6186d89809466c728d5c669411e",
+    "implementation_snapshot": "sha256:1585cdada8314dd950ac1026c02274131dda5808a06fd69158742eeaf7ee79c5",
+    "kind": "run_verification_receipt",
+    "obligations": [
+        {
+            "command": "composer ci",
+            "duration_ms": 19211,
+            "executed_at": "2026-09-08T06:24:21+00:00",
+            "exit_code": 0,
+            "recorded_by": "claude-code-agent",
+            "status": "passed"
+        }
+    ],
+    "run_id": "run:UI-21:d3e9a28eb8be1f3c",
+    "schema_version": "1.1",
+    "source_session_id": "2026-09-08-ui-21-r2-db1213c0",
+    "task_id": "UI-21",
+    "verdict": "satisfied",
+    "verified_at": "2026-09-08T06:25:22+00:00"
+}
