@@ -118,10 +118,10 @@ answers all three — the UI adds routing, bounds and rendering, nothing semanti
 
 **Where is this?** `/map` runs `agent-map`'s `HybridSearch` over its derived chunk index, so a query
 reaches method bodies, comments and error strings rather than only symbol names. A hybrid answer
-carries the channel mode agent-map reports (`structural+lexical`, and `semantic_channel_unavailable`
-when the vector channel is not in play), the structural terms it recognised, both snapshots it
-answered from, and the per-channel ranks each hit earned — an opaque ranking is the first thing people
-stop trusting.
+carries the channel mode agent-map reports (`structural+lexical+semantic` when the stored semantic
+provider is compatible, otherwise `structural+lexical` with `semantic_channel_unavailable`), the
+structural terms it recognised, both snapshots it answered from, and the per-channel ranks each hit
+earned — an opaque ranking is the first thing people stop trusting.
 
 When the derived index has not been built, the page falls back to `AgentMapIndex::query()`, which needs
 no cache, so a miss from an unindexed repository never reads like "no such code". That fallback is
@@ -152,10 +152,11 @@ shortcut to the evidence, never a replacement for it. Depth, node bounds, trunca
 agent-map's answers, preserved rather than rounded off — a dynamic call that *might* reach the target
 stays marked uncertain.
 
-The semantic channel is deliberately left to agent-map to report as unavailable. Enabling it from a
-consumer would mean restoring the embedding provider from the store metadata that describes it, which
-would put a second copy of an owner's vector-space contract in the UI. It becomes available here when
-`agent-map` exposes a typed factory for it.
+The semantic channel is restored only through `agent-map`'s `SearchIndexStore::semanticProvider()`
+owner API. That API returns the provider matching the vectors already stored in the derived index, or
+`null` when sqlite-vec, persisted state, vectors, or the recorded fingerprint cannot support a truthful
+semantic query. The UI passes that result into `HybridSearch`; it never reads embedding metadata,
+refits a provider, or silently substitutes another vector space.
 
 ## Interface
 
