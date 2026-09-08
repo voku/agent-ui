@@ -127,7 +127,16 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Implement secure authentication module', $taskCandidateResponse->body);
         self::assertStringContainsString('src/Auth/', $taskCandidateResponse->body);
 
-        // 9. POST /task/APP-1/approve approves the contract
+        // 9. Candidate scope stays visible as a candidate, but must not become
+        // navigable "approved scope" before Loop records human approval.
+        $candidateWorkResponse = $app->handle(new Request('GET', '/task/APP-1/work'));
+        self::assertSame(200, $candidateWorkResponse->status);
+        self::assertStringContainsString('Work ↔ Architecture', $candidateWorkResponse->body);
+        self::assertStringContainsString('Loop · approved scope', $candidateWorkResponse->body);
+        self::assertStringContainsString('No approved Contract scope is available to navigate.', $candidateWorkResponse->body);
+        self::assertStringNotContainsString('/map?q=src%2FAuth%2F', $candidateWorkResponse->body);
+
+        // 10. POST /task/APP-1/approve approves the contract
         $approveResponse = $app->handle(new Request('POST', '/task/APP-1/approve', body: [
             '_csrf' => $csrf,
             'actor' => 'lead-engineer',
@@ -135,14 +144,14 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(303, $approveResponse->status);
         self::assertSame('/task/APP-1', $approveResponse->headers['Location']);
 
-        // 10. GET /task/APP-1 now shows contract is approved!
+        // 11. GET /task/APP-1 now shows contract is approved!
         $taskApprovedResponse = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $taskApprovedResponse->status);
         self::assertStringContainsString('Contract Approved', $taskApprovedResponse->body);
         self::assertStringContainsString('Approved by <strong>lead-engineer</strong>', $taskApprovedResponse->body);
 
-        // 11. Work connects Loop-owned scope to Map navigation without merging it
-        // with Git observation or deriving an impact result in the UI.
+        // 12. Work connects Loop-owned approved scope to Map navigation without
+        // merging it with Git observation or deriving an impact result in the UI.
         $workResponse = $app->handle(new Request('GET', '/task/APP-1/work'));
         self::assertSame(200, $workResponse->status);
         self::assertStringContainsString('Work ↔ Architecture', $workResponse->body);
