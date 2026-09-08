@@ -10,6 +10,7 @@ use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
+use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\TemplateRenderer;
 
 final class MapGraphProjectionTest extends TestCase
@@ -59,6 +60,68 @@ final class MapGraphProjectionTest extends TestCase
         self::assertStringContainsString('references_type', $response->body);
         self::assertStringContainsString('class="graph-edge"', $response->body);
         self::assertStringContainsString('class="graph-node-link"', $response->body);
+    }
+
+    public function testTheInteractiveExplorerIsDrivenByTheSameSnapshotAsTheStaticView(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $gateway = new MapProjectionGateway($this->root);
+        $graph = $gateway->graph(null, 30, 80);
+        self::assertNotNull($graph);
+
+        $body = $this->action($gateway, $templates)->graph(new Request('GET', '/map/graph'))->body;
+
+        // The interactive layer is a view over the rendered snapshot: every
+        // node it can focus is a node the static drawing and the tables show.
+        foreach ($graph->nodes as $node) {
+            self::assertStringContainsString('data-node-id="' . $node->id . '"', $body);
+            self::assertStringContainsString('data-graph-detail="' . $node->id . '"', $body);
+        }
+
+        // Focus is neighbourhood evidence the server derived from the same
+        // edges, not an adjacency the browser reconstructs.
+        $neighbours = [];
+        foreach ($graph->edges as $edge) {
+            $neighbours[$edge->sourceId][$edge->targetId] = true;
+            $neighbours[$edge->targetId][$edge->sourceId] = true;
+        }
+        self::assertNotSame([], $neighbours);
+        foreach ($neighbours as $nodeId => $ids) {
+            self::assertMatchesRegularExpression(
+                '/data-node-id="' . preg_quote((string) $nodeId, '/') . '"\s+data-neighbours="[^"]*' . preg_quote((string) array_key_first($ids), '/') . '/',
+                $body,
+            );
+        }
+
+        self::assertStringContainsString('data-graph-viewport', $body);
+        self::assertStringContainsString('data-graph-base-view="0 0 1000 700"', $body);
+    }
+
+    public function testEveryExplorerControlStaysHiddenUntilTheEnhancementScriptRevealsIt(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+
+        $body = $this->action(new MapProjectionGateway($this->root), $templates)->graph(new Request('GET', '/map/graph'))->body;
+
+        // Without JavaScript the static drawing and the tables are the whole
+        // answer, so no control that only the script can operate may show.
+        self::assertStringContainsString('data-graph-toolbar hidden', $body);
+        self::assertMatchesRegularExpression('/data-graph-detail="[^"]+" hidden/', $body);
+        self::assertStringContainsString('<svg', $body);
+        self::assertStringContainsString('Edges &amp; evidence', $body);
+    }
+
+    public function testTheExplorerNeverResolvesItsOwnNavigationTargets(): void
+    {
+        $script = ClientScript::code();
+
+        // Focus and zoom are representation. Anything that decides where a
+        // node leads belongs to the server-rendered markup.
+        self::assertStringContainsString('data-graph-viewport', $script);
+        self::assertStringNotContainsString('/map/source?path=', $script);
+        self::assertStringNotContainsString('/map/graph?region=', $script);
+        self::assertStringNotContainsString('location.href', $script);
+        self::assertStringNotContainsString('location.assign', $script);
     }
 
     public function testGraphProjectionSupportsQueryByFilePathAndGracefulFallback(): void

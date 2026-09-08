@@ -8,6 +8,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Added
 
+- Add an interactive explorer to `/map/graph`: pan, zoom, fit and neighbourhood focus over the exact same `MapGraphSnapshot` the static drawing and the evidence tables already render. Focus dims the drawing only — the node and edge tables always list the complete bounded projection — and every detail panel it reveals, including its Search, Source and region links, is server-rendered from that snapshot, so the browser never resolves a navigation target or derives an adjacency of its own. No graph library, no build step, and drawing state stays ephemeral: only the SVG `viewBox` moves, never a node.
 - Answer code search on `/map` through `agent-map`'s `HybridSearch` over its derived chunk index, so a query reaches method bodies, comments and error strings instead of symbol names alone. Every result set renders the owner-reported channel mode, degraded reason, recognised structural terms, and both the map and search-index snapshots, and every hit lists the per-channel ranks it earned.
 - Fall back to `AgentMapIndex::query()`, which needs no derived index, whenever the chunk index is missing, unusable or unreadable, so an unindexed repository never looks like a repository with no matching code. The fallback is labelled as the consumer's own composition: agent-ui marks its mode and reason as its own labels, reports the absent channel ranks, structural terms and search-index snapshot as absent instead of synthesizing owner-shaped values, and carries through only the map snapshot, which is genuinely owner-derived.
 - Add `/map/source`: bounded repository source windows materialized by `agent-map`'s own `SourceMaterializer` and refused when the recorded file hash no longer matches the working tree, so a stale map is reported as stale instead of rendering code the rest of the page is not describing. A refusal is classified from `AgentMapIndex::staleEntries()` rather than from the exception: a file agent-map names stale renders as stale with the owner's reason (`hash` or `missing`), and any other materialization failure stays `unavailable` with the owner's message. Search hits and symbol pages carry the same verified windows inline.
@@ -17,6 +18,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Changed
 
+- Neutralize the `hidden` attribute in the base stylesheet. An author `display` rule outranks the user-agent rule behind `hidden`, so a control that ships hidden for progressive enhancement rendered — and did nothing — for a reader without JavaScript.
 - Resolve agent-map artifact locations once through a shared `MapArtifactLocator`, so the map, source and search gateways cannot disagree about which index this repository's map is.
 - Require `voku/agent-map ^0.11.1` and pass `SearchIndexStore::semanticProvider()` into `HybridSearch`, enabling the owner-restored semantic channel when the stored vectors, sqlite-vec runtime, persisted embedding state and fingerprint are compatible without teaching agent-ui any of those storage semantics.
 
