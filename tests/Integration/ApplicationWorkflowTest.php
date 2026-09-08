@@ -74,11 +74,17 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame('/task/APP-1', $createResponse->headers['Location']);
         self::assertFileExists($this->root . '/.agent-loop/todo/cards/APP-1.md');
 
-        // 3. GET /task/APP-1 shows task page with Edit button and quick transition
+        // 3. GET /task/APP-1 shows task page with explicit Map/history targets
         $taskResponse = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $taskResponse->status);
         self::assertStringContainsString('Build login system', $taskResponse->body);
         self::assertStringContainsString('Edit card', $taskResponse->body);
+        self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
+        self::assertStringContainsString('Architecture', $taskResponse->body);
+        self::assertStringContainsString('Development trace', $taskResponse->body);
+        self::assertStringContainsString('href="/map?q=Build%20login%20system"', $taskResponse->body);
+        self::assertStringContainsString('href="/map/graph"', $taskResponse->body);
+        self::assertStringContainsString('href="/task/APP-1/history"', $taskResponse->body);
         self::assertStringContainsString('Move to READY', $taskResponse->body);
         self::assertStringContainsString('No Contract', $taskResponse->body);
 
@@ -124,7 +130,16 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Implement secure authentication module', $taskCandidateResponse->body);
         self::assertStringContainsString('src/Auth/', $taskCandidateResponse->body);
 
-        // 9. POST /task/APP-1/approve approves the contract
+        // 9. Candidate scope stays visible as a candidate, but must not become
+        // navigable "approved scope" before Loop records human approval.
+        $candidateWorkResponse = $app->handle(new Request('GET', '/task/APP-1/work'));
+        self::assertSame(200, $candidateWorkResponse->status);
+        self::assertStringContainsString('Work ↔ Architecture', $candidateWorkResponse->body);
+        self::assertStringContainsString('Loop · approved scope', $candidateWorkResponse->body);
+        self::assertStringContainsString('No approved Contract scope is available to navigate.', $candidateWorkResponse->body);
+        self::assertStringNotContainsString('/map?q=src%2FAuth%2F', $candidateWorkResponse->body);
+
+        // 10. POST /task/APP-1/approve approves the contract
         $approveResponse = $app->handle(new Request('POST', '/task/APP-1/approve', body: [
             '_csrf' => $csrf,
             'actor' => 'lead-engineer',
@@ -132,11 +147,21 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(303, $approveResponse->status);
         self::assertSame('/task/APP-1', $approveResponse->headers['Location']);
 
-        // 10. GET /task/APP-1 now shows contract is approved!
+        // 11. GET /task/APP-1 now shows contract is approved!
         $taskApprovedResponse = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $taskApprovedResponse->status);
         self::assertStringContainsString('Contract Approved', $taskApprovedResponse->body);
         self::assertStringContainsString('Approved by <strong>lead-engineer</strong>', $taskApprovedResponse->body);
+
+        // 12. Work connects Loop-owned approved scope to Map navigation without
+        // merging it with Git observation or deriving an impact result in the UI.
+        $workResponse = $app->handle(new Request('GET', '/task/APP-1/work'));
+        self::assertSame(200, $workResponse->status);
+        self::assertStringContainsString('Work ↔ Architecture', $workResponse->body);
+        self::assertStringContainsString('Loop · approved scope', $workResponse->body);
+        self::assertStringContainsString('Git · changed paths', $workResponse->body);
+        self::assertStringContainsString('/map?q=src%2FAuth%2F', $workResponse->body);
+        self::assertStringContainsString('/map/graph', $workResponse->body);
     }
 
     public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void

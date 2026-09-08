@@ -13,14 +13,16 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - Add `/map/source`: bounded repository source windows materialized by `agent-map`'s own `SourceMaterializer` and refused when the recorded file hash no longer matches the working tree, so a stale map is reported as stale instead of rendering code the rest of the page is not describing. A refusal is classified from `AgentMapIndex::staleEntries()` rather than from the exception: a file agent-map names stale renders as stale with the owner's reason (`hash` or `missing`), and any other materialization failure stays `unavailable` with the owner's message. Search hits and symbol pages carry the same verified windows inline.
 - Add `/map/impact`: `agent-map`'s bounded reverse-dependency traversal drawn as concentric depth rings with dashed uncertain paths, backed by the same nodes listed as text with their relation kinds and evidence counts. Depth, node bounds, truncation and uncertainty stay exactly as the owner reported them.
 - Add a search-index readiness projection alongside map readiness, separating "no FTS5 in this PHP build", "index never built", "index behind the map" and "index reports integrity failures", each with the command that repairs it.
+- Add task-level Map navigation and a `Work ↔ Architecture` bridge: task actions link to code search, architecture and history, while the work page keeps Loop-approved scope and Git-observed changed paths separately attributed before linking either into Map-owned evidence. Candidate Contract scope does not become approved Map navigation before approval.
 
 ### Changed
 
 - Resolve agent-map artifact locations once through a shared `MapArtifactLocator`, so the map, source and search gateways cannot disagree about which index this repository's map is.
+- Require `voku/agent-map ^0.11.1` and pass `SearchIndexStore::semanticProvider()` into `HybridSearch`, enabling the owner-restored semantic channel when the stored vectors, sqlite-vec runtime, persisted embedding state and fingerprint are compatible without teaching agent-ui any of those storage semantics.
 
 ### Notes
 
-- The semantic channel stays owner-reported as `semantic_channel_unavailable`. Enabling it from a consumer would require reconstructing the embedding provider from agent-map's store metadata, which would place a second copy of an owner's vector-space contract in the UI; it becomes available here once agent-map exposes a typed factory for it.
+- The semantic channel remains fail-closed and owner-reported. When `agent-map` cannot restore the exact provider that produced the stored vectors, `HybridSearch` continues reporting `semantic_channel_unavailable`; agent-ui never refits or substitutes a provider.
 
 ## [0.14.1] - 2026-09-07
 
