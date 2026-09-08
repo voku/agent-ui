@@ -1,0 +1,32 @@
+{
+    "id": "finding.2026-09-07.1d55f7",
+    "task_id": "UI-21",
+    "session": "2026-09-07-ui-21-r1-654753c5",
+    "created_at": "2026-09-07T23:27:49+00:00",
+    "created_by": "claude-code-agent",
+    "scope": [
+        "vendor/voku/agent-map",
+        "src/Integration/AgentMap"
+    ],
+    "observation": "agent-map exposes HybridSearch, SearchIndexStore, EmbeddingProvider and CorpusEmbeddingProvider::restore() publicly, but the only implementation that turns a SearchIndexStore back into the provider its vectors were written with is the private corpusProvider() method in AgentMapApplication, which reads the store meta keys embedding_state and embedding_fingerprint directly.",
+    "evidence": [
+        {
+            "type": "file_reference",
+            "path": "vendor/voku/agent-map/src/Cli/AgentMapApplication.php",
+            "line": 447,
+            "summary": "private function corpusProvider(SearchIndexStore $store): ?CorpusEmbeddingProvider - reads meta(embedding_state) and meta(embedding_fingerprint) to rebuild the provider"
+        },
+        {
+            "type": "file_reference",
+            "path": "src/Integration/AgentMap/CodeSearchGateway.php",
+            "line": 20,
+            "summary": "agent-ui documents the deliberate omission and passes no EmbeddingProvider, so HybridSearch reports degraded_reason=semantic_channel_unavailable instead of the UI substituting a provider"
+        }
+    ],
+    "hypothesis": "A consumer that wants the semantic channel must therefore either reimplement that composition - putting a second copy of an owner vector-space contract, including its meta key names, into the consumer - or leave the channel off.",
+    "validated_conclusion": "The semantic channel is unreachable from a consumer without crossing the owner boundary, so agent-ui leaves it off and renders agent-map's own semantic_channel_unavailable rather than reconstructing the provider. The smallest owner fix is a typed public factory on agent-map, for example CorpusEmbeddingProvider::restoredFrom(SearchIndexStore): ?self, used by the CLI as well so one implementation exists; the consumer constraint can then be bumped and the channel enabled.",
+    "confidence": "high",
+    "validation_status": "validated",
+    "status": "validated",
+    "sensitivity": "internal"
+}

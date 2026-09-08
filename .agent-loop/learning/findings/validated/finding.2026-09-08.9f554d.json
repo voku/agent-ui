@@ -1,0 +1,36 @@
+{
+    "id": "finding.2026-09-08.9f554d",
+    "task_id": "UI-21",
+    "session": "2026-09-08-ui-21-r2-db1213c0",
+    "created_at": "2026-09-08T06:24:52+00:00",
+    "created_by": "claude-code-agent",
+    "scope": [
+        "src/Integration",
+        "templates"
+    ],
+    "observation": "Two provenance defects survived a self-review and were caught by the repository owner. A consumer-composed fallback result set carried owner-shaped fields (a 'structural' mode, per-hit 'structural_rank:N' reasons, a populated channel rank) under a panel captioned 'channel mode reported by agent-map', none of which agent-map produced. Separately, a failure classification was defended by a code comment asserting that SourceMaterializer's escapes-the-root branch could not fire for an indexed path, which is false: a deleted indexed file makes realpath() return false and throws exactly that message.",
+    "evidence": [
+        {
+            "type": "file_reference",
+            "path": "src/Integration/AgentMap/CodeSearchResult.php",
+            "line": 13,
+            "summary": "PROVENANCE_OWNER / PROVENANCE_CONSUMER discriminator added so the view can stop attributing consumer-composed labels to agent-map"
+        },
+        {
+            "type": "file_reference",
+            "path": "tests/Integration/SourceViewGatewayTest.php",
+            "line": 68,
+            "summary": "testAFailureAgentMapDoesNotCallStaleStaysDistinguishable builds a hash-matching symlink outside the root; it fails under the previous catch-all that mapped every Throwable to stale"
+        },
+        {
+            "type": "review_comment",
+            "reference": "Repository owner review of branch claude/agent-ui-search-visualization-bjf47x: the escapes-root claim is false because a deleted indexed file makes realpath() fail, and CodeSearchResult::structural() is an agent-ui projection presented as owner-reported"
+        }
+    ],
+    "hypothesis": "Both defects share one shape: the consumer produced a value the owner did not, then presented it in the owner's vocabulary. The tests did not catch either because they asserted the mapping the code performed (status equals stale, rank equals 1) rather than the claim the UI made about who produced it.",
+    "validated_conclusion": "A consumer read model that mixes owner-reported and consumer-composed fields needs an explicit provenance discriminator, and the presentation must branch on it rather than sharing one owner-attributed caption. Absent owner fields must render as absent, never as plausible synthesized values. Where a consumer classifies an owner failure, the classification must come from a separate owner query (here AgentMapIndex::staleEntries()) rather than from an argument about which exceptions are reachable, and a test must construct a case in the other class - a hash-matching symlink escaping the root - so the two states are proven distinguishable rather than assumed.",
+    "confidence": "high",
+    "validation_status": "validated",
+    "status": "validated",
+    "sensitivity": "internal"
+}

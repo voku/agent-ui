@@ -1,0 +1,51 @@
+{
+    "acceptance_criteria": [
+        "Code search runs through agent-map HybridSearch when the derived chunk index is usable, and falls back to AgentMapIndex::query() otherwise.",
+        "A hybrid result set renders only agent-map's own mode, degraded reason, structural terms, per-channel ranks and both snapshots.",
+        "The fallback result set is attributed to agent-ui, labels its own mode and reason as agent-ui labels, and reports absent channel ranks, structural terms and search-index snapshot as absent instead of synthesizing owner-shaped values.",
+        "Source windows are bounded and hash-verified through agent-map SourceMaterializer before any line is rendered.",
+        "A refused source window is classified from AgentMapIndex::staleEntries(): a file agent-map names stale renders as stale with the owner reason, and any other materialization failure stays distinguishable as unavailable.",
+        "A symbol projects agent-map's bounded reverse-dependency impact with depth, relation kinds, truncation and uncertainty preserved, drawn and also listed as text.",
+        "All new pages are server-rendered and useful without JavaScript.",
+        "composer ci is green on the exact implementation head."
+    ],
+    "acceptance_observations": [],
+    "approved_at": "2026-09-08T06:23:22+00:00",
+    "approved_by": "claude-code-agent",
+    "base_commit": null,
+    "behavior_anchors": [],
+    "created_at": "2026-09-08T06:23:17+00:00",
+    "goal": "Turn the agent-ui Code Map into a code search, verified source reading and impact visualization surface by consuming agent-map's typed hybrid search, source materialization and impact analysis, so that every rendered claim is either produced by the semantic owner or explicitly attributed to agent-ui.",
+    "kind": "task_contract",
+    "non_goals": [
+        "No new framework, build step or client-side asset pipeline.",
+        "No second search index, chunker, ranking policy, source reader or architecture model inside the UI.",
+        "No host-integration or .claude/ managed-asset changes; those belong to their own branch and Contract.",
+        "No semantic channel until agent-map exposes a typed factory for restoring its embedding provider."
+    ],
+    "operating_prompt_manifest": null,
+    "operating_prompts": [],
+    "planned_by": "claude-code-agent",
+    "revision": 2,
+    "schema_version": "1.0",
+    "scope": [
+        "src",
+        "templates",
+        "tests",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "status": "approved",
+    "tags": [
+        "ui",
+        "map",
+        "search",
+        "visualization",
+        "provenance"
+    ],
+    "task_id": "UI-21",
+    "updated_at": "2026-09-08T06:23:22+00:00",
+    "validation": [
+        "composer ci"
+    ]
+}

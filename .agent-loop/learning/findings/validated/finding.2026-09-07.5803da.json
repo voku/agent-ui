@@ -1,0 +1,27 @@
+{
+    "id": "finding.2026-09-07.5803da",
+    "task_id": "UI-21",
+    "session": "2026-09-07-ui-21-r1-654753c5",
+    "created_at": "2026-09-07T23:27:38+00:00",
+    "created_by": "claude-code-agent",
+    "scope": [
+        "vendor/voku/agent-map"
+    ],
+    "observation": "agent-map 0.11.0 'search-index refresh --root=.' aborted with SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: code_chunks.chunk_id on a repository where 'search-index build --root=.' succeeds and reports 13892 chunk(s) skipped because their canonical symbol id is declared more than once.",
+    "evidence": [
+        {
+            "type": "runtime_observation",
+            "summary": "vendor/bin/agent-map search-index refresh --root=. -> SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: code_chunks.chunk_id (voku/agent-ui at 9ac9a13, agent-map 0.11.0, PHP 8.4.19)"
+        },
+        {
+            "type": "runtime_observation",
+            "summary": "vendor/bin/agent-map search-index build --root=. -> Indexed 8907 chunk(s) from 92 file(s); 13892 chunk(s) skipped: their canonical symbol id is declared more than once in this repository. The build path tolerates exactly the condition the refresh path fails on."
+        }
+    ],
+    "hypothesis": "The full-build path keeps the first chunk for a duplicated canonical symbol id and reports a skipped count, while the refresh path inserts without the same conflict handling, so a repository with any duplicated canonical symbol id can build its search index but never refresh it.",
+    "validated_conclusion": "The refresh path needs the duplicate-id tolerance the build path already documents, and that belongs in voku/agent-map rather than in any consumer. Until then a consumer offering hybrid search must treat a failed refresh as a recoverable behind-the-map state rather than a broken feature; agent-ui reports the derived index as stale and keeps answering from it.",
+    "confidence": "high",
+    "validation_status": "validated",
+    "status": "validated",
+    "sensitivity": "internal"
+}

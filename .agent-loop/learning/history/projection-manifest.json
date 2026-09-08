@@ -1,0 +1,25 @@
+{
+    "schema_version": "1.0",
+    "projection_type": "agent-learning-history-manifest",
+    "source_digest": "e0530a8a95a95dce6e9c1bc9f9a6b2e232999e3783fbc9253fdd4ebb2561dcaf",
+    "source_files": [
+        {
+            "path": "findings/validated/finding.2026-09-07.1d55f7.json",
+            "bytes": 2307,
+            "sha256": "12f48156c6987020fba0244b3a3858577b627d2f21475a89119f4dbf863a53f7"
+        },
+        {
+            "path": "findings/validated/finding.2026-09-07.5803da.json",
+            "bytes": 2084,
+            "sha256": "d86a9d22f61010d4aa222122a52cdaea99f1bbb111212b4f01625371ca98fa75"
+        }
+    ],
+    "active_guidance_snapshot": {
+        "path": "history/active-guidance.snapshot.json",
+        "sha256": "1a40b9a34394d54f7a6e557f0085dfb7b16d2f71ac41b5f4d4b36f8118f00b70"
+    },
+    "chronicle": {
+        "path": "history/chronicle.jsonl",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+}
