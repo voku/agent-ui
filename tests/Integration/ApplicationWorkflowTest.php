@@ -74,7 +74,7 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame('/task/APP-1', $createResponse->headers['Location']);
         self::assertFileExists($this->root . '/.agent-loop/todo/cards/APP-1.md');
 
-        // 3. GET /task/APP-1 shows task page with Edit button and quick transition
+        // 3. GET /task/APP-1 shows task page with explicit Map/history targets
         $taskResponse = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $taskResponse->status);
         self::assertStringContainsString('Build login system', $taskResponse->body);
@@ -82,6 +82,9 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
         self::assertStringContainsString('Architecture', $taskResponse->body);
         self::assertStringContainsString('Development trace', $taskResponse->body);
+        self::assertStringContainsString('href="/map?q=Build%20login%20system"', $taskResponse->body);
+        self::assertStringContainsString('href="/map/graph"', $taskResponse->body);
+        self::assertStringContainsString('href="/task/APP-1/history"', $taskResponse->body);
         self::assertStringContainsString('Move to READY', $taskResponse->body);
         self::assertStringContainsString('No Contract', $taskResponse->body);
 
