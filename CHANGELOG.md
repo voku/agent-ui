@@ -13,6 +13,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - Add `/map/source`: bounded repository source windows materialized by `agent-map`'s own `SourceMaterializer` and refused when the recorded file hash no longer matches the working tree, so a stale map is reported as stale instead of rendering code the rest of the page is not describing. A refusal is classified from `AgentMapIndex::staleEntries()` rather than from the exception: a file agent-map names stale renders as stale with the owner's reason (`hash` or `missing`), and any other materialization failure stays `unavailable` with the owner's message. Search hits and symbol pages carry the same verified windows inline.
 - Add `/map/impact`: `agent-map`'s bounded reverse-dependency traversal drawn as concentric depth rings with dashed uncertain paths, backed by the same nodes listed as text with their relation kinds and evidence counts. Depth, node bounds, truncation and uncertainty stay exactly as the owner reported them.
 - Add a search-index readiness projection alongside map readiness, separating "no FTS5 in this PHP build", "index never built", "index behind the map" and "index reports integrity failures", each with the command that repairs it.
+- Add task-level Map navigation and a `Work ↔ Architecture` bridge: task actions link to code search, architecture and history, while the work page keeps Loop-approved scope and Git-observed changed paths separately attributed before linking either into Map-owned evidence. Candidate Contract scope does not become approved Map navigation before approval.
 
 ### Changed
 
@@ -96,7 +97,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Fixed
 
 - Read the board through `agent-loop`'s `ProjectLayout::boardRoot()` instead of the project root. A repository scaffolded by `agent-loop init scaffold` keeps its board below the state root, and every page of the control plane answered HTTP 500 there.
-- Name the bundled enhancement script in the Content-Security-Policy by hash. `script-src 'self'` had been refusing the layout's inline script on every page, so no Copy button ever worked in a browser.
+- Name the bundled enhancement script in the Content-Security-Policy by hash. `script-src 'self'` had been refusing the layout's inline script on every page, so no Copy button ever worked in a browser. `src/View/ClientScript.php` is now the single source of both the script and the policy source expression that admits it, and a test fails if they drift apart.
 - Render errors, 404s and CSRF rejections through the normal layout with a status, an honest message and navigation, replacing an unstyled stub that dropped the operator out of the control plane.
 - Close the setup host panel on the projection-error path; a `continue` inside the loop had been skipping the closing tag.
 - Wrap wide evidence and work tables in their own scroll container, and let the masthead navigation wrap, so no page scrolls horizontally at a 390px viewport.

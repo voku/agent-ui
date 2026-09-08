@@ -92,6 +92,8 @@ Removal remains deliberately narrow: package-managed unchanged assets may be rem
 
 `/task/{id}/work` renders the approved Contract boundary separately from Git repository observation, implementation snapshot and exact review evidence. Scope drift is visible but never mutates the Contract or advances lifecycle state.
 
+The Work ↔ Architecture bridge carries those existing owner facts into Map navigation without merging them: only an approved Contract scope is linked as Loop authority, Git-observed changed paths remain separately attributed, and either path can open Map-owned search/graph evidence. Candidate Contract scope stays visible as candidate state but never becomes "approved scope" navigation before Loop records approval. Task pages also link directly to code search, the architecture graph, and the existing history view used as the current development-trace entry point.
+
 `/knowledge` and `/task/{id}/learning` use `agent-learning`'s bounded typed catalog. Findings, proposals, durable guidance/constraints, rejected/superseded history and owner-recorded usefulness signals remain Learning truth rather than workflow authority.
 
 ## Execution modes
