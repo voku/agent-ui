@@ -17,13 +17,11 @@ use voku\AgentMap\Search\SearchIndexStore;
  * no derived index at all. Both paths report which one answered, so "no result"
  * from a repository with no search index never reads like "no such code".
  *
- * The semantic channel stays deliberately off here. Enabling it means restoring
- * the embedding provider the index was written with, and the state that
- * describes it lives behind agent-map's own store metadata. Reconstructing that
- * in a consumer would put a second copy of an owner's vector-space contract in
- * the UI, so the channel is reported as `semantic_channel_unavailable` - which
- * is exactly what agent-map itself reports - until agent-map exposes a typed
- * factory for it.
+ * The semantic channel is restored through agent-map's typed factory
+ * `SearchIndexStore::semanticProvider()`. When available and fitted,
+ * `HybridSearch` uses the restored provider; when unavailable (e.g. no sqlite-vec,
+ * no vectors, or unusable state), it degrades gracefully and reports
+ * `semantic_channel_unavailable` as owner-reported.
  */
 final readonly class CodeSearchGateway
 {
@@ -152,7 +150,7 @@ final readonly class CodeSearchGateway
         try {
             $store = new SearchIndexStore($readiness->databasePath);
             /** @var array<string, mixed> $result */
-            $result = (new HybridSearch())->search($index, $store, $query, $limit);
+            $result = (new HybridSearch(embeddings: $store->semanticProvider()))->search($index, $store, $query, $limit);
         } catch (Throwable) {
             // A broken derived cache must not remove search from the UI: the
             // structural channel needs no cache and stays exact.

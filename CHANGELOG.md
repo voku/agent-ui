@@ -17,10 +17,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Changed
 
 - Resolve agent-map artifact locations once through a shared `MapArtifactLocator`, so the map, source and search gateways cannot disagree about which index this repository's map is.
-
-### Notes
-
-- The semantic channel stays owner-reported as `semantic_channel_unavailable`. Enabling it from a consumer would require reconstructing the embedding provider from agent-map's store metadata, which would place a second copy of an owner's vector-space contract in the UI; it becomes available here once agent-map exposes a typed factory for it.
+- Restore the semantic channel through `agent-map`'s typed `SearchIndexStore::semanticProvider()` factory: when stored vectors and sqlite-vec are available, `HybridSearch` automatically uses the restored provider; when absent, it gracefully degrades and reports `semantic_channel_unavailable` as owner-reported.
 
 ## [0.14.1] - 2026-09-07
 

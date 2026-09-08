@@ -6,6 +6,7 @@ namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use voku\AgentMap\Search\CodeChunk;
+use voku\AgentMap\Search\Embedding\CorpusEmbeddingProvider;
 use voku\AgentMap\Search\SearchIndexStore;
 use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
 use voku\AgentUi\Integration\AgentMap\CodeSearchResult;
@@ -125,6 +126,39 @@ final class CodeSearchGatewayTest extends TestCase
         self::assertNotNull($hit->channelRanks['lexical']);
         self::assertNotSame([], $hit->reasons);
         self::assertGreaterThan(0.0, $hit->score);
+    }
+
+    public function testHybridSearchRestoresSemanticProviderWhenEmbeddingStateMatches(): void
+    {
+        if (!SearchIndexStore::supportsFts5()) {
+            self::markTestSkipped('This PHP build has no SQLite FTS5.');
+        }
+
+        $sha = $this->writeIndexedFile();
+        $this->writeSearchIndex($sha);
+
+        $store = new SearchIndexStore($this->fixture->root . '/.agent-map/search.sqlite');
+        if (!$store->enableVectorSupport()) {
+            self::markTestSkipped('sqlite-vec is unavailable in this runtime.');
+        }
+
+        $chunks = $store->chunkContentsForPaths(['src/Greeter.php']);
+        $provider = new CorpusEmbeddingProvider();
+        /** @var list<string> $contents */
+        $contents = array_column($chunks, 'content');
+        $provider->fit($contents);
+        $vectors = $provider->embedDocuments($contents);
+        $store->prepareVectorTable($provider->model());
+        $store->storeEmbeddingState($provider);
+        $store->storeVectors([$chunks[0]['chunk_id'] => $vectors[0]], $provider->model());
+
+        $result = (new CodeSearchGateway($this->fixture->root))->search('cordially');
+
+        self::assertSame('hybrid', $result->mode);
+        self::assertSame('structural+lexical+semantic', $result->effectiveMode);
+        self::assertFalse($result->degraded);
+        self::assertNull($result->degradedReason);
+        self::assertNotSame([], $result->hits);
     }
 
     public function testHybridHitsCanCarryVerifiedSourcePreviews(): void
