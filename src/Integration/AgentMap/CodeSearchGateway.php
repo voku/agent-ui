@@ -127,6 +127,7 @@ final readonly class CodeSearchGateway
                 degradedReason: null,
                 hits: [],
                 limit: $limit,
+                provenance: CodeSearchResult::PROVENANCE_CONSUMER,
             );
         }
 
@@ -174,6 +175,7 @@ final readonly class CodeSearchGateway
             mapSnapshot: $this->asString($result['map_snapshot'] ?? null),
             searchIndexSnapshot: $this->asString($result['search_index_snapshot'] ?? null),
             limit: $limit,
+            provenance: CodeSearchResult::PROVENANCE_OWNER,
         );
     }
 
@@ -225,15 +227,19 @@ final readonly class CodeSearchGateway
     }
 
     /**
-     * The structural fallback speaks the same shape as a hybrid hit so the view
-     * renders one list, not two, and labels the channel that produced it.
+     * The fallback hits, shaped like hybrid hits so the view renders one list.
+     *
+     * Deliberately carrying no channel ranks, no reasons and no score: agent-map's
+     * symbol query returns matches in index order, which is not a ranking, and
+     * agent-map's structural channel is a different thing from this query. Filling
+     * those fields with plausible-looking values would put the consumer's ordering
+     * behind the owner's vocabulary.
      *
      * @return list<CodeSearchHit>
      */
     private function structuralHits(string $query, int $limit, int $previewContext): array
     {
         $hits = [];
-        $rank = 1;
         foreach ($this->structural->search($query, $limit) as $summary) {
             $hits[] = new CodeSearchHit(
                 chunkId: $summary->id,
@@ -244,8 +250,8 @@ final readonly class CodeSearchGateway
                 lineStart: $summary->lineStart,
                 lineEnd: $summary->lineEnd,
                 score: 0.0,
-                channelRanks: ['structural' => $rank, 'lexical' => null, 'semantic' => null],
-                reasons: ['structural_rank:' . $rank],
+                channelRanks: ['structural' => null, 'lexical' => null, 'semantic' => null],
+                reasons: [],
                 signature: $summary->returnType === null
                     ? '(' . implode(', ', $summary->parameters) . ')'
                     : '(' . implode(', ', $summary->parameters) . '): ' . $summary->returnType,
@@ -253,7 +259,6 @@ final readonly class CodeSearchGateway
                     ? $this->source->slice($summary->file, $summary->lineStart, $summary->lineEnd, 0)
                     : null,
             );
-            ++$rank;
         }
 
         return $hits;

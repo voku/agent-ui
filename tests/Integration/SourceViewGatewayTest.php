@@ -51,21 +51,73 @@ final class SourceViewGatewayTest extends TestCase
         $view = (new SourceViewGateway($this->fixture->root))->file('src/Greeter.php');
 
         self::assertSame('stale', $view->status);
+        self::assertSame('hash', $view->staleReason);
         self::assertFalse($view->isRendered());
         self::assertSame([], $view->lines);
         self::assertNotNull($view->failure);
     }
 
-    public function testADeletedFileIsReportedAsStaleRatherThanRenderedEmpty(): void
+    public function testADeletedFileIsStaleForTheReasonAgentMapRecords(): void
     {
         $this->writeIndexedFile();
         unlink($this->fixture->root . '/src/Greeter.php');
 
         $view = (new SourceViewGateway($this->fixture->root))->file('src/Greeter.php');
 
+        // SourceMaterializer reports a deleted file through its escapes-the-root
+        // branch, because realpath() fails. The classification must not come from
+        // that message: agent-map's stale evidence is what says this is stale, and
+        // it says why.
         self::assertSame('stale', $view->status);
+        self::assertSame('missing', $view->staleReason);
         self::assertFalse($view->isRendered());
         self::assertNotNull($view->failure);
+    }
+
+    public function testAChangedFileIsStaleForTheHashReason(): void
+    {
+        $this->writeIndexedFile();
+        file_put_contents($this->fixture->root . '/src/Greeter.php', "<?php\n// rewritten\n");
+
+        $view = (new SourceViewGateway($this->fixture->root))->file('src/Greeter.php');
+
+        self::assertSame('stale', $view->status);
+        self::assertSame('hash', $view->staleReason);
+    }
+
+    public function testAFailureAgentMapDoesNotCallStaleStaysDistinguishable(): void
+    {
+        // A symlink whose target lives outside the repository: its hash matches the
+        // map, so agent-map does not call it stale, but materializing it really does
+        // hit the escapes-the-root refusal. Folding every Throwable into "stale"
+        // would report this as a map that needs refreshing, which it is not.
+        $outside = sys_get_temp_dir() . '/agent_ui_outside_' . bin2hex(random_bytes(6)) . '.php';
+        $contents = "<?php\n// outside the repository root\n";
+        file_put_contents($outside, $contents);
+
+        try {
+            $this->fixture->writeFile('src/Placeholder.php', '');
+            unlink($this->fixture->root . '/src/Placeholder.php');
+            symlink($outside, $this->fixture->root . '/src/Placeholder.php');
+
+            $this->fixture->writeMap([
+                [
+                    'path' => 'src/Placeholder.php',
+                    'sha256' => 'sha256:' . hash('sha256', $contents),
+                    'namespace' => 'App',
+                    'symbols' => [MapFixture::classSymbol('Placeholder', 'App\\Placeholder', 1, 2)],
+                ],
+            ]);
+
+            $view = (new SourceViewGateway($this->fixture->root))->file('src/Placeholder.php');
+
+            self::assertSame('unavailable', $view->status);
+            self::assertNull($view->staleReason);
+            self::assertStringContainsString('escapes repository root', (string) $view->failure);
+            self::assertFalse($view->isRendered());
+        } finally {
+            @unlink($outside);
+        }
     }
 
     public function testUnindexedAndEscapingPathsAreRefused(): void

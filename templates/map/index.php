@@ -66,34 +66,55 @@ require __DIR__ . '/../layout/header.php';
                 <span class="pill pill--<?= $result->degraded ? 'attention' : 'ok' ?>"><?= TemplateRenderer::escape($result->effectiveMode) ?></span>
                 <strong style="margin-left:8px"><?= count($result->hits) ?> hit(s)</strong>
             </div>
-            <span class="small faint">channel mode reported by agent-map</span>
+            <span class="small faint">
+                <?= $result->isOwnerReported()
+                    ? 'channel mode reported by agent-map'
+                    : 'composed by agent-ui; only the map snapshot below is owner-derived' ?>
+            </span>
         </div>
-        <dl class="kv" style="margin-top:12px">
-            <dt>Search mode</dt><dd><span class="mono"><?= TemplateRenderer::escape($result->mode) ?></span></dd>
-            <?php if ($result->degradedReason !== null): ?>
-                <dt>Degraded</dt><dd><span class="mono"><?= TemplateRenderer::escape($result->degradedReason) ?></span></dd>
-            <?php endif; ?>
-            <?php if ($result->structuralTerms !== []): ?>
-                <dt>Structural terms</dt><dd><span class="mono small"><?= TemplateRenderer::escape(implode(', ', $result->structuralTerms)) ?></span></dd>
-            <?php endif; ?>
-            <?php if ($result->mapSnapshot !== null): ?>
-                <dt>Map snapshot</dt><dd><span class="mono small"><?= TemplateRenderer::escape(substr($result->mapSnapshot, 0, 24)) ?>…</span></dd>
-            <?php endif; ?>
-            <?php if ($result->searchIndexSnapshot !== null): ?>
-                <dt>Search index snapshot</dt>
-                <dd>
-                    <span class="mono small"><?= TemplateRenderer::escape(substr($result->searchIndexSnapshot, 0, 24)) ?>…</span>
-                    <?php if (!$result->snapshotsAgree()): ?>
-                        <span class="pill pill--attention" style="margin-left:6px">behind the map</span>
-                    <?php endif; ?>
-                </dd>
-            <?php endif; ?>
-        </dl>
+        <?php if ($result->isOwnerReported()): ?>
+            <dl class="kv" style="margin-top:12px">
+                <dt>Search mode</dt><dd><span class="mono"><?= TemplateRenderer::escape($result->mode) ?></span></dd>
+                <?php if ($result->degradedReason !== null): ?>
+                    <dt>Degraded</dt><dd><span class="mono"><?= TemplateRenderer::escape($result->degradedReason) ?></span></dd>
+                <?php endif; ?>
+                <?php if ($result->structuralTerms !== []): ?>
+                    <dt>Structural terms</dt><dd><span class="mono small"><?= TemplateRenderer::escape(implode(', ', $result->structuralTerms)) ?></span></dd>
+                <?php endif; ?>
+                <?php if ($result->mapSnapshot !== null): ?>
+                    <dt>Map snapshot</dt><dd><span class="mono small"><?= TemplateRenderer::escape(substr($result->mapSnapshot, 0, 24)) ?>…</span></dd>
+                <?php endif; ?>
+                <?php if ($result->searchIndexSnapshot !== null): ?>
+                    <dt>Search index snapshot</dt>
+                    <dd>
+                        <span class="mono small"><?= TemplateRenderer::escape(substr($result->searchIndexSnapshot, 0, 24)) ?>…</span>
+                        <?php if (!$result->snapshotsAgree()): ?>
+                            <span class="pill pill--attention" style="margin-left:6px">behind the map</span>
+                        <?php endif; ?>
+                    </dd>
+                <?php endif; ?>
+            </dl>
+        <?php else: ?>
+            <dl class="kv" style="margin-top:12px">
+                <dt>Answered by</dt><dd>agent-ui fallback over <span class="mono">AgentMapIndex::query()</span></dd>
+                <dt>Fallback mode <span class="faint">(agent-ui label)</span></dt><dd><span class="mono"><?= TemplateRenderer::escape($result->mode) ?></span></dd>
+                <?php if ($result->degradedReason !== null): ?>
+                    <dt>Reason <span class="faint">(agent-ui label)</span></dt><dd><span class="mono"><?= TemplateRenderer::escape($result->degradedReason) ?></span></dd>
+                <?php endif; ?>
+                <?php if ($result->mapSnapshot !== null): ?>
+                    <dt>Map snapshot <span class="faint">(agent-map)</span></dt><dd><span class="mono small"><?= TemplateRenderer::escape(substr($result->mapSnapshot, 0, 24)) ?>…</span></dd>
+                <?php endif; ?>
+                <dt>Channel ranks</dt><dd class="faint">none — the map query returns matches in index order, which is not a ranking</dd>
+                <dt>Search index snapshot</dt><dd class="faint">none — no derived index answered</dd>
+            </dl>
+        <?php endif; ?>
         <?php if ($result->failure !== null): ?>
             <p class="note" style="margin-top:12px;color:var(--blocked)"><?= TemplateRenderer::escape($result->failure) ?></p>
-        <?php elseif ($result->mode === 'structural'): ?>
+        <?php elseif (!$result->isOwnerReported() && $result->hits !== []): ?>
             <p class="note" style="margin-top:12px">
-                Answered by the structural symbol query, which needs no derived index. Build the chunk index to search inside method bodies and comments:
+                agent-map's derived chunk index did not answer, so these are symbol matches from the canonical map query, listed in index order.
+                There is no channel ranking, no structural-term analysis and no search-index snapshot to report, because none was produced.
+                Build the chunk index to search inside method bodies and comments, and to get agent-map's own ranked provenance:
                 <code>vendor/bin/agent-map search-index build --root=.</code>
             </p>
         <?php elseif ($result->degradedReason === 'semantic_channel_unavailable'): ?>
@@ -111,7 +132,7 @@ require __DIR__ . '/../layout/header.php';
         </section>
     <?php else: ?>
         <div class="stack">
-            <?php foreach ($result->hits as $hit): ?>
+            <?php foreach ($result->hits as $hitIndex => $hit): ?>
                 <article class="panel">
                     <div class="action__head">
                         <div>
@@ -136,11 +157,16 @@ require __DIR__ . '/../layout/header.php';
 
                     <div class="hit__meta">
                         <div class="small faint">
-                            <?php if ($hit->score > 0.0): ?><span class="mono">score <?= TemplateRenderer::escape(number_format($hit->score, 6)) ?></span> · <?php endif; ?>
-                            <span><?= (int) $hit->lineCount() ?> line(s)</span>
-                            <?php foreach ($hit->reasons as $reason): ?>
-                                · <span class="mono"><?= TemplateRenderer::escape($reason) ?></span>
-                            <?php endforeach; ?>
+                            <?php if ($result->isOwnerReported()): ?>
+                                <?php if ($hit->score > 0.0): ?><span class="mono">score <?= TemplateRenderer::escape(number_format($hit->score, 6)) ?></span> · <?php endif; ?>
+                                <span><?= (int) $hit->lineCount() ?> line(s)</span>
+                                <?php foreach ($hit->reasons as $reason): ?>
+                                    · <span class="mono"><?= TemplateRenderer::escape($reason) ?></span>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span>map query match #<?= (int) ($hitIndex + 1) ?> (index order, unranked)</span>
+                                · <span><?= (int) $hit->lineCount() ?> line(s)</span>
+                            <?php endif; ?>
                         </div>
                         <div class="hit__actions">
                             <a class="btn" href="/map/source?path=<?= rawurlencode($hit->file) ?>&amp;line=<?= (int) $hit->lineStart ?>">Source</a>

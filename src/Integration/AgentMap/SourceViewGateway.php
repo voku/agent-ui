@@ -19,7 +19,7 @@ use voku\AgentMap\Index\FileEntry;
  * accident, and the developer is told to refresh the map instead of being shown
  * code the rest of the page is not describing.
  */
-final readonly class SourceViewGateway
+final class SourceViewGateway
 {
     /** A file window never exceeds this many lines, however large the file is. */
     public const int MAXIMUM_FILE_LINES = 600;
@@ -27,7 +27,19 @@ final readonly class SourceViewGateway
     /** A search-result or symbol preview stays small enough to scan without scrolling away. */
     public const int MAXIMUM_PREVIEW_LINES = 40;
 
-    private MapArtifactLocator $locator;
+    private readonly MapArtifactLocator $locator;
+
+    /**
+     * Owner stale evidence, read once per gateway instance.
+     *
+     * `staleEntries()` hashes every indexed file, so it is consulted only when a
+     * materialization has already failed, and the answer is kept for the rest of
+     * the request. A page rendering twenty previews against a broadly stale map
+     * must not walk the whole index twenty times.
+     *
+     * @var array<string, string>|null path => owner reason
+     */
+    private ?array $staleReasons = null;
 
     public function __construct(string $projectRoot, ?MapArtifactLocator $locator = null)
     {
@@ -94,13 +106,18 @@ final readonly class SourceViewGateway
                 false,
             );
         } catch (Throwable $exception) {
-            // Only indexed paths reach this call and `../` is already refused, so the
-            // escapes-the-root refusal cannot fire here. What remains - a hash that no
-            // longer matches, or a file that has gone - is exactly what agent-map's own
-            // `staleEntries()` classifies as stale. Calling it stale is therefore the
-            // remaining classification rather than a guess at the cause, and the owner's
-            // message travels with it either way.
-            return SourceView::unavailable($path, 'stale', $exception->getMessage());
+            // Which failure this was is not inferred from the exception. agent-map
+            // decides whether the file is stale, and it reports a deleted file and a
+            // changed file the same way it reports every other stale entry. Anything
+            // it does not name stays `unavailable`, so a genuinely unexpected
+            // materialization failure - a path that really does escape the root, an
+            // unreadable file - keeps its own state instead of being reported as a
+            // diagnosis the map never made.
+            $staleReason = $this->staleReason($index, $file->path);
+
+            return $staleReason === null
+                ? SourceView::unavailable($path, 'unavailable', $exception->getMessage())
+                : SourceView::unavailable($path, 'stale', $exception->getMessage(), $staleReason);
         }
 
         // Each materialized line keeps its own newline, so exploding produces one
@@ -140,6 +157,20 @@ final readonly class SourceViewGateway
             symbols: $this->symbolsOf($file),
             focusLine: $focusLine,
         );
+    }
+
+    /** agent-map's own reason for calling this file stale, or null when it does not. */
+    private function staleReason(AgentMapIndex $index, string $path): ?string
+    {
+        if ($this->staleReasons === null) {
+            $reasons = [];
+            foreach ($index->staleEntries() as $entry) {
+                $reasons[$entry['path']] = $entry['reason'];
+            }
+            $this->staleReasons = $reasons;
+        }
+
+        return $this->staleReasons[$path] ?? null;
     }
 
     private function fileEntry(AgentMapIndex $index, string $path): ?FileEntry

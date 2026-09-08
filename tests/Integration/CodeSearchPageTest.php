@@ -50,6 +50,20 @@ final class CodeSearchPageTest extends TestCase
         self::assertStringContainsString('App\\Greeter', $body);
     }
 
+    public function testTheFallbackDoesNotAttributeItsOwnLabelsToAgentMap(): void
+    {
+        $body = $this->action()->index(new Request('GET', '/map', query: ['q' => 'Greeter']))->body;
+
+        // The owner-provenance caption belongs only to a result agent-map ranked.
+        self::assertStringNotContainsString('channel mode reported by agent-map', $body);
+        self::assertStringContainsString('composed by agent-ui', $body);
+        self::assertStringContainsString('(agent-ui label)', $body);
+        self::assertStringContainsString('agent-ui fallback over', $body);
+        self::assertStringContainsString('which is not a ranking', $body);
+        self::assertStringContainsString('map query match #1 (index order, unranked)', $body);
+        self::assertStringNotContainsString('structural_rank:', $body);
+    }
+
     public function testPreviewToggleIsHonouredInBothDirections(): void
     {
         $action = $this->action();

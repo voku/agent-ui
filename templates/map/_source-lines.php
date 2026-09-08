@@ -15,15 +15,22 @@ use voku\AgentUi\View\TemplateRenderer;
 <?php if (!$view->isRendered()): ?>
     <p class="note source__note source__note--<?= TemplateRenderer::escape($view->status) ?>">
         <?php if ($view->status === 'stale'): ?>
-            <strong>Source not shown.</strong> The working tree no longer matches the map for
-            <code><?= TemplateRenderer::escape($view->path) ?></code>. Refresh with
-            <code>vendor/bin/agent-map refresh --root=.</code>.
+            <strong>Source not shown.</strong>
+            <?php if ($view->staleReason === 'missing'): ?>
+                agent-map records <code><?= TemplateRenderer::escape($view->path) ?></code> as stale because the indexed file is gone.
+            <?php elseif ($view->staleReason === 'hash'): ?>
+                agent-map records <code><?= TemplateRenderer::escape($view->path) ?></code> as stale because its contents changed since the map was built.
+            <?php else: ?>
+                agent-map records <code><?= TemplateRenderer::escape($view->path) ?></code> as stale.
+            <?php endif; ?>
+            Refresh with <code>vendor/bin/agent-map refresh --root=.</code>.
         <?php elseif ($view->status === 'not_indexed'): ?>
             <strong>Not in the map.</strong> <code><?= TemplateRenderer::escape($view->path) ?></code> is outside the indexed paths.
         <?php elseif ($view->status === 'missing'): ?>
             <strong>No map index.</strong> Build one with <code>vendor/bin/agent-map build --root=.</code>.
         <?php else: ?>
-            <strong>Source unavailable.</strong> <?= TemplateRenderer::escape($view->failure ?? 'agent-map returned no window for this range.') ?>
+            <strong>Source unavailable.</strong> agent-map could not materialize this window and does not record the file as stale:
+            <span class="mono"><?= TemplateRenderer::escape($view->failure ?? 'no reason reported.') ?></span>
         <?php endif; ?>
     </p>
 <?php else: ?>

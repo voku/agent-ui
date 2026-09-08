@@ -117,13 +117,19 @@ The Map surface answers three questions a developer actually asks about a reposi
 answers all three — the UI adds routing, bounds and rendering, nothing semantic.
 
 **Where is this?** `/map` runs `agent-map`'s `HybridSearch` over its derived chunk index, so a query
-reaches method bodies, comments and error strings rather than only symbol names. When that derived
-index has not been built the page falls back to the structural symbol query, which needs no cache, and
-says so: a miss from an unindexed repository never reads like "no such code". Every result set carries
-the channel mode agent-map reports (`structural+lexical`, and `semantic_channel_unavailable` when the
-vector channel is not in play), the structural terms it recognised, and the map and search-index
-snapshots it answered from. Each hit lists the ranks it earned per channel, because an opaque ranking
-is the first thing people stop trusting.
+reaches method bodies, comments and error strings rather than only symbol names. A hybrid answer
+carries the channel mode agent-map reports (`structural+lexical`, and `semantic_channel_unavailable`
+when the vector channel is not in play), the structural terms it recognised, both snapshots it
+answered from, and the per-channel ranks each hit earned — an opaque ranking is the first thing people
+stop trusting.
+
+When the derived index has not been built, the page falls back to `AgentMapIndex::query()`, which needs
+no cache, so a miss from an unindexed repository never reads like "no such code". That fallback is
+labelled as the consumer's own: the page says it was composed by agent-ui, marks the mode and reason as
+agent-ui labels, and reports that there are no channel ranks, no structural terms and no search-index
+snapshot rather than inventing plausible ones. Only the map snapshot is carried through, because only
+it is genuinely owner-derived. A result set that quotes the consumer as if it were the owner is worse
+than no provenance at all.
 
 ```bash
 vendor/bin/agent-map build --root=. --paths=src,tests
@@ -132,9 +138,12 @@ vendor/bin/agent-map search-index build --root=.
 
 **What does it look like?** `/map/source` and the previews under each hit render real repository source
 through `agent-map`'s own `SourceMaterializer`. The window is bounded, and the file hash recorded in the
-map is checked before a single line is rendered. A working tree that has moved past the map is reported
-as stale instead of being displayed, so the code you read is always the code the callers, the impact
-view and the edit context are describing.
+map is checked before a single line is rendered, so the code you read is always the code the callers,
+the impact view and the edit context are describing. When materialization is refused, `agent-map`'s own
+stale evidence decides what to call it: a file it names stale renders as stale with the owner's reason
+(`hash` or `missing`), and a refusal it does not name — a path that really escapes the repository root,
+an unreadable file — stays `unavailable` with the owner's message. An unexpected failure stays visible
+as one instead of being folded into a diagnosis the map never made.
 
 **What breaks if I change it?** `/map/impact` projects `agent-map`'s reverse-dependency traversal as
 concentric rings around the target: distance is traversal depth, dashed edges are uncertain paths, and

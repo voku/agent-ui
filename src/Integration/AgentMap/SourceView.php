@@ -16,6 +16,12 @@ namespace voku\AgentUi\Integration\AgentMap;
  * The window reports what is above and below it rather than a total line count.
  * The map records symbol boundaries, not file lengths, so a total would have to
  * be guessed - and a guessed denominator reads exactly like a measured one.
+ *
+ * `stale` is claimed only when agent-map's own stale evidence names the file, and
+ * `staleReason` carries the owner's word for why (`hash` or `missing`). A
+ * materialization that fails for any other reason stays `unavailable`, so an
+ * unexpected failure is still visible as one instead of being folded into a
+ * diagnosis the map never made.
  */
 final readonly class SourceView
 {
@@ -35,12 +41,13 @@ final readonly class SourceView
         public array $symbols = [],
         public ?int $focusLine = null,
         public ?string $failure = null,
+        public ?string $staleReason = null,
     ) {
     }
 
-    public static function unavailable(string $path, string $status, string $failure): self
+    public static function unavailable(string $path, string $status, string $failure, ?string $staleReason = null): self
     {
-        return new self(status: $status, path: $path, failure: $failure);
+        return new self(status: $status, path: $path, failure: $failure, staleReason: $staleReason);
     }
 
     public function isRendered(): bool

@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use voku\AgentMap\Search\CodeChunk;
 use voku\AgentMap\Search\SearchIndexStore;
 use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
+use voku\AgentUi\Integration\AgentMap\CodeSearchResult;
 
 final class CodeSearchGatewayTest extends TestCase
 {
@@ -43,14 +44,40 @@ final class CodeSearchGatewayTest extends TestCase
 
         $result = (new CodeSearchGateway($this->fixture->root))->search('Greeter');
 
-        self::assertSame('structural', $result->mode);
-        self::assertSame('structural', $result->effectiveMode);
+        self::assertSame('map_query', $result->mode);
+        self::assertSame('map_query', $result->effectiveMode);
         self::assertTrue($result->degraded);
         self::assertSame('search_index_unavailable', $result->degradedReason);
         self::assertNotSame([], $result->hits);
         self::assertSame('App\\Greeter', $result->hits[0]->symbolName);
-        self::assertSame(1, $result->hits[0]->channelRanks['structural']);
-        self::assertNull($result->hits[0]->channelRanks['lexical']);
+
+        // The fallback is the consumer's composition of agent-map's canonical query,
+        // so it must not present itself with the owner's channel vocabulary.
+        self::assertFalse($result->isOwnerReported());
+        self::assertSame(CodeSearchResult::PROVENANCE_CONSUMER, $result->provenance);
+        self::assertSame([], $result->structuralTerms);
+        self::assertNull($result->searchIndexSnapshot);
+        self::assertSame([], $result->hits[0]->reasons);
+        self::assertSame(0.0, $result->hits[0]->score);
+        self::assertSame(
+            ['structural' => null, 'lexical' => null, 'semantic' => null],
+            $result->hits[0]->channelRanks,
+        );
+    }
+
+    public function testHybridResultsAreMarkedAsOwnerReported(): void
+    {
+        if (!SearchIndexStore::supportsFts5()) {
+            self::markTestSkipped('This PHP build has no SQLite FTS5.');
+        }
+
+        $sha = $this->writeIndexedFile();
+        $this->writeSearchIndex($sha);
+
+        $result = (new CodeSearchGateway($this->fixture->root))->search('cordially');
+
+        self::assertTrue($result->isOwnerReported());
+        self::assertSame(CodeSearchResult::PROVENANCE_OWNER, $result->provenance);
     }
 
     public function testSearchWithoutAMapIsReportedAsUnavailableRatherThanEmpty(): void
