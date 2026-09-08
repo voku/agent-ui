@@ -36,8 +36,8 @@ require __DIR__ . '/../layout/header.php';
     <div class="split" style="margin-top:16px">
         <div>
             <p class="provenance provenance--authority">Loop · approved scope</p>
-            <?php if (!$contract->exists || $contract->scope === []): ?>
-                <p class="empty">No Contract scope is available to navigate.</p>
+            <?php if (!$contract->exists || !$contract->isApproved() || $contract->scope === []): ?>
+                <p class="empty">No approved Contract scope is available to navigate.</p>
             <?php else: ?>
                 <div class="stack">
                     <?php foreach ($contract->scope as $path): ?>
