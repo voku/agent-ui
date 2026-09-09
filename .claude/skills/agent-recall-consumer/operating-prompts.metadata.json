@@ -121,15 +121,15 @@
     {
       "id": "plan-horizon",
       "title": "Plan a wider horizon",
-      "description": "Use a horizon as a rolling planning search radius while continuously re-grounding the executable frontier.",
+      "description": "Produce a bounded milestone plan for a stated horizon instead of only the next step.",
       "purpose": "plan",
       "arguments": [
         {
           "name": "horizon",
           "type": "string",
           "required": true,
-          "description": "Planning search radius to expose dependencies beyond the current executable slice.",
-          "examples": ["three independently mergeable slices", "the next release boundary"]
+          "description": "Planning horizon to cover.",
+          "examples": ["three milestones", "the next release"]
         }
       ]
     },
@@ -138,13 +138,6 @@
       "title": "Prepare production-ready handoff",
       "description": "Create one bounded self-contained execution handoff for a fresh coding agent.",
       "purpose": "handoff",
-      "arguments": []
-    },
-    {
-      "id": "refine-l1-contract",
-      "title": "Refine an L1 contract",
-      "description": "Apply the smallest semantic delta to an existing L1 without scope or detail inflation.",
-      "purpose": "plan",
       "arguments": []
     },
     {
