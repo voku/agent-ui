@@ -1,0 +1,43 @@
+name: Agent Map 0.11.3 search refresh dogfood
+
+on:
+  push:
+    branches:
+      - dogfood/agent-map-0.11.3-search-refresh
+    paths:
+      - .github/workflows/agent-map-0113-search-refresh-dogfood.yml
+
+permissions:
+  contents: read
+
+jobs:
+  released-consumer-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install released Map 0.11.3
+        run: |
+          set -euo pipefail
+          composer require --no-interaction --prefer-dist --with-all-dependencies voku/agent-map:0.11.3
+          composer show voku/agent-map --format=json | tee /tmp/agent-map-package.json
+          jq -e '.versions | index("0.11.3") != null' /tmp/agent-map-package.json >/dev/null
+
+      - name: Build real agent-ui map and search index
+        run: |
+          set -euo pipefail
+          vendor/bin/agent-map build --root=.
+          vendor/bin/agent-map search-index build --root=.
+
+      - name: Refresh after one real PHP path changes
+        run: |
+          set -euo pipefail
+          printf '\n' >> src/Application/Application.php
+          vendor/bin/agent-map build --root=.
+          vendor/bin/agent-map search-index refresh --root=.
