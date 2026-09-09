@@ -37,12 +37,12 @@ jobs:
       - name: Build real agent-ui map and search index
         run: |
           set -euo pipefail
-          vendor/bin/agent-map build --root=.
+          vendor/bin/agent-map build --root=. --paths=src,tests
           vendor/bin/agent-map search-index build --root=.
 
       - name: Refresh after one real PHP path changes
         run: |
           set -euo pipefail
           printf '\n' >> src/Application/Application.php
-          vendor/bin/agent-map build --root=.
+          vendor/bin/agent-map build --root=. --paths=src,tests
           vendor/bin/agent-map search-index refresh --root=.
