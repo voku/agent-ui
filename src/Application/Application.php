@@ -98,6 +98,7 @@ final readonly class Application
             $context,
             $transparency,
             $mutation,
+            $map,
             $csrf,
             $templates,
         );
