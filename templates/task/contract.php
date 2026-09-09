@@ -118,7 +118,9 @@ require __DIR__ . '/../layout/header.php';
             <div class="action__head">
                 <div>
                     <strong>
-                        <?php if ($scopeImpact->filesOutsideScopeCount === 0): ?>
+                        <?php if ($scopeImpact->nothingProjected()): ?>
+                            agent-map has no facts about any declared path
+                        <?php elseif ($scopeImpact->filesOutsideScopeCount === 0): ?>
                             No file outside the declared scope reaches it
                         <?php else: ?>
                             <?= (int) $scopeImpact->filesOutsideScopeCount ?> file<?= $scopeImpact->filesOutsideScopeCount === 1 ? '' : 's' ?> outside the declared scope can notice this change
@@ -135,6 +137,9 @@ require __DIR__ . '/../layout/header.php';
                 Reaching outside the declared scope is an observation, not a verdict on the Contract. agent-map answers
                 what depends on each indexed path; agent-loop decides what counts as inside the approved boundary.
             </p>
+            <?php if ($scopeImpact->nothingProjected()): ?>
+                <p class="note">Nothing was projected here, which is not the same as nothing depending on this scope. Build or refresh agent-map before reading the table below as an answer.</p>
+            <?php endif; ?>
 
             <div class="table-scroll" style="margin-top:12px">
                 <table class="table">

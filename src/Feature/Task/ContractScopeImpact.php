@@ -117,4 +117,16 @@ final readonly class ContractScopeImpact
     {
         return $this->entries === [];
     }
+
+    /**
+     * True when agent-map answered about no declared path at all.
+     *
+     * Without this the headline reads "no file outside the declared scope
+     * reaches it" for a repository whose map was never built, which is the
+     * absent projection reported as a reassuring answer.
+     */
+    public function nothingProjected(): bool
+    {
+        return $this->indexedEntryCount === 0;
+    }
 }

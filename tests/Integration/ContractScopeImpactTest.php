@@ -126,6 +126,25 @@ final class ContractScopeImpactTest extends TestCase
         self::assertStringContainsString('not a verdict on the Contract', $body);
     }
 
+    public function testAnUnbuiltMapIsNotRenderedAsNothingDependingOnTheScope(): void
+    {
+        unlink($this->fixture->root . '/.agent-map/php-symbols.json');
+
+        $impact = ContractScopeImpact::compose(
+            new MapProjectionGateway($this->fixture->root),
+            $this->contract(['src/Greeter.php', 'src/Controller.php']),
+        );
+
+        self::assertTrue($impact->nothingProjected());
+        self::assertSame(0, $impact->indexedEntryCount);
+        self::assertSame(0, $impact->filesOutsideScopeCount);
+
+        $body = $this->render($this->contract(['src/Greeter.php', 'src/Controller.php']));
+        self::assertStringContainsString('agent-map has no facts about any declared path', $body);
+        self::assertStringContainsString('not the same as nothing depending on this scope', $body);
+        self::assertStringNotContainsString('No file outside the declared scope reaches it', $body);
+    }
+
     public function testTheContractPageOmitsTheLensWhenThereIsNoScopeToProjectFrom(): void
     {
         $body = $this->render($this->contract([]));
