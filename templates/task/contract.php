@@ -120,6 +120,11 @@ require __DIR__ . '/../layout/header.php';
                     <strong>
                         <?php if ($scopeImpact->nothingProjected()): ?>
                             agent-map has no facts about any declared path
+                        <?php elseif (
+                            $scopeImpact->filesOutsideScopeCount === 0
+                            && ($scopeImpact->entriesTruncated || $scopeImpact->anyImpactTruncated)
+                        ): ?>
+                            No outside-scope reach was observed in the bounded analysis
                         <?php elseif ($scopeImpact->filesOutsideScopeCount === 0): ?>
                             No file outside the declared scope reaches it
                         <?php else: ?>
