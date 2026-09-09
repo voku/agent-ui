@@ -86,19 +86,32 @@ final class MapGraphProjectionTest extends TestCase
             $neighbours[$edge->targetId][$edge->sourceId] = true;
         }
         self::assertNotSame([], $neighbours);
-        foreach ($neighbours as $nodeId => $ids) {
+
+        // Read the attributes back off the element that carries them: a
+        // neighbour set that is present somewhere in the page proves nothing
+        // about which node it belongs to.
+        $rendered = [];
+        preg_match_all(
+            '/data-node-id="([^"]*)"\s+data-neighbours="([^"]*)"/',
+            $body,
+            $matches,
+            PREG_SET_ORDER,
+        );
+        foreach ($matches as $match) {
+            $rendered[html_entity_decode($match[1], ENT_QUOTES, 'UTF-8')] = html_entity_decode($match[2], ENT_QUOTES, 'UTF-8');
+        }
+        self::assertCount(count($graph->nodes), $rendered, 'every node link carries both attributes');
+
+        foreach ($graph->nodes as $node) {
+            self::assertArrayHasKey($node->id, $rendered);
             // A node identity is an owner string — a file node's id is its
             // repository path — so the neighbour set travels as JSON and never
             // as a delimiter a path is allowed to contain.
-            $expected = TemplateRenderer::escape((string) json_encode(
-                array_keys($ids),
-                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
-            ));
-            self::assertStringContainsString(
-                'data-node-id="' . TemplateRenderer::escape((string) $nodeId) . '"',
-                $body,
+            self::assertSame(
+                array_keys($neighbours[$node->id] ?? []),
+                json_decode($rendered[$node->id], true, 512, JSON_THROW_ON_ERROR),
+                'the neighbour set on ' . $node->id . ' is the adjacency its own edges produce',
             );
-            self::assertStringContainsString('data-neighbours="' . $expected . '"', $body);
         }
 
         self::assertStringContainsString('data-graph-viewport', $body);
@@ -114,7 +127,13 @@ final class MapGraphProjectionTest extends TestCase
         // Without JavaScript the static drawing and the tables are the whole
         // answer, so no control that only the script can operate may show.
         self::assertStringContainsString('data-graph-toolbar hidden', $body);
-        self::assertMatchesRegularExpression('/data-graph-detail="[^"]+"[^>]*\\shidden/', $body);
+
+        // Every panel, not merely one of them: a single visible detail panel
+        // would put explorer chrome in front of a reader who cannot operate it.
+        $panels = preg_match_all('/data-graph-detail="[^"]*"/', $body);
+        $hiddenPanels = preg_match_all('/data-graph-detail="[^"]*"[^>]*\\shidden/', $body);
+        self::assertGreaterThan(0, $panels);
+        self::assertSame($panels, $hiddenPanels, 'every rendered detail panel ships hidden');
         self::assertStringContainsString('<svg', $body);
         self::assertStringContainsString('Edges &amp; evidence', $body);
     }
