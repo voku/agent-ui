@@ -145,6 +145,26 @@ final class ContractScopeImpactTest extends TestCase
         self::assertStringNotContainsString('No file outside the declared scope reaches it', $body);
     }
 
+    public function testTruncatedEntriesDoNotClaimThatNothingWasProjected(): void
+    {
+        $scope = [];
+        for ($i = 1; $i <= ContractScopeImpact::MAXIMUM_ENTRIES; ++$i) {
+            $scope[] = 'unindexed/path-' . $i . '.php';
+        }
+        // This path is indexed, but lies beyond the entry observation bound.
+        $scope[] = 'src/Greeter.php';
+
+        $impact = ContractScopeImpact::compose(
+            new MapProjectionGateway($this->fixture->root),
+            $this->contract($scope),
+        );
+
+        self::assertTrue($impact->entriesTruncated);
+        self::assertSame(ContractScopeImpact::MAXIMUM_ENTRIES, $impact->unindexedEntryCount);
+        self::assertSame(0, $impact->indexedEntryCount);
+        self::assertFalse($impact->nothingProjected());
+    }
+
     public function testTheContractPageOmitsTheLensWhenThereIsNoScopeToProjectFrom(): void
     {
         $body = $this->render($this->contract([]));
