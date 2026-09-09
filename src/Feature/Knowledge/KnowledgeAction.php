@@ -56,6 +56,7 @@ final readonly class KnowledgeAction
             'archived_tasks' => $archivedTasks,
             'current_tab' => $tab,
             'current_status' => $status,
+            'promotion_candidates' => $this->learning->promotionCandidates(),
         ]));
     }
 
@@ -68,6 +69,7 @@ final readonly class KnowledgeAction
 
         return Response::html($this->templates->render('knowledge/finding', [
             'finding' => $finding,
+            'promotion' => $this->learning->promotionReadiness($findingId),
         ]));
     }
 
