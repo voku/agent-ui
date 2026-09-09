@@ -30,7 +30,11 @@ final readonly class MapProjectionGateway
             $inspector = new MapReadinessInspector();
             $readiness = $inspector->inspect($this->paths);
 
-            $index = $this->loadIndex();
+            // One read answers both "what does the map say" and "which file
+            // said it"; asking separately is how the two come to disagree.
+            $read = $this->locator->readIndex();
+            $index = $read['index'] ?? null;
+            $readPath = $read['path'] ?? null;
 
             $classesCount = 0;
             $methodsCount = 0;
@@ -54,7 +58,6 @@ final readonly class MapProjectionGateway
             // The reported format has to describe the file that was read, not the
             // one that merely exists: `loadIndex()` prefers JSON, so a checkout
             // carrying both would otherwise be told it is reading TOON.
-            $readPath = $this->locator->readableIndexPath();
             $path = $readPath ?? (is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson());
             $format = str_ends_with($path, '.toon') ? 'toon' : 'json';
 

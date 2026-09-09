@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use voku\AgentMap\Store\CanonicalToonEncoder;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
@@ -249,13 +250,26 @@ final class MapProjectionGatewayTest extends TestCase
     {
         $this->writeMap($this->root . '/.agent-map/php-symbols.toon');
 
+        // IndexReader falls back to the other decoder, so a JSON fixture under a
+        // .toon name would pass this test while never touching TOON decoding.
+        // Pin the fixture: these bytes are not JSON.
+        $bytes = (string) file_get_contents($this->root . '/.agent-map/php-symbols.toon');
+        self::assertNull(json_decode($bytes, true), 'the TOON fixture is JSON, so this test proves nothing about TOON');
+
         $readiness = (new MapProjectionGateway($this->root))->readiness();
 
         self::assertSame($this->root . '/.agent-map/php-symbols.toon', $readiness->readPath);
         self::assertSame('toon', $readiness->format);
     }
 
-    /** Smallest index agent-map will decode, written wherever a test needs one. */
+    /**
+     * Smallest index agent-map will decode, written wherever a test needs one.
+     *
+     * A `.toon` fixture is encoded as TOON with the owner's own encoder. Writing
+     * JSON bytes under a `.toon` name happens to work, because `IndexReader`
+     * falls back to the other decoder - so the test would pass while exercising
+     * the JSON path it claims not to be testing.
+     */
     private function writeMap(string $path): void
     {
         $directory = dirname($path);
@@ -263,14 +277,21 @@ final class MapProjectionGatewayTest extends TestCase
             self::fail('Unable to create map fixture directory: ' . $directory);
         }
 
-        file_put_contents($path, json_encode([
+        $payload = [
             'schema_version' => '2.0',
             'root' => $this->root,
             'backend' => 'simple-php-code-parser',
             'files' => [],
             'relations' => [],
             'diagnostics' => [],
-        ], JSON_THROW_ON_ERROR));
+        ];
+
+        file_put_contents(
+            $path,
+            str_ends_with(strtolower($path), '.toon')
+                ? (new CanonicalToonEncoder())->encode($payload)
+                : json_encode($payload, JSON_THROW_ON_ERROR),
+        );
     }
 
     private function removeDir(string $dir): void

@@ -85,13 +85,20 @@ final readonly class MapArtifactLocator
     }
 
     /**
-     * The index file `loadIndex()` would actually parse, or null when none parses.
+     * The index that was read, together with the file it came from.
      *
-     * `existingIndexPath()` answers where an index file sits; this answers which
-     * one was read. They differ exactly when the preferred file exists but
-     * cannot be decoded, which is the case a reader most needs named.
+     * The two answers come out of one read on purpose. Asking separately meant
+     * parsing twice, and a refresh landing between the two would have let the
+     * counts describe one file while the reported provenance named another -
+     * the exact confusion this pairing exists to remove.
+     *
+     * `existingIndexPath()` still answers where an index file sits; this
+     * answers which one was read. They differ when the preferred file exists
+     * but cannot be decoded.
+     *
+     * @return array{path: string, index: AgentMapIndex}|null
      */
-    public function readableIndexPath(): ?string
+    public function readIndex(): ?array
     {
         foreach ([$this->paths->indexJson(), $this->paths->indexToon()] as $candidate) {
             if (!is_file($candidate)) {
@@ -99,9 +106,7 @@ final readonly class MapArtifactLocator
             }
 
             try {
-                (new IndexReader())->read($candidate);
-
-                return $candidate;
+                return ['path' => $candidate, 'index' => (new IndexReader())->read($candidate)];
             } catch (Throwable) {
                 continue;
             }
@@ -127,18 +132,6 @@ final readonly class MapArtifactLocator
     /** A map that cannot be read is reported as absent; guessing at half an index is worse than none. */
     public function loadIndex(): ?AgentMapIndex
     {
-        foreach ([$this->paths->indexJson(), $this->paths->indexToon()] as $candidate) {
-            if (!is_file($candidate)) {
-                continue;
-            }
-
-            try {
-                return (new IndexReader())->read($candidate);
-            } catch (Throwable) {
-                continue;
-            }
-        }
-
-        return null;
+        return $this->readIndex()['index'] ?? null;
     }
 }
