@@ -87,10 +87,18 @@ final class MapGraphProjectionTest extends TestCase
         }
         self::assertNotSame([], $neighbours);
         foreach ($neighbours as $nodeId => $ids) {
-            self::assertMatchesRegularExpression(
-                '/data-node-id="' . preg_quote((string) $nodeId, '/') . '"\s+data-neighbours="[^"]*' . preg_quote((string) array_key_first($ids), '/') . '/',
+            // A node identity is an owner string — a file node's id is its
+            // repository path — so the neighbour set travels as JSON and never
+            // as a delimiter a path is allowed to contain.
+            $expected = TemplateRenderer::escape((string) json_encode(
+                array_keys($ids),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+            ));
+            self::assertStringContainsString(
+                'data-node-id="' . TemplateRenderer::escape((string) $nodeId) . '"',
                 $body,
             );
+            self::assertStringContainsString('data-neighbours="' . $expected . '"', $body);
         }
 
         self::assertStringContainsString('data-graph-viewport', $body);
@@ -106,7 +114,7 @@ final class MapGraphProjectionTest extends TestCase
         // Without JavaScript the static drawing and the tables are the whole
         // answer, so no control that only the script can operate may show.
         self::assertStringContainsString('data-graph-toolbar hidden', $body);
-        self::assertMatchesRegularExpression('/data-graph-detail="[^"]+" hidden/', $body);
+        self::assertMatchesRegularExpression('/data-graph-detail="[^"]+"[^>]*\\shidden/', $body);
         self::assertStringContainsString('<svg', $body);
         self::assertStringContainsString('Edges &amp; evidence', $body);
     }
@@ -158,8 +166,11 @@ final class MapGraphProjectionTest extends TestCase
     private function writeMap(): void
     {
         $files = [];
-        foreach (['Alpha.php', 'Beta.php', 'Gamma.php'] as $name) {
-            $className = substr($name, 0, -4);
+        // 'Old Beta.php' is deliberate: a repository path may contain a space,
+        // and a file node's id is its path, so anything the page encodes per
+        // node has to survive one.
+        foreach (['Alpha.php', 'Old Beta.php', 'Gamma.php'] as $name) {
+            $className = str_replace(' ', '', substr($name, 0, -4));
             $files[] = [
                 'path' => 'src/Feature/' . $name,
                 'sha256' => hash('sha256', $name),
@@ -191,7 +202,7 @@ final class MapGraphProjectionTest extends TestCase
             'relations' => [[
                 'source_id' => 'class:App\\Feature\\Alpha',
                 'kind' => 'references_type',
-                'target_ids' => ['class:App\\Feature\\Beta'],
+                'target_ids' => ['class:App\\Feature\\OldBeta'],
                 'file' => 'src/Feature/Alpha.php',
                 'line_start' => 8,
                 'line_end' => 8,

@@ -97,9 +97,16 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         };
     }
 
+    /* Node identities are owner strings — a file node's id is its repository
+       path — so the server sends the neighbour set as JSON rather than as a
+       delimiter a path is allowed to contain. */
     function neighboursOf(node) {
-        var raw = node.dataset.neighbours || '';
-        return raw === '' ? [] : raw.split(' ');
+        try {
+            var parsed = JSON.parse(node.dataset.neighbours || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
     }
 
     function clearFocus() {
@@ -115,10 +122,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         if (clearButton) { clearButton.hidden = true; }
     }
 
-    function focus(nodeId) {
+    function focus(nodeId, moveFocus) {
         var node = nodes.filter(function (candidate) { return candidate.dataset.nodeId === nodeId; })[0];
         if (!node) { return; }
-        if (selected === nodeId) { clearFocus(); return; }
+        if (selected === nodeId) { clearFocus(); node.focus(); return; }
         selected = nodeId;
         var keep = neighboursOf(node).concat([nodeId]);
         nodes.forEach(function (candidate) {
@@ -132,10 +139,17 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             edge.setAttribute('stroke', touches ? 'var(--accent)' : 'var(--ink-faint)');
             edge.setAttribute('stroke-opacity', touches ? '0.9' : '0.08');
         });
+        var panel = null;
         details.forEach(function (detail) {
             detail.hidden = detail.dataset.graphDetail !== nodeId;
+            if (!detail.hidden) { panel = detail; }
         });
         if (clearButton) { clearButton.hidden = false; }
+
+        /* Selecting with the keyboard cancels the link's navigation, so without
+           this the panel appears somewhere below and nothing announces it.
+           Moving focus there is the perceivable result of the activation. */
+        if (panel && moveFocus) { panel.focus(); }
     }
 
     toolbar.addEventListener('click', function (event) {
@@ -156,7 +170,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         var jump = target.closest('[data-graph-select]');
         if (jump) {
             event.preventDefault();
-            focus(jump.getAttribute('data-graph-select'));
+            focus(jump.getAttribute('data-graph-select'), true);
             return;
         }
         var node = target.closest('.graph-node-link');
@@ -165,7 +179,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                with the explorer running the detail panel offers the same
                destination plus its evidence. */
             event.preventDefault();
-            focus(node.dataset.nodeId);
+            focus(node.dataset.nodeId, true);
         }
     });
 

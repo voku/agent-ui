@@ -72,6 +72,22 @@ if ($graph !== null) {
         $neighbourIds[$nodeId] = array_values(array_unique($ids));
     }
 }
+
+/**
+ * One target rule per node, resolved once.
+ *
+ * The drawing and the detail panel must lead to the same place, and two copies
+ * of the same rule are two things that can drift apart.
+ *
+ * @var array<string, array{href: string, label: string}> $nodeTargets
+ */
+$nodeTargets = [];
+foreach ($graph?->nodes ?? [] as $node) {
+    $isRegion = $graph?->scope === 'architecture' && $node->regionId !== null;
+    $nodeTargets[$node->id] = $isRegion
+        ? ['href' => '/map/graph?region=' . rawurlencode((string) $node->regionId), 'label' => 'Drill into region']
+        : ['href' => '/map?q=' . rawurlencode($node->file ?? $node->label), 'label' => 'Search the code map'];
+}
 ?>
 
 <p class="crumbs"><a href="/map">Code Map</a><span>/</span><a href="/map/graph">Graph</a><?php if ($graph?->regionLabel !== null): ?><span>/</span><?= TemplateRenderer::escape($graph->regionLabel) ?><?php endif; ?></p>
@@ -213,14 +229,18 @@ if ($graph !== null) {
                     $nodeTitle = $node->kind === 'file' && $node->file !== null
                         ? $node->file . ' · weighted degree ' . number_format($node->weight, 2, '.', '')
                         : $node->label . ' · ' . $node->fileCount . ' files · external coupling ' . number_format($node->weight, 2, '.', '');
-                    $href = $graph->scope === 'architecture' && $node->regionId !== null
-                        ? '/map/graph?region=' . rawurlencode($node->regionId)
-                        : '/map?q=' . rawurlencode($node->file ?? $node->label);
+                    // Node identities are owner strings — a file node's id is its
+                    // repository path — so the neighbour set travels as JSON
+                    // rather than as a delimiter a path could contain.
+                    $neighbourJson = json_encode(
+                        $neighbourIds[$node->id] ?? [],
+                        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+                    );
                     ?>
-                    <a href="<?= TemplateRenderer::escape($href) ?>"
+                    <a href="<?= TemplateRenderer::escape($nodeTargets[$node->id]['href']) ?>"
                        class="graph-node-link"
                        data-node-id="<?= TemplateRenderer::escape($node->id) ?>"
-                       data-neighbours="<?= TemplateRenderer::escape(implode(' ', $neighbourIds[$node->id] ?? [])) ?>">
+                       data-neighbours="<?= TemplateRenderer::escape($neighbourJson) ?>">
                         <g class="graph-node">
                             <title><?= TemplateRenderer::escape($nodeTitle) ?></title>
                             <rect
@@ -245,15 +265,13 @@ if ($graph !== null) {
                   // and the tables use. The enhancement script only reveals one of
                   // them; it never resolves a target of its own. ?>
             <?php foreach ($graph->nodes as $node): ?>
-                <?php
-                $detailHref = $graph->scope === 'architecture' && $node->regionId !== null
-                    ? '/map/graph?region=' . rawurlencode($node->regionId)
-                    : '/map?q=' . rawurlencode($node->file ?? $node->label);
-                $detailHrefLabel = $graph->scope === 'architecture' && $node->regionId !== null
-                    ? 'Drill into region'
-                    : 'Search the code map';
-                ?>
-                <div class="panel panel--accent graph-detail" id="graph-detail-<?= TemplateRenderer::escape($node->id) ?>" data-graph-detail="<?= TemplateRenderer::escape($node->id) ?>" hidden>
+                <div class="panel panel--accent graph-detail"
+                     id="graph-detail-<?= TemplateRenderer::escape($node->id) ?>"
+                     data-graph-detail="<?= TemplateRenderer::escape($node->id) ?>"
+                     role="group"
+                     aria-label="<?= TemplateRenderer::escape($node->label) ?> detail"
+                     tabindex="-1"
+                     hidden>
                     <div class="action__head">
                         <strong><?= TemplateRenderer::escape($node->label) ?></strong>
                         <span class="pill pill--neutral"><?= TemplateRenderer::escape($node->kind) ?></span>
@@ -264,7 +282,7 @@ if ($graph !== null) {
                         <p class="mono small" style="margin-top:8px"><?= TemplateRenderer::escape($node->file) ?></p>
                     <?php endif; ?>
                     <div class="graph-detail__links">
-                        <a class="btn btn--small" href="<?= TemplateRenderer::escape($detailHref) ?>"><?= TemplateRenderer::escape($detailHrefLabel) ?></a>
+                        <a class="btn btn--small" href="<?= TemplateRenderer::escape($nodeTargets[$node->id]['href']) ?>"><?= TemplateRenderer::escape($nodeTargets[$node->id]['label']) ?></a>
                         <?php if ($node->file !== null): ?>
                             <a class="btn btn--small" href="/map/source?path=<?= rawurlencode($node->file) ?>">Open source</a>
                         <?php endif; ?>
