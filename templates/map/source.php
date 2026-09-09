@@ -1,12 +1,16 @@
 <?php
+use voku\AgentUi\Integration\AgentMap\MapGraphSnapshot;
+use voku\AgentUi\Integration\AgentMap\MapReadinessSnapshot;
 use voku\AgentUi\Integration\AgentMap\SourceView;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{view: SourceView, path: string, line: int|null} $model */
+/** @var array{view: SourceView, path: string, line: int|null, region: MapGraphSnapshot|null, mapReadiness: MapReadinessSnapshot} $model */
 $view = $model['view'];
 $path = $model['path'];
 $line = $model['line'];
+$region = $model['region'];
+$mapReadiness = $model['mapReadiness'];
 
 $title = basename($path) . ' · Source · agent-ui';
 $nav = 'map';
@@ -50,14 +54,25 @@ require __DIR__ . '/../layout/header.php';
 
 <?php if ($view->symbols !== []): ?>
     <p class="eyebrow" style="margin-top:20px">Symbols in this file</p>
-    <nav class="panel source__index" aria-label="Symbols in this file">
-        <?php foreach ($view->symbols as $symbol): ?>
-            <a class="pill pill--neutral" href="/map/symbol?id=<?= rawurlencode($symbol['id']) ?>" title="lines <?= (int) $symbol['lineStart'] ?>–<?= (int) $symbol['lineEnd'] ?>">
-                <?= TemplateRenderer::escape($symbol['name']) ?>
-                <span class="faint">L<?= (int) $symbol['lineStart'] ?></span>
-            </a>
-        <?php endforeach; ?>
-    </nav>
+    <section class="panel" aria-label="Symbols in this file">
+        <div class="table-scroll">
+            <table class="table">
+                <thead><tr><th>Symbol</th><th>Lines</th><th>Continue</th></tr></thead>
+                <tbody>
+                <?php foreach ($view->symbols as $symbol): ?>
+                    <tr>
+                        <td><a href="/map/symbol?id=<?= rawurlencode($symbol['id']) ?>"><?= TemplateRenderer::escape($symbol['name']) ?></a></td>
+                        <td class="small faint">L<?= (int) $symbol['lineStart'] ?>–<?= (int) $symbol['lineEnd'] ?></td>
+                        <td>
+                            <a class="btn btn--small" href="#L<?= (int) $symbol['lineStart'] ?>">Jump</a>
+                            <a class="btn btn--small" href="/map/impact?target=<?= rawurlencode($symbol['id']) ?>">Impact</a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
 <?php endif; ?>
 
 <p class="eyebrow" style="margin-top:20px">Source</p>
@@ -70,5 +85,57 @@ require __DIR__ . '/../layout/header.php';
         </p>
     <?php endif; ?>
 </section>
+
+<?php if ($region !== null): ?>
+    <?php // agent-map placed this exact file in this region; the coupling and
+          // the ranking below are the owner's, and this page only links them. ?>
+    <p class="eyebrow" style="margin-top:20px">Where this file sits</p>
+    <section class="panel panel--accent">
+        <div class="action__head">
+            <strong><?= TemplateRenderer::escape($region->regionLabel ?? $region->title) ?></strong>
+            <span class="pill pill--neutral">agent-map region</span>
+            <?php if ($region->regionId !== null): ?>
+                <a class="btn btn--small" href="/map/graph?region=<?= rawurlencode($region->regionId) ?>">Open in graph</a>
+            <?php endif; ?>
+        </div>
+        <?php
+        $siblings = [];
+        foreach ($region->nodes as $node) {
+            if ($node->file === null || $node->file === $path) {
+                continue;
+            }
+            $siblings[] = $node;
+        }
+        ?>
+        <?php if ($siblings === []): ?>
+            <p class="note">agent-map reports no other file in this region's bounded view.</p>
+        <?php else: ?>
+            <p class="small faint" style="margin-top:10px">
+                <?= count($siblings) ?> other file<?= count($siblings) === 1 ? '' : 's' ?> in the same region,
+                ranked by the owner's weighted degree. Continue reading without starting a new search.
+            </p>
+            <div class="table-scroll" style="margin-top:8px">
+                <table class="table">
+                    <thead><tr><th>File</th><th>Weighted degree</th><th>Continue</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($siblings as $node): ?>
+                        <tr>
+                            <td><code><?= TemplateRenderer::escape((string) $node->file) ?></code></td>
+                            <td class="small faint"><?= number_format($node->weight, 3, '.', '') ?></td>
+                            <td><a class="btn btn--small" href="/map/source?path=<?= rawurlencode((string) $node->file) ?>">Source</a></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+        <?php if ($region->isTruncated()): ?>
+            <p class="note">The region view is bounded: <?= count($region->nodes) ?> of <?= $region->totalNodeCount ?> nodes.</p>
+        <?php endif; ?>
+        <?php if ($mapReadiness->status === 'stale'): ?>
+            <p class="note">This placement comes from the indexed snapshot, which is behind the working tree. Refresh agent-map before treating it as current.</p>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
 
 <?php require __DIR__ . '/../layout/footer.php'; ?>

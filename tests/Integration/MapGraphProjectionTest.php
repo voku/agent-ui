@@ -151,6 +151,57 @@ final class MapGraphProjectionTest extends TestCase
         self::assertStringNotContainsString('location.assign', $script);
     }
 
+    public function testAReaderCanContinueFromArchitectureAllTheWayToARelatedFile(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $gateway = new MapProjectionGateway($this->root);
+        $action = $this->action($gateway, $templates);
+
+        // Architecture -> region: the overview links each region by owner id.
+        $architecture = $action->graph(new Request('GET', '/map/graph'))->body;
+        $regionId = $this->firstMatch('#/map/graph\?region=([^"&]+)#', $architecture);
+
+        // Region -> file: the region view links its files into code search.
+        $region = $action->graph(new Request('GET', '/map/graph', query: ['region' => urldecode($regionId)]))->body;
+        $file = urldecode($this->firstMatch('#/map\?q=([^"&]+)#', $region));
+
+        // File -> source, and the source page continues rather than dead-ends.
+        $source = $action->sourceView(new Request('GET', '/map/source', query: ['path' => $file]))->body;
+        self::assertStringContainsString('Symbols in this file', $source);
+        self::assertStringContainsString('/map/impact?target=', $source, 'a symbol continues into its impact');
+        self::assertStringContainsString('Where this file sits', $source, 'the owner placed this file in a region');
+
+        // Related source: a sibling in the same region is one click away, and
+        // it is a different file than the one being read.
+        preg_match_all('#/map/source\?path=([^"&]+)#', $source, $matches);
+        $related = array_values(array_diff(array_map('urldecode', $matches[1]), [$file]));
+        self::assertNotSame([], $related, 'the region offers another file to continue with');
+
+        $nextResponse = $action->sourceView(new Request('GET', '/map/source', query: ['path' => $related[0]]));
+        self::assertSame(200, $nextResponse->status);
+        self::assertStringContainsString(TemplateRenderer::escape($related[0]), $nextResponse->body);
+    }
+
+    public function testAFileTheOwnerDidNotPlaceGetsNoRegionInvented(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $action = $this->action(new MapProjectionGateway($this->root), $templates);
+
+        // Asking the graph about an unindexed path answers with the whole
+        // architecture, which is about the repository and not about this file.
+        // Rendering it here would invent a placement agent-map never made.
+        $unknown = $action->sourceView(new Request('GET', '/map/source', query: ['path' => 'src/Feature/Absent.php']))->body;
+
+        self::assertStringNotContainsString('Where this file sits', $unknown);
+    }
+
+    private function firstMatch(string $pattern, string $subject): string
+    {
+        self::assertSame(1, preg_match($pattern, $subject, $matches), $pattern);
+
+        return $matches[1];
+    }
+
     public function testGraphProjectionSupportsQueryByFilePathAndGracefulFallback(): void
     {
         $gateway = new MapProjectionGateway($this->root);
@@ -190,9 +241,21 @@ final class MapGraphProjectionTest extends TestCase
         // node has to survive one.
         foreach (['Alpha.php', 'Old Beta.php', 'Gamma.php'] as $name) {
             $className = str_replace(' ', '', substr($name, 0, -4));
+            // Real files with real hashes: the source view refuses to render a
+            // window whose recorded hash no longer matches the working tree, so
+            // a fixture that only writes the map cannot exercise navigation
+            // that passes through a rendered file.
+            $relativePath = 'src/Feature/' . $name;
+            if (!is_dir($this->root . '/src/Feature')) {
+                mkdir($this->root . '/src/Feature', 0o775, true);
+            }
+            file_put_contents(
+                $this->root . '/' . $relativePath,
+                "<?php\n\nnamespace App\\Feature;\n\nfinal class " . $className . "\n{\n}\n",
+            );
             $files[] = [
-                'path' => 'src/Feature/' . $name,
-                'sha256' => hash('sha256', $name),
+                'path' => $relativePath,
+                'sha256' => 'sha256:' . hash_file('sha256', $this->root . '/' . $relativePath),
                 'namespace' => 'App\\Feature',
                 'symbols' => [[
                     'kind' => 'class',

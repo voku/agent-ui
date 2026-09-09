@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
+use voku\AgentUi\Integration\AgentMap\MapGraphSnapshot;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
 use voku\AgentUi\View\TemplateRenderer;
@@ -16,6 +17,11 @@ final readonly class MapAction
 {
     /** How many lines of context a search hit carries when previews are on. */
     private const int PREVIEW_CONTEXT_LINES = 2;
+
+    /** Bounds for the region neighbourhood shown beside a file's source. */
+    private const int REGION_NEIGHBOUR_NODES = 12;
+
+    private const int REGION_NEIGHBOUR_EDGES = 24;
 
     public function __construct(
         private MapProjectionGateway $map,
@@ -131,7 +137,34 @@ final readonly class MapAction
             'view' => $view,
             'path' => $path,
             'line' => $line,
+            'region' => $this->regionPlacing($path),
+            'mapReadiness' => $this->map->readiness(),
         ]));
+    }
+
+    /**
+     * The architecture region agent-map places this exact file in, or null.
+     *
+     * Asking the graph projection about a path agent-map has not indexed
+     * answers with the architecture overview instead of nothing, and that
+     * answer is about the repository rather than about this file. Presenting it
+     * here would invent a placement the owner never made, so the snapshot is
+     * kept only when it is region-scoped and actually contains this path.
+     */
+    private function regionPlacing(string $path): ?MapGraphSnapshot
+    {
+        $snapshot = $this->map->graph($path, self::REGION_NEIGHBOUR_NODES, self::REGION_NEIGHBOUR_EDGES);
+        if ($snapshot === null || $snapshot->scope !== 'region') {
+            return null;
+        }
+
+        foreach ($snapshot->nodes as $node) {
+            if ($node->file === $path) {
+                return $snapshot;
+            }
+        }
+
+        return null;
     }
 
     /** The reverse-dependency picture for one symbol: what can notice a change here. */
