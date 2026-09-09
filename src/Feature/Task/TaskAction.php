@@ -14,6 +14,7 @@ use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
@@ -28,6 +29,7 @@ final readonly class TaskAction
         private ContextExplanationGateway $context,
         private TaskTransparencyGateway $transparency,
         private CardMutationGateway $cardMutation,
+        private MapProjectionGateway $map,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
@@ -168,6 +170,8 @@ final readonly class TaskAction
         return Response::html($this->templates->render('task/contract', [
             'card' => $card,
             'contract' => $contract,
+            'scope_impact' => ContractScopeImpact::compose($this->map, $contract),
+            'map_readiness' => $this->map->readiness(),
             'csrf_token' => $this->csrf->token(),
         ]));
     }

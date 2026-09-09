@@ -319,6 +319,61 @@ final readonly class MapProjectionGateway
         );
     }
 
+    /**
+     * agent-map's reverse-dependency traversal seeded from every declaration in
+     * one indexed file.
+     *
+     * A Contract declares scope as paths, not as symbols. Picking one symbol out
+     * of a path would answer a narrower question, and unioning several symbol
+     * traversals here would put the owner's shared bound and uncertainty rules in
+     * a presentation layer, so the union is asked for as one owner call.
+     */
+    public function fileImpact(string $path, int $maximumDepth = 2, int $maximumNodes = 60): ?MapFileImpactSnapshot
+    {
+        $index = $this->loadIndex();
+        if ($index === null) {
+            return null;
+        }
+
+        $maximumDepth = max(1, min(4, $maximumDepth));
+        $maximumNodes = max(1, min(200, $maximumNodes));
+
+        try {
+            $report = (new ImpactAnalyzer())->forFile($index, $path, $maximumDepth, $maximumNodes);
+        } catch (Throwable) {
+            // A path agent-map does not index is reported as unknown by the
+            // caller rather than approximated from a similar name.
+            return null;
+        }
+
+        $impacts = [];
+        foreach ($report->impacts as $impact) {
+            $impacts[] = new MapImpactNode(
+                id: $impact->node->id,
+                kind: $impact->node->kind,
+                name: $impact->node->name,
+                file: $impact->node->file,
+                lineStart: $impact->node->lineStart,
+                lineEnd: $impact->node->lineEnd,
+                depth: $impact->depth,
+                relationKinds: $impact->relationKinds,
+                viaNodeIds: $impact->viaNodeIds,
+                uncertain: $impact->uncertain,
+                evidenceCount: count($impact->evidenceIds),
+            );
+        }
+
+        return new MapFileImpactSnapshot(
+            path: $report->path,
+            seedCount: count($report->seeds),
+            impacts: $impacts,
+            maximumDepth: $report->maximumDepth,
+            maximumNodes: $report->maximumNodes,
+            truncated: $report->truncated,
+            mapDigest: $report->mapDigest,
+        );
+    }
+
     public function graph(?string $region = null, int $maximumNodes = 30, int $maximumEdges = 80): ?MapGraphSnapshot
     {
         $index = $this->loadIndex();
