@@ -67,6 +67,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* An author `display` rule outranks the user-agent's `[hidden]` rule, so any
+   control that ships hidden for progressive enhancement — the copy buttons,
+   the graph toolbar — would otherwise appear, and do nothing, for a reader
+   without JavaScript. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -725,6 +731,25 @@ details.raw[open] > summary { margin-bottom: 10px; }
     border-radius: var(--radius-sm);
 }
 .graph { overflow-x: auto; }
+
+/* Interactive explorer chrome. Every control here is revealed by the
+   enhancement script, so the static graph and the tables below stay the
+   whole answer when JavaScript never runs. */
+.btn--small { padding: 3px 9px; font-size: 11.5px; }
+.graph-explorer__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.graph-explorer__svg--interactive { cursor: grab; touch-action: none; }
+.graph-explorer__svg--panning { cursor: grabbing; }
+.graph-node-link--dimmed { opacity: .16; }
+.graph-node-link--selected rect { stroke: var(--accent); stroke-width: 3px; }
+.graph-detail { margin-top: 12px; }
+.graph-detail__links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.graph-detail__neighbours { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 .impact__ring { fill: none; stroke: var(--rule); stroke-dasharray: 3 5; }
 .impact__edge { stroke: var(--ink-faint); stroke-opacity: .45; stroke-width: 1.2; }

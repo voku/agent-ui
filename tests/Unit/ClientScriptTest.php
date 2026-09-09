@@ -33,4 +33,27 @@ final class ClientScriptTest extends TestCase
     {
         self::assertStringContainsString('button.hidden = false', ClientScript::code());
     }
+
+    public function testTheExplorerControlsAreRevealedByTheScriptThatOperatesThem(): void
+    {
+        // The graph toolbar can only do anything while this script runs, so it
+        // ships hidden and the script is what puts it on screen.
+        self::assertStringContainsString('toolbar.hidden = false', ClientScript::code());
+    }
+
+    public function testHiddenChromeStaysHiddenWhateverDisplayAComponentDeclares(): void
+    {
+        // Browser dogfood caught the graph toolbar rendering for a reader with
+        // JavaScript off: `.graph-explorer__bar { display: flex }` is an author
+        // rule, and it outranks the user-agent rule behind the hidden
+        // attribute. One base rule keeps every progressively-enhanced control
+        // honest instead of one guard per component.
+        $stylesheet = file_get_contents(dirname(__DIR__, 2) . '/templates/layout/app.css');
+
+        self::assertIsString($stylesheet);
+        self::assertMatchesRegularExpression(
+            '/\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/',
+            $stylesheet,
+        );
+    }
 }
