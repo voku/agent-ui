@@ -51,8 +51,12 @@ final readonly class MapProjectionGateway
                 }
             }
 
-            $format = is_file($this->paths->indexToon()) ? 'toon' : 'json';
-            $path = is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson();
+            // The reported format has to describe the file that was read, not the
+            // one that merely exists: `loadIndex()` prefers JSON, so a checkout
+            // carrying both would otherwise be told it is reading TOON.
+            $readPath = $this->locator->readableIndexPath();
+            $path = $readPath ?? (is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson());
+            $format = str_ends_with($path, '.toon') ? 'toon' : 'json';
 
             /** @var list<array{path: string, reason: string}> $staleEntries */
             $staleEntries = $readiness->staleEntries;
@@ -72,6 +76,8 @@ final readonly class MapProjectionGateway
                 methodCount: $methodsCount,
                 functionCount: $functionsCount,
                 failure: $readiness->mapFailure,
+                readPath: $readPath,
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         } catch (Throwable $e) {
             return new MapReadinessSnapshot(
@@ -80,6 +86,7 @@ final readonly class MapProjectionGateway
                 format: 'none',
                 path: $this->paths->indexJson(),
                 failure: $e->getMessage(),
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         }
     }
