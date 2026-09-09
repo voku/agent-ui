@@ -92,9 +92,8 @@ final readonly class MapArtifactLocator
      * counts describe one file while the reported provenance named another -
      * the exact confusion this pairing exists to remove.
      *
-     * `existingIndexPath()` still answers where an index file sits; this
-     * answers which one was read. They differ when the preferred file exists
-     * but cannot be decoded.
+     * A file that exists is not the same as the file that answered: the two
+     * differ when the preferred index exists but cannot be decoded.
      *
      * @return array{path: string, index: AgentMapIndex}|null
      */
@@ -110,20 +109,6 @@ final readonly class MapArtifactLocator
             } catch (Throwable) {
                 continue;
             }
-        }
-
-        return null;
-    }
-
-    /** The index file that actually exists, JSON first, or null when the map was never built. */
-    public function existingIndexPath(): ?string
-    {
-        if (is_file($this->paths->indexJson())) {
-            return $this->paths->indexJson();
-        }
-
-        if (is_file($this->paths->indexToon())) {
-            return $this->paths->indexToon();
         }
 
         return null;

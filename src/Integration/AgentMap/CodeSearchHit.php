@@ -7,9 +7,11 @@ namespace voku\AgentUi\Integration\AgentMap;
 /**
  * One ranked code location, exactly as agent-map ranked it.
  *
- * The channel ranks and reasons travel with the hit on purpose: a developer who
- * cannot see *why* a result is in front of another one has to trust the
- * ranking, and an opaque ranking is the first thing people stop using.
+ * `reasons` is what answers "why is this above that" for a reader: the map page
+ * renders it beside the score. `channelRanks` travels as owner-reported
+ * provenance rather than for display - the fallback path deliberately carries
+ * none, and that difference is how a hybrid hit stays distinguishable from an
+ * unranked index-order match.
  */
 final readonly class CodeSearchHit
 {
@@ -31,31 +33,6 @@ final readonly class CodeSearchHit
         public string $signature = '',
         public ?SourceView $preview = null,
     ) {
-    }
-
-    /** @return list<string> */
-    public function matchedChannels(): array
-    {
-        $matched = [];
-        foreach ($this->channelRanks as $channel => $rank) {
-            if ($rank !== null) {
-                $matched[] = $channel;
-            }
-        }
-
-        return $matched;
-    }
-
-    public function bestRank(): ?int
-    {
-        $best = null;
-        foreach ($this->channelRanks as $rank) {
-            if ($rank !== null && ($best === null || $rank < $best)) {
-                $best = $rank;
-            }
-        }
-
-        return $best;
     }
 
     public function lineCount(): int
