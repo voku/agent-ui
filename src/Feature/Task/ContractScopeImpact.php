@@ -123,10 +123,11 @@ final readonly class ContractScopeImpact
      *
      * Without this the headline reads "no file outside the declared scope
      * reaches it" for a repository whose map was never built, which is the
-     * absent projection reported as a reassuring answer.
+     * absent projection reported as a reassuring answer. A truncated entry set
+     * cannot make that claim because an unexamined path may be indexed.
      */
     public function nothingProjected(): bool
     {
-        return $this->indexedEntryCount === 0;
+        return $this->indexedEntryCount === 0 && !$this->entriesTruncated;
     }
 }
