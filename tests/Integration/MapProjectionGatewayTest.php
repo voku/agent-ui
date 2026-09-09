@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use voku\AgentMap\Store\CanonicalToonEncoder;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
@@ -153,6 +154,144 @@ final class MapProjectionGatewayTest extends TestCase
         // channel answered, so the page never presents a ranking without saying
         // which index produced it.
         self::assertStringContainsString('Result Provenance', $searchResponse->body);
+    }
+
+    public function testTheIndexReportedAsReadIsTheFileTheGatewayActuallyParsed(): void
+    {
+        $this->writeMap($this->root . '/.agent-map/php-symbols.json');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-map/php-symbols.json', $readiness->readPath);
+        self::assertSame('json', $readiness->format);
+        self::assertFalse($readiness->hasUnreadIndexes());
+    }
+
+    public function testASecondIndexUnderTheGovernedRootIsNamedRatherThanLeftSilent(): void
+    {
+        // The exact shape that made a real refresh look like a broken one: the
+        // lifecycle builds `.agent-loop/map/`, the UI reads `.agent-map/`, and
+        // nothing on the page said which of the two the numbers came from.
+        $this->writeMap($this->root . '/.agent-map/php-symbols.json');
+        $this->writeMap($this->root . '/.agent-loop/map/php-symbols.json');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-map/php-symbols.json', $readiness->readPath);
+        self::assertTrue($readiness->hasUnreadIndexes());
+        self::assertSame([$this->root . '/.agent-loop/map/php-symbols.json'], $readiness->unreadIndexes);
+    }
+
+    public function testTheGovernedIndexIsTheOneReadWhenNoRepositoryLocalMapDirectoryExists(): void
+    {
+        rmdir($this->root . '/.agent-map');
+        $this->writeMap($this->root . '/.agent-loop/map/php-symbols.json');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-loop/map/php-symbols.json', $readiness->readPath);
+        self::assertFalse($readiness->hasUnreadIndexes());
+    }
+
+    public function testAnIndexThatCannotBeParsedIsNotReportedAsTheIndexThatWasRead(): void
+    {
+        file_put_contents($this->root . '/.agent-map/php-symbols.json', 'not an index');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        // Naming an unreadable file as the source of zero symbols is the lie
+        // this row exists to prevent; the counts came from nothing.
+        self::assertNull($readiness->readPath);
+        self::assertSame(0, $readiness->fileCount);
+    }
+
+    public function testTheMapPageNamesTheIndexItReadAndTheOneItDidNotRead(): void
+    {
+        $this->writeMap($this->root . '/.agent-map/php-symbols.json');
+        $this->writeMap($this->root . '/.agent-loop/map/php-symbols.json');
+
+        $response = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/map'));
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Index read', $response->body);
+        self::assertStringContainsString('.agent-map/php-symbols.json', $response->body);
+        self::assertStringContainsString('.agent-loop/map/php-symbols.json', $response->body);
+        self::assertStringContainsString('did not read', $response->body);
+    }
+
+    public function testTheMapPageDoesNotInventASecondIndexWhenOnlyOneExists(): void
+    {
+        $this->writeMap($this->root . '/.agent-map/php-symbols.json');
+
+        $response = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/map'));
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Index read', $response->body);
+        self::assertStringNotContainsString('did not read', $response->body);
+    }
+
+    public function testTheReportedFormatDescribesTheFileThatWasReadNotTheOneThatMerelyExists(): void
+    {
+        // `loadIndex()` prefers JSON. A checkout that still carries an older
+        // TOON file beside it was previously told it was reading TOON while
+        // every count on the page came out of the JSON.
+        $this->writeMap($this->root . '/.agent-map/php-symbols.json');
+        $this->writeMap($this->root . '/.agent-map/php-symbols.toon');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-map/php-symbols.json', $readiness->readPath);
+        self::assertSame('json', $readiness->format);
+    }
+
+    public function testAToonOnlyCheckoutIsStillReportedAsReadingToon(): void
+    {
+        $this->writeMap($this->root . '/.agent-map/php-symbols.toon');
+
+        // IndexReader falls back to the other decoder, so a JSON fixture under a
+        // .toon name would pass this test while never touching TOON decoding.
+        // Pin the fixture: these bytes are not JSON.
+        $bytes = (string) file_get_contents($this->root . '/.agent-map/php-symbols.toon');
+        self::assertNull(json_decode($bytes, true), 'the TOON fixture is JSON, so this test proves nothing about TOON');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-map/php-symbols.toon', $readiness->readPath);
+        self::assertSame('toon', $readiness->format);
+    }
+
+    /**
+     * Smallest index agent-map will decode, written wherever a test needs one.
+     *
+     * A `.toon` fixture is encoded as TOON with the owner's own encoder. Writing
+     * JSON bytes under a `.toon` name happens to work, because `IndexReader`
+     * falls back to the other decoder - so the test would pass while exercising
+     * the JSON path it claims not to be testing.
+     */
+    private function writeMap(string $path): void
+    {
+        $directory = dirname($path);
+        if (!is_dir($directory) && !mkdir($directory, 0o775, true) && !is_dir($directory)) {
+            self::fail('Unable to create map fixture directory: ' . $directory);
+        }
+
+        $payload = [
+            'schema_version' => '2.0',
+            'root' => $this->root,
+            'backend' => 'simple-php-code-parser',
+            'files' => [],
+            'relations' => [],
+            'diagnostics' => [],
+        ];
+
+        file_put_contents(
+            $path,
+            str_ends_with(strtolower($path), '.toon')
+                ? (new CanonicalToonEncoder())->encode($payload)
+                : json_encode($payload, JSON_THROW_ON_ERROR),
+        );
     }
 
     private function removeDir(string $dir): void

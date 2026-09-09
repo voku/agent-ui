@@ -30,7 +30,11 @@ final readonly class MapProjectionGateway
             $inspector = new MapReadinessInspector();
             $readiness = $inspector->inspect($this->paths);
 
-            $index = $this->loadIndex();
+            // One read answers both "what does the map say" and "which file
+            // said it"; asking separately is how the two come to disagree.
+            $read = $this->locator->readIndex();
+            $index = $read['index'] ?? null;
+            $readPath = $read['path'] ?? null;
 
             $classesCount = 0;
             $methodsCount = 0;
@@ -51,8 +55,11 @@ final readonly class MapProjectionGateway
                 }
             }
 
-            $format = is_file($this->paths->indexToon()) ? 'toon' : 'json';
-            $path = is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson();
+            // The reported format has to describe the file that was read, not the
+            // one that merely exists: `loadIndex()` prefers JSON, so a checkout
+            // carrying both would otherwise be told it is reading TOON.
+            $path = $readPath ?? (is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson());
+            $format = str_ends_with($path, '.toon') ? 'toon' : 'json';
 
             /** @var list<array{path: string, reason: string}> $staleEntries */
             $staleEntries = $readiness->staleEntries;
@@ -72,6 +79,8 @@ final readonly class MapProjectionGateway
                 methodCount: $methodsCount,
                 functionCount: $functionsCount,
                 failure: $readiness->mapFailure,
+                readPath: $readPath,
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         } catch (Throwable $e) {
             return new MapReadinessSnapshot(
@@ -80,6 +89,7 @@ final readonly class MapProjectionGateway
                 format: 'none',
                 path: $this->paths->indexJson(),
                 failure: $e->getMessage(),
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         }
     }

@@ -200,7 +200,11 @@ require __DIR__ . '/../layout/header.php';
         <dt>Total symbols</dt><dd><?= (int) $readiness->symbolCount ?> (<?= (int) $readiness->classCount ?> classes/traits, <?= (int) $readiness->methodCount ?> methods, <?= (int) $readiness->functionCount ?> functions)</dd>
         <dt>Call relations</dt><dd><?= (int) $readiness->relationCount ?></dd>
         <dt>Diagnostics</dt><dd><?= (int) $readiness->diagnosticCount ?></dd>
-        <dt>Map path</dt><dd><code><?= TemplateRenderer::escape($readiness->path) ?></code></dd>
+        <?php if ($readiness->readPath !== null): ?>
+            <dt>Index read</dt><dd><code><?= TemplateRenderer::escape($readiness->readPath) ?></code></dd>
+        <?php else: ?>
+            <dt>Index read</dt><dd class="faint">none — no index file at <code><?= TemplateRenderer::escape($readiness->path) ?></code> could be read</dd>
+        <?php endif; ?>
         <?php if ($readiness->snapshot !== null): ?>
             <dt>Fingerprint</dt><dd><span class="mono small"><?= TemplateRenderer::escape(substr($readiness->snapshot, 0, 16)) ?>…</span></dd>
         <?php endif; ?>
@@ -216,6 +220,17 @@ require __DIR__ . '/../layout/header.php';
         </p>
     <?php elseif ($readiness->failure !== null): ?>
         <p class="note" style="margin-top:12px;color:var(--blocked)">Map failure: <?= TemplateRenderer::escape($readiness->failure) ?></p>
+    <?php endif; ?>
+
+    <?php if ($readiness->hasUnreadIndexes()): ?>
+        <p class="note" style="margin-top:12px">This repository carries <?= count($readiness->unreadIndexes) ?> other agent-map
+            <?= count($readiness->unreadIndexes) === 1 ? 'index' : 'indexes' ?> that this page did not read:
+            <?php foreach ($readiness->unreadIndexes as $unread): ?>
+                <code><?= TemplateRenderer::escape($unread) ?></code>
+            <?php endforeach; ?>
+            Building or refreshing one of those will not change anything above. Every number on this page comes from the
+            index named under <em>Index read</em>.
+        </p>
     <?php endif; ?>
 </section>
 
