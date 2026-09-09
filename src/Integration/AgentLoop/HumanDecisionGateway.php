@@ -77,6 +77,19 @@ final readonly class HumanDecisionGateway
         );
     }
 
+    /**
+     * The archived Contract revisions this task's current revision replaced.
+     *
+     * agent-loop owns the archive and its ordering; the UI never reads the
+     * history directory itself.
+     *
+     * @return list<TaskContract> oldest first
+     */
+    public function supersededRevisions(string $taskId): array
+    {
+        return $this->contractStore->supersededRevisions($taskId);
+    }
+
     public function available(string $taskId): WorkflowHumanDecisionProjection
     {
         return $this->service->availableActions($taskId);

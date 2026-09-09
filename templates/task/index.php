@@ -3,17 +3,19 @@ use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\Transparency\ContextCoverage;
 use voku\AgentLoop\Workflow\Transparency\TaskTransparencyProjection;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
+use voku\AgentUi\Feature\Task\ContractRevisionDelta;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract?: ?TaskContract, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $contract = $model['contract'] ?? null;
+$contractDelta = $model['contract_delta'] ?? null;
 $runner = $model['runner'];
 $context = $model['context_explanation'];
 $contextCoverage = $model['context_coverage'];
@@ -232,6 +234,34 @@ require __DIR__ . '/../layout/header.php';
             <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve">
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <h3>Approve the current Contract</h3>
+                <?php if ($contractDelta !== null): ?>
+                    <?php // agent-loop kept the revision this one replaced; the
+                          // comparison below is set difference over its two
+                          // Contracts and judges nothing about the change. ?>
+                    <div style="margin:0 0 12px;padding:10px;background:var(--accent-soft);border-radius:6px">
+                        <strong class="small">Revision <?= (int) $contractDelta->toRevision ?> replaces revision <?= (int) $contractDelta->fromRevision ?><?php
+                            if ($contractDelta->previousWasApproved()) {
+                                echo ', approved by ' . TemplateRenderer::escape((string) $contractDelta->previousApprovedBy);
+                                if ($contractDelta->previousApprovedAt !== null) {
+                                    echo ' at ' . TemplateRenderer::escape($contractDelta->previousApprovedAt);
+                                }
+                            }
+                        ?>.</strong>
+                        <?php if ($contractDelta->isEmpty()): ?>
+                            <p class="small faint" style="margin:6px 0 0">Goal, scope, validation, non-goals and acceptance criteria are unchanged between the two revisions.</p>
+                        <?php else: ?>
+                            <?php if ($contractDelta->previousGoal !== null): ?>
+                                <p class="small" style="margin:6px 0 0">Goal was: <em><?= TemplateRenderer::escape($contractDelta->previousGoal) ?></em></p>
+                            <?php endif; ?>
+                            <?php foreach ($contractDelta->lists as $label => $change): ?>
+                                <p class="small" style="margin:6px 0 0"><span class="faint"><?= TemplateRenderer::escape((string) $label) ?>:</span>
+                                    <?php foreach ($change['added'] as $value): ?><code>+ <?= TemplateRenderer::escape($value) ?></code> <?php endforeach; ?>
+                                    <?php foreach ($change['removed'] as $value): ?><code>&minus; <?= TemplateRenderer::escape($value) ?></code> <?php endforeach; ?>
+                                </p>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                 <p class="note" style="margin:0 0 10px">Approval records human authority over the scope, and nothing else.
                     It does not approve code, validation, or Learning.</p>
                 <div class="form__row">
