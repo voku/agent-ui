@@ -27,7 +27,7 @@ final readonly class CardMutationGateway
     /**
      * @return array<string, BoardContext>
      */
-    public function allContexts(): array
+    private function allContexts(): array
     {
         return (new BoardContextFactory())->createAll($this->layout->boardRoot());
     }
@@ -37,7 +37,7 @@ final readonly class CardMutationGateway
         return (new BoardContextFactory())->create($this->layout->boardRoot(), null, null, $boardId);
     }
 
-    public function contextForCard(string $taskId): BoardContext
+    private function contextForCard(string $taskId): BoardContext
     {
         $cardId = CardId::fromString($taskId);
         $all = $this->allContexts();
