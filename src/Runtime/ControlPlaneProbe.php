@@ -39,6 +39,15 @@ final readonly class ControlPlaneProbe
             return self::result('unreachable', $url, $expected->projectId, $response['error']);
         }
 
+        if ($response['http_status'] === 0) {
+            return self::result(
+                'invalid_response',
+                $url,
+                $expected->projectId,
+                $response['error'] ?? 'Malformed HTTP response.',
+            );
+        }
+
         if ($response['http_status'] !== 200) {
             return self::result(
                 'wrong_service',
@@ -49,7 +58,7 @@ final readonly class ControlPlaneProbe
         }
 
         if ($response['body'] === null) {
-            return self::result('invalid_response', $url, $expected->projectId, 'Health endpoint returned no body.');
+            return self::result('invalid_response', $url, $expected->projectId, $response['error'] ?? 'Health endpoint returned no body.');
         }
 
         try {
@@ -163,7 +172,7 @@ final readonly class ControlPlaneProbe
             $raw = stream_get_contents($socket);
             fclose($socket);
             if (!is_string($raw)) {
-                return ['http_status' => 0, 'body' => null, 'error' => 'Unable to read the health probe response.'];
+                return ['http_status' => null, 'body' => null, 'error' => 'Unable to read the health probe response.'];
             }
 
             $parts = explode("\r\n\r\n", $raw, 2);
