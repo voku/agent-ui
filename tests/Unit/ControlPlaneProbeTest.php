@@ -53,7 +53,7 @@ final class ControlPlaneProbeTest extends TestCase
     public function testNoListenerIsUnreachable(): void
     {
         $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
-        $probe = new ControlPlaneProbe(static fn (string $host, int $port): array => [
+        $probe = new ControlPlaneProbe(static fn(string $host, int $port): array => [
             'http_status' => null,
             'body' => null,
             'error' => 'Connection refused',
@@ -68,7 +68,7 @@ final class ControlPlaneProbeTest extends TestCase
     public function testUnrelatedHttpServiceIsWrongService(): void
     {
         $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
-        $probe = new ControlPlaneProbe(static fn (string $host, int $port): array => [
+        $probe = new ControlPlaneProbe(static fn(string $host, int $port): array => [
             'http_status' => 404,
             'body' => '<html>not agent-ui</html>',
             'error' => null,
@@ -82,7 +82,7 @@ final class ControlPlaneProbeTest extends TestCase
         $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
         $otherPayload = $identity->payload();
         $otherPayload['project_id'] = 'sha256:' . str_repeat('0', 64);
-        $probe = new ControlPlaneProbe(static fn (string $host, int $port): array => [
+        $probe = new ControlPlaneProbe(static fn(string $host, int $port): array => [
             'http_status' => 200,
             'body' => json_encode($otherPayload, JSON_THROW_ON_ERROR),
             'error' => null,
@@ -94,12 +94,12 @@ final class ControlPlaneProbeTest extends TestCase
     public function testMalformedOrUnsupportedHealthResponseIsInvalid(): void
     {
         $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
-        $invalidJson = new ControlPlaneProbe(static fn (string $host, int $port): array => [
+        $invalidJson = new ControlPlaneProbe(static fn(string $host, int $port): array => [
             'http_status' => 200,
             'body' => '{nope',
             'error' => null,
         ]);
-        $wrongSchema = new ControlPlaneProbe(static fn (string $host, int $port): array => [
+        $wrongSchema = new ControlPlaneProbe(static fn(string $host, int $port): array => [
             'http_status' => 200,
             'body' => json_encode([
                 'service' => 'agent-ui',
