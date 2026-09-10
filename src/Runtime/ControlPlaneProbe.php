@@ -144,7 +144,7 @@ final readonly class ControlPlaneProbe
             }
 
             if (!is_resource($socket)) {
-                $detail = $errorMessage !== '' ? $errorMessage : $warning;
+                $detail = is_string($errorMessage) && $errorMessage !== '' ? $errorMessage : $warning;
 
                 return ['http_status' => null, 'body' => null, 'error' => $detail];
             }
