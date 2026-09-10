@@ -77,6 +77,21 @@ final class ControlPlaneProbeTest extends TestCase
         self::assertSame('wrong_service', $probe->probe('127.0.0.1', 8088, $identity)['status']);
     }
 
+    public function testMalformedHttpResponseIsInvalidResponse(): void
+    {
+        $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
+        $probe = new ControlPlaneProbe(static fn(string $host, int $port): array => [
+            'http_status' => 0,
+            'body' => 'not HTTP',
+            'error' => 'Malformed HTTP response.',
+        ]);
+
+        $result = $probe->probe('127.0.0.1', 8088, $identity);
+
+        self::assertSame('invalid_response', $result['status']);
+        self::assertSame('Malformed HTTP response.', $result['detail']);
+    }
+
     public function testAgentUiForAnotherProjectIsWrongProject(): void
     {
         $identity = ControlPlaneIdentity::fromProjectRoot($this->root);
