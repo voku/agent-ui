@@ -3,6 +3,9 @@
 
 declare(strict_types=1);
 
+use voku\AgentUi\Runtime\ControlPlaneIdentity;
+use voku\AgentUi\Runtime\ControlPlaneProbe;
+
 $autoload = null;
 foreach ([
     $_composer_autoload_path ?? null,
@@ -22,38 +25,75 @@ if ($autoload === null) {
 
 require $autoload;
 
-$args = array_slice($argv, 1);
-$host = '127.0.0.1';
-$port = 8088;
-$projectRoot = getcwd();
-
-foreach ($args as $arg) {
-    if ($arg === 'help' || $arg === '--help' || $arg === '-h') {
-        echo <<<HELP
+$help = static function (): void {
+    echo <<<HELP
 agent-ui - Local server-rendered human control plane for voku/agent-loop
 
 Usage:
   agent-ui [serve] [--port=PORT] [--host=HOST] [--root=PATH]
+  agent-ui status [--port=PORT] [--host=HOST] [--root=PATH] [--format=text|json]
   agent-ui help
 
+Commands:
+  serve          Run the local foreground HTTP server (default command).
+  status         Probe whether this endpoint is agent-ui for the exact project.
+  help           Show this help message.
+
 Options:
-  --port=PORT    Port to bind server to (default: 8088)
-  --host=HOST    Host address to bind server to (default: 127.0.0.1)
+  --port=PORT    Port to serve/probe (default: 8088)
+  --host=HOST    Host address to serve/probe (default: 127.0.0.1)
   --root=PATH    Target project root path (default: current working directory)
+  --format=FORMAT  Status output: text or json (default: text)
   -h, --help     Show this help message
 
 HELP;
+};
+
+$args = array_slice($argv, 1);
+$command = 'serve';
+if ($args !== [] && !str_starts_with($args[0], '-')) {
+    $command = array_shift($args);
+}
+
+if ($command === 'help') {
+    $help();
+    exit(0);
+}
+if (!in_array($command, ['serve', 'status'], true)) {
+    fwrite(STDERR, sprintf("Unknown command: %s\n", $command));
+    $help();
+    exit(1);
+}
+
+$host = '127.0.0.1';
+$port = 8088;
+$projectRoot = getcwd();
+$format = 'text';
+
+foreach ($args as $arg) {
+    if ($arg === '--help' || $arg === '-h') {
+        $help();
         exit(0);
     }
     if (str_starts_with($arg, '--port=')) {
         $port = (int) substr($arg, 7);
-    } elseif (str_starts_with($arg, '--host=')) {
-        $host = substr($arg, 7);
-    } elseif (str_starts_with($arg, '--root=')) {
-        $projectRoot = substr($arg, 7);
-    } elseif ($arg === 'serve') {
-        // default action
+        continue;
     }
+    if (str_starts_with($arg, '--host=')) {
+        $host = substr($arg, 7);
+        continue;
+    }
+    if (str_starts_with($arg, '--root=')) {
+        $projectRoot = substr($arg, 7);
+        continue;
+    }
+    if (str_starts_with($arg, '--format=')) {
+        $format = substr($arg, 9);
+        continue;
+    }
+
+    fwrite(STDERR, sprintf("Unknown option: %s\n", $arg));
+    exit(1);
 }
 
 if (!is_string($projectRoot) || !is_dir($projectRoot)) {
@@ -65,6 +105,40 @@ $realProjectRoot = realpath($projectRoot);
 if ($realProjectRoot === false) {
     fwrite(STDERR, "Error: Unable to resolve realpath for project root: {$projectRoot}\n");
     exit(1);
+}
+if ($host === '' || preg_match('/^[A-Za-z0-9.:-]+$/D', $host) !== 1) {
+    fwrite(STDERR, "Error: Host must be a plain local hostname or IP address.\n");
+    exit(1);
+}
+if ($port < 1 || $port > 65535) {
+    fwrite(STDERR, "Error: Port must be between 1 and 65535.\n");
+    exit(1);
+}
+if (!in_array($format, ['text', 'json'], true)) {
+    fwrite(STDERR, "Error: --format must be text or json.\n");
+    exit(1);
+}
+if ($command === 'serve' && $format !== 'text') {
+    fwrite(STDERR, "Error: --format is supported only by status.\n");
+    exit(1);
+}
+
+if ($command === 'status') {
+    $identity = ControlPlaneIdentity::fromProjectRoot($realProjectRoot);
+    $result = (new ControlPlaneProbe())->probe($host, $port, $identity);
+
+    if ($format === 'json') {
+        echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    } else {
+        echo sprintf("agent-ui: %s\n", $result['status']);
+        echo sprintf("URL: %s\n", $result['url']);
+        echo sprintf("Project: %s\n", $result['project_id']);
+        if ($result['detail'] !== null) {
+            echo sprintf("Detail: %s\n", $result['detail']);
+        }
+    }
+
+    exit($result['status'] === 'ready' ? 0 : 2);
 }
 
 $publicDir = dirname(__DIR__) . '/public';
@@ -84,7 +158,7 @@ putenv('AGENT_UI_PROJECT_ROOT=' . $realProjectRoot);
 $_ENV['AGENT_UI_PROJECT_ROOT'] = $realProjectRoot;
 
 $phpBinary = PHP_BINARY;
-$command = sprintf(
+$serveCommand = sprintf(
     '%s -S %s:%d -t %s %s',
     escapeshellarg($phpBinary),
     escapeshellarg($host),
@@ -93,5 +167,5 @@ $command = sprintf(
     escapeshellarg($routerScript)
 );
 
-passthru($command, $exitCode);
+passthru($serveCommand, $exitCode);
 exit($exitCode);
