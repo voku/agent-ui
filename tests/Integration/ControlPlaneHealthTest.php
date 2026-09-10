@@ -36,6 +36,9 @@ final class ControlPlaneHealthTest extends TestCase
         self::assertSame(200, $response->status);
         self::assertSame('application/json; charset=utf-8', $response->headers['Content-Type']);
         $payload = json_decode($response->body, true, 32, JSON_THROW_ON_ERROR);
+        if (!is_array($payload)) {
+            self::fail('Expected the health response to be a JSON object.');
+        }
         self::assertSame('agent-ui', $payload['service'] ?? null);
         self::assertSame(1, $payload['schema'] ?? null);
         self::assertSame('ready', $payload['status'] ?? null);
