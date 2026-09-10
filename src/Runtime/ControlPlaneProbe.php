@@ -101,7 +101,12 @@ final readonly class ControlPlaneProbe
 
     /**
      * @param 'ready'|'unreachable'|'wrong_service'|'wrong_project'|'invalid_response' $status
-     * @return array{status: string, url: string, project_id: string, detail: string|null}
+     * @return array{
+     *     status: 'ready'|'unreachable'|'wrong_service'|'wrong_project'|'invalid_response',
+     *     url: string,
+     *     project_id: string,
+     *     detail: string|null
+     * }
      */
     private static function result(string $status, string $url, string $projectId, ?string $detail): array
     {
@@ -119,6 +124,8 @@ final readonly class ControlPlaneProbe
         return static function (string $host, int $port): array {
             $authority = str_contains($host, ':') ? '[' . $host . ']' : $host;
             $warning = null;
+            $errorCode = 0;
+            $errorMessage = '';
             set_error_handler(static function (int $severity, string $message) use (&$warning): bool {
                 $warning = $message;
 
@@ -160,7 +167,7 @@ final readonly class ControlPlaneProbe
             }
 
             $parts = explode("\r\n\r\n", $raw, 2);
-            if (count($parts) !== 2 || preg_match('/^HTTP\/\d(?:\.\d)?\s+(\d{3})/D', $parts[0], $matches) !== 1) {
+            if (count($parts) !== 2 || preg_match('/^HTTP\/\d(?:\.\d)?\s+(\d{3})/', $parts[0], $matches) !== 1) {
                 return ['http_status' => 0, 'body' => $raw, 'error' => 'Malformed HTTP response.'];
             }
 
