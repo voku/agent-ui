@@ -40,6 +40,7 @@ use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentMap\SourceViewGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\OperatingPromptCatalogGateway;
+use voku\AgentUi\Runtime\ControlPlaneIdentity;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -59,6 +60,7 @@ final readonly class Application
     private HistoryAction $history;
     private HumanDecisionAction $humanDecision;
     private RunnerAction $runner;
+    private ControlPlaneIdentity $identity;
 
     private TemplateRenderer $templates;
 
@@ -83,6 +85,7 @@ final readonly class Application
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;
+        $this->identity = ControlPlaneIdentity::fromProjectRoot($projectRoot);
 
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $map, $runner, $templates);
@@ -98,6 +101,7 @@ final readonly class Application
             $context,
             $transparency,
             $mutation,
+            $map,
             $csrf,
             $templates,
         );
@@ -124,6 +128,7 @@ final readonly class Application
             $route = $this->router->match($request);
 
             return match ($route['route']) {
+                'health' => Response::json($this->identity->payload()),
                 'home' => ($this->home)(),
                 'setup' => $this->setup->overview(),
                 'prompts' => $this->prompts->newTask($request),

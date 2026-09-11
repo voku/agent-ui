@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Task;
 
 use InvalidArgumentException;
+use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
@@ -14,6 +15,7 @@ use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
@@ -28,6 +30,7 @@ final readonly class TaskAction
         private ContextExplanationGateway $context,
         private TaskTransparencyGateway $transparency,
         private CardMutationGateway $cardMutation,
+        private MapProjectionGateway $map,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
@@ -38,18 +41,41 @@ final readonly class TaskAction
     {
         $transparency = $this->transparency->task($taskId);
         $card = $this->board->card($taskId);
+        $contract = $this->decisions->contract($taskId);
 
         return Response::html($this->templates->render('task/index', [
             'card' => $card,
             'workflow' => $this->workflow->task($taskId),
             'human_decisions' => $this->decisions->available($taskId),
-            'contract' => $this->decisions->contract($taskId),
+            'contract' => $contract,
+            'contract_delta' => $this->contractDelta($taskId, $contract),
             'runner' => $this->runner->status($taskId),
             'context_explanation' => $this->context->task($taskId),
             'context_coverage' => $transparency->context,
             'task_transparency' => $transparency,
             'csrf_token' => $this->csrf->token(),
         ]));
+    }
+
+    /**
+     * What the current Contract revision changes against the one it replaced.
+     *
+     * Only the immediately preceding revision is compared: that is the one the
+     * reader approved, and the one the current revision is asking them to
+     * change. Earlier revisions are history, not the decision in front of them.
+     */
+    private function contractDelta(string $taskId, ?TaskContract $contract): ?ContractRevisionDelta
+    {
+        if ($contract === null) {
+            return null;
+        }
+
+        $superseded = $this->decisions->supersededRevisions($taskId);
+        if ($superseded === []) {
+            return null;
+        }
+
+        return ContractRevisionDelta::between($superseded[count($superseded) - 1], $contract);
     }
 
     public function edit(string $taskId): Response
@@ -168,6 +194,8 @@ final readonly class TaskAction
         return Response::html($this->templates->render('task/contract', [
             'card' => $card,
             'contract' => $contract,
+            'scope_impact' => ContractScopeImpact::compose($this->map, $contract),
+            'map_readiness' => $this->map->readiness(),
             'csrf_token' => $this->csrf->token(),
         ]));
     }

@@ -8,10 +8,13 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'task'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
+    /** @return array{route: 'health'|'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'task'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
+            if ($request->path === '/__agent-ui/health') {
+                return ['route' => 'health'];
+            }
             if ($request->path === '/') {
                 return ['route' => 'home'];
             }

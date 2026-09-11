@@ -150,7 +150,8 @@ final readonly class CodeSearchGateway
         try {
             $store = new SearchIndexStore($readiness->databasePath);
             /** @var array<string, mixed> $result */
-            $result = (new HybridSearch(embeddings: $store->semanticProvider()))->search($index, $store, $query, $limit);
+            $result = (new HybridSearch(embeddings: $store->semanticProvider()))
+                ->search($index, $store, $query, $limit);
         } catch (Throwable) {
             // A broken derived cache must not remove search from the UI: the
             // structural channel needs no cache and stays exact.

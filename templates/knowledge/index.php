@@ -2,6 +2,7 @@
 use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentLearning\Catalog\LearningOverview;
 use voku\AgentLearning\Catalog\ProposalProjection;
+use voku\AgentUi\Integration\AgentLearning\FindingPromotionSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -14,9 +15,17 @@ use voku\AgentUi\View\TemplateRenderer;
  *     memory_rules: list<array{subject: string, rule: string, canonicalHome: string}>,
  *     archived_tasks: list<array{archivedOn: string, task: string, summary: string, reason: string, candidate: string, promotedTo: string}>,
  *     current_tab: string,
- *     current_status: ?string
+ *     current_status: ?string,
+ *     promotion_candidates: list<FindingPromotionSnapshot>|null
  * } $model */
 $overview = $model['overview'];
+$promotionCandidates = $model['promotion_candidates'];
+$promotableCount = 0;
+foreach ($promotionCandidates ?? [] as $candidate) {
+    if ($candidate->promotable) {
+        ++$promotableCount;
+    }
+}
 $findings = $model['recent_findings'];
 $proposals = $model['recent_proposals'];
 $allFindings = $model['all_findings'] ?? [];
@@ -155,6 +164,43 @@ require __DIR__ . '/../layout/header.php';
     </section>
 
 <?php else: ?>
+    <?php // agent-learning decides promotability; this panel counts its
+          // verdicts so a store that can never be read back says so. ?>
+    <p class="eyebrow">Reusable knowledge</p>
+    <section class="panel<?= $promotionCandidates !== null && $promotionCandidates !== [] && $promotableCount === 0 ? ' panel--attention' : '' ?>" aria-label="Reusable knowledge">
+        <?php if ($promotionCandidates === null): ?>
+            <p class="empty">This project has no readable Learning, so nothing was asked. That is not the same as having no reusable Findings.</p>
+        <?php elseif ($promotionCandidates === []): ?>
+            <p class="empty">agent-learning reports no Finding eligible to become a LearningNote.</p>
+        <?php else: ?>
+            <p class="metric"><?= (int) $promotableCount ?> / <?= count($promotionCandidates) ?></p>
+            <?php if ($promotableCount === 0): ?>
+                <p class="note">
+                    None of the <?= count($promotionCandidates) ?> open Finding(s) can become a LearningNote, and only a
+                    LearningNote is ever returned as a precedent to a later task. Every lesson recorded here is currently
+                    write-only. Open one to see which inputs agent-learning is missing.
+                </p>
+            <?php else: ?>
+                <p class="note">Findings agent-learning would let become a LearningNote, out of those still eligible. The rest are recorded but cannot yet be returned as a precedent.</p>
+            <?php endif; ?>
+            <div class="stack" style="margin-top:8px">
+                <?php foreach (array_slice($promotionCandidates, 0, 8) as $candidate): ?>
+                    <p class="small" style="margin:0">
+                        <a class="mono" href="/knowledge/findings/<?= TemplateRenderer::escape($candidate->findingId) ?>"><?= TemplateRenderer::escape($candidate->findingId) ?></a>
+                        <?php if ($candidate->promotable): ?>
+                            <span class="faint">ready</span>
+                        <?php else: ?>
+                            <span class="faint"><?= count($candidate->blockers) ?> missing input(s)</span>
+                        <?php endif; ?>
+                    </p>
+                <?php endforeach; ?>
+                <?php if (count($promotionCandidates) > 8): ?>
+                    <p class="small faint" style="margin:0">and <?= count($promotionCandidates) - 8 ?> more</p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </section>
+
     <p class="eyebrow">Needs attention</p>
     <div class="grid">
         <section class="panel<?= $overview->findingAttentionIds !== [] ? ' panel--attention' : '' ?>">

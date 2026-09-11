@@ -30,7 +30,11 @@ final readonly class MapProjectionGateway
             $inspector = new MapReadinessInspector();
             $readiness = $inspector->inspect($this->paths);
 
-            $index = $this->loadIndex();
+            // One read answers both "what does the map say" and "which file
+            // said it"; asking separately is how the two come to disagree.
+            $read = $this->locator->readIndex();
+            $index = $read['index'] ?? null;
+            $readPath = $read['path'] ?? null;
 
             $classesCount = 0;
             $methodsCount = 0;
@@ -51,8 +55,11 @@ final readonly class MapProjectionGateway
                 }
             }
 
-            $format = is_file($this->paths->indexToon()) ? 'toon' : 'json';
-            $path = is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson();
+            // The reported format has to describe the file that was read, not the
+            // one that merely exists: `loadIndex()` prefers JSON, so a checkout
+            // carrying both would otherwise be told it is reading TOON.
+            $path = $readPath ?? (is_file($this->paths->indexToon()) ? $this->paths->indexToon() : $this->paths->indexJson());
+            $format = str_ends_with($path, '.toon') ? 'toon' : 'json';
 
             /** @var list<array{path: string, reason: string}> $staleEntries */
             $staleEntries = $readiness->staleEntries;
@@ -72,6 +79,8 @@ final readonly class MapProjectionGateway
                 methodCount: $methodsCount,
                 functionCount: $functionsCount,
                 failure: $readiness->mapFailure,
+                readPath: $readPath,
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         } catch (Throwable $e) {
             return new MapReadinessSnapshot(
@@ -80,6 +89,7 @@ final readonly class MapProjectionGateway
                 format: 'none',
                 path: $this->paths->indexJson(),
                 failure: $e->getMessage(),
+                unreadIndexes: $this->locator->unreadIndexPaths(),
             );
         }
     }
@@ -311,6 +321,61 @@ final readonly class MapProjectionGateway
             targetFile: $report->target->file,
             targetLineStart: $report->target->lineStart,
             targetLineEnd: $report->target->lineEnd,
+            impacts: $impacts,
+            maximumDepth: $report->maximumDepth,
+            maximumNodes: $report->maximumNodes,
+            truncated: $report->truncated,
+            mapDigest: $report->mapDigest,
+        );
+    }
+
+    /**
+     * agent-map's reverse-dependency traversal seeded from every declaration in
+     * one indexed file.
+     *
+     * A Contract declares scope as paths, not as symbols. Picking one symbol out
+     * of a path would answer a narrower question, and unioning several symbol
+     * traversals here would put the owner's shared bound and uncertainty rules in
+     * a presentation layer, so the union is asked for as one owner call.
+     */
+    public function fileImpact(string $path, int $maximumDepth = 2, int $maximumNodes = 60): ?MapFileImpactSnapshot
+    {
+        $index = $this->loadIndex();
+        if ($index === null) {
+            return null;
+        }
+
+        $maximumDepth = max(1, min(4, $maximumDepth));
+        $maximumNodes = max(1, min(200, $maximumNodes));
+
+        try {
+            $report = (new ImpactAnalyzer())->forFile($index, $path, $maximumDepth, $maximumNodes);
+        } catch (Throwable) {
+            // A path agent-map does not index is reported as unknown by the
+            // caller rather than approximated from a similar name.
+            return null;
+        }
+
+        $impacts = [];
+        foreach ($report->impacts as $impact) {
+            $impacts[] = new MapImpactNode(
+                id: $impact->node->id,
+                kind: $impact->node->kind,
+                name: $impact->node->name,
+                file: $impact->node->file,
+                lineStart: $impact->node->lineStart,
+                lineEnd: $impact->node->lineEnd,
+                depth: $impact->depth,
+                relationKinds: $impact->relationKinds,
+                viaNodeIds: $impact->viaNodeIds,
+                uncertain: $impact->uncertain,
+                evidenceCount: count($impact->evidenceIds),
+            );
+        }
+
+        return new MapFileImpactSnapshot(
+            path: $report->path,
+            seedCount: count($report->seeds),
             impacts: $impacts,
             maximumDepth: $report->maximumDepth,
             maximumNodes: $report->maximumNodes,

@@ -50,6 +50,44 @@ if ($graph !== null) {
         ];
     }
 }
+
+/**
+ * Adjacency for the exact nodes and edges this page already renders.
+ *
+ * Neighbourhood focus is a view over that same evidence, so the set is
+ * derived once here rather than re-derived in the browser.
+ *
+ * @var array<string, list<string>> $neighbourIds
+ */
+$neighbourIds = [];
+if ($graph !== null) {
+    foreach ($graph->edges as $edge) {
+        if (!isset($nodesById[$edge->sourceId], $nodesById[$edge->targetId])) {
+            continue;
+        }
+        $neighbourIds[$edge->sourceId][] = $edge->targetId;
+        $neighbourIds[$edge->targetId][] = $edge->sourceId;
+    }
+    foreach ($neighbourIds as $nodeId => $ids) {
+        $neighbourIds[$nodeId] = array_values(array_unique($ids));
+    }
+}
+
+/**
+ * One target rule per node, resolved once.
+ *
+ * The drawing and the detail panel must lead to the same place, and two copies
+ * of the same rule are two things that can drift apart.
+ *
+ * @var array<string, array{href: string, label: string}> $nodeTargets
+ */
+$nodeTargets = [];
+foreach ($graph?->nodes ?? [] as $node) {
+    $isRegion = $graph?->scope === 'architecture' && $node->regionId !== null;
+    $nodeTargets[$node->id] = $isRegion
+        ? ['href' => '/map/graph?region=' . rawurlencode((string) $node->regionId), 'label' => 'Drill into region']
+        : ['href' => '/map?q=' . rawurlencode($node->file ?? $node->label), 'label' => 'Search the code map'];
+}
 ?>
 
 <p class="crumbs"><a href="/map">Code Map</a><span>/</span><a href="/map/graph">Graph</a><?php if ($graph?->regionLabel !== null): ?><span>/</span><?= TemplateRenderer::escape($graph->regionLabel) ?><?php endif; ?></p>
@@ -118,17 +156,29 @@ if ($graph !== null) {
     </section>
 
     <p class="eyebrow">Graph</p>
-    <section class="panel" style="overflow-x:auto">
+    <section class="panel graph-explorer" style="overflow-x:auto" data-graph-explorer>
         <?php if ($graph->nodes === []): ?>
             <p class="empty">No graph nodes are available for this scope.</p>
         <?php else: ?>
+            <div class="graph-explorer__bar" data-graph-toolbar hidden>
+                <span class="small faint">View</span>
+                <button type="button" class="btn btn--small" data-graph-zoom="in" aria-label="Zoom in">+</button>
+                <button type="button" class="btn btn--small" data-graph-zoom="out" aria-label="Zoom out">&minus;</button>
+                <button type="button" class="btn btn--small" data-graph-zoom="fit">Fit</button>
+                <span class="small faint">Drag to pan, scroll to zoom, click a node to focus its neighbourhood.</span>
+                <button type="button" class="btn btn--small" data-graph-clear hidden>Clear focus</button>
+            </div>
             <?php
             $maximumEdgeWeight = 0.0;
             foreach ($graph->edges as $edge) {
                 $maximumEdgeWeight = max($maximumEdgeWeight, $edge->weight);
             }
             ?>
-            <svg viewBox="0 0 1000 700" aria-labelledby="map-graph-title map-graph-desc" style="display:block;width:100%;min-width:760px;min-height:520px;background:var(--surface-alt);border:1px solid var(--rule);border-radius:var(--radius-sm)">
+            <svg viewBox="0 0 1000 700"
+                 data-graph-viewport
+                 data-graph-base-view="0 0 1000 700"
+                 aria-labelledby="map-graph-title map-graph-desc"
+                 style="display:block;width:100%;min-width:760px;min-height:520px;background:var(--surface-alt);border:1px solid var(--rule);border-radius:var(--radius-sm)">
                 <style>
                     .graph-edge { transition: stroke 0.15s ease, stroke-opacity 0.15s ease; }
                     .graph-node-link { cursor: pointer; text-decoration: none; }
@@ -179,11 +229,18 @@ if ($graph !== null) {
                     $nodeTitle = $node->kind === 'file' && $node->file !== null
                         ? $node->file . ' · weighted degree ' . number_format($node->weight, 2, '.', '')
                         : $node->label . ' · ' . $node->fileCount . ' files · external coupling ' . number_format($node->weight, 2, '.', '');
-                    $href = $graph->scope === 'architecture' && $node->regionId !== null
-                        ? '/map/graph?region=' . rawurlencode($node->regionId)
-                        : '/map?q=' . rawurlencode($node->file ?? $node->label);
+                    // Node identities are owner strings — a file node's id is its
+                    // repository path — so the neighbour set travels as JSON
+                    // rather than as a delimiter a path could contain.
+                    $neighbourJson = json_encode(
+                        $neighbourIds[$node->id] ?? [],
+                        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+                    );
                     ?>
-                    <a href="<?= TemplateRenderer::escape($href) ?>" class="graph-node-link" data-node-id="<?= TemplateRenderer::escape($node->id) ?>">
+                    <a href="<?= TemplateRenderer::escape($nodeTargets[$node->id]['href']) ?>"
+                       class="graph-node-link"
+                       data-node-id="<?= TemplateRenderer::escape($node->id) ?>"
+                       data-neighbours="<?= TemplateRenderer::escape($neighbourJson) ?>">
                         <g class="graph-node">
                             <title><?= TemplateRenderer::escape($nodeTitle) ?></title>
                             <rect
@@ -203,6 +260,47 @@ if ($graph !== null) {
                 <?php endforeach; ?>
             </svg>
             <p class="note"><?= $graph->scope === 'architecture' ? 'Select a region to drill down into its strongest file couplings.' : 'Select a file to search the code map for its symbols and context.' ?></p>
+
+            <?php // Every panel below is rendered from the same snapshot the graph
+                  // and the tables use. The enhancement script only reveals one of
+                  // them; it never resolves a target of its own. ?>
+            <?php foreach ($graph->nodes as $node): ?>
+                <div class="panel panel--accent graph-detail"
+                     id="graph-detail-<?= TemplateRenderer::escape($node->id) ?>"
+                     data-graph-detail="<?= TemplateRenderer::escape($node->id) ?>"
+                     role="group"
+                     aria-label="<?= TemplateRenderer::escape($node->label) ?> detail"
+                     tabindex="-1"
+                     hidden>
+                    <div class="action__head">
+                        <strong><?= TemplateRenderer::escape($node->label) ?></strong>
+                        <span class="pill pill--neutral"><?= TemplateRenderer::escape($node->kind) ?></span>
+                        <span class="pill pill--neutral"><?= $node->fileCount ?> file<?= $node->fileCount === 1 ? '' : 's' ?></span>
+                        <span class="pill pill--neutral">weighted degree <?= number_format($node->weight, 3, '.', '') ?></span>
+                    </div>
+                    <?php if ($node->file !== null): ?>
+                        <p class="mono small" style="margin-top:8px"><?= TemplateRenderer::escape($node->file) ?></p>
+                    <?php endif; ?>
+                    <div class="graph-detail__links">
+                        <a class="btn btn--small" href="<?= TemplateRenderer::escape($nodeTargets[$node->id]['href']) ?>"><?= TemplateRenderer::escape($nodeTargets[$node->id]['label']) ?></a>
+                        <?php if ($node->file !== null): ?>
+                            <a class="btn btn--small" href="/map/source?path=<?= rawurlencode($node->file) ?>">Open source</a>
+                        <?php endif; ?>
+                    </div>
+                    <?php $neighbours = $neighbourIds[$node->id] ?? []; ?>
+                    <?php if ($neighbours === []): ?>
+                        <p class="note">No coupling edge in this bounded view connects this node.</p>
+                    <?php else: ?>
+                        <p class="small faint" style="margin-top:12px">Coupled with <?= count($neighbours) ?> displayed node<?= count($neighbours) === 1 ? '' : 's' ?>:</p>
+                        <div class="graph-detail__neighbours">
+                            <?php foreach ($neighbours as $neighbourId): ?>
+                                <button type="button" class="pill pill--neutral" data-graph-select="<?= TemplateRenderer::escape($neighbourId) ?>"><?= TemplateRenderer::escape($nodesById[$neighbourId]->label ?? $neighbourId) ?></button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    <p class="note">Focus dims the rest of the drawing only. The tables below always list the complete bounded projection.</p>
+                </div>
+            <?php endforeach; ?>
         <?php endif; ?>
     </section>
 
