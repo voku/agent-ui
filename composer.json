@@ -37,7 +37,7 @@
     "voku/agent-kanban": "^0.4.0",
     "voku/agent-learning": "^0.18.4",
     "voku/agent-loop": "^0.20.2",
-    "voku/agent-map": "^0.11.5",
+    "voku/agent-map": "^0.11.5 || ^0.12.0",
     "voku/agent-recall-compiler": "^0.15.0 || ^0.16.0 || ^0.17.1"
   },
   "require-dev": {
