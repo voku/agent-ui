@@ -42,6 +42,21 @@ require __DIR__ . '/../layout/header.php';
             <p class="note"><strong>Owner next action:</strong> <?= TemplateRenderer::escape($projection->nextAction) ?></p>
         <?php endif; ?>
 
+        <?php if (!empty($projection->contributors)): ?>
+            <details>
+                <summary>Asset contributors (<?= count($projection->contributors) ?>)</summary>
+                <ul class="small">
+                    <?php foreach ($projection->contributors as $contributor): ?>
+                        <li>
+                            <strong><?= TemplateRenderer::escape($contributor->owner) ?></strong>
+                            <span class="muted">(<?= TemplateRenderer::escape($contributor->scope) ?>)</span>:
+                            <?= $contributor->skillCount ?> skill<?= $contributor->skillCount === 1 ? '' : 's' ?>, <?= $contributor->subagentCount ?> subagent<?= $contributor->subagentCount === 1 ? '' : 's' ?>, <?= $contributor->instructionCount ?> instruction<?= $contributor->instructionCount === 1 ? '' : 's' ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </details>
+        <?php endif; ?>
+
         <?php if (in_array(RepositorySetupOperation::INSTALL_ASSETS, $legal, true) || in_array(RepositorySetupOperation::UPDATE_ASSETS, $legal, true)): ?>
             <?php $plan = $entry['install']; ?>
             <details>
