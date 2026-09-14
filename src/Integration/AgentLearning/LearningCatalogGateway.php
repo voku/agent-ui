@@ -10,6 +10,7 @@ use voku\AgentLearning\Catalog\GuidanceProjection;
 use voku\AgentLearning\Catalog\LearningOverview;
 use voku\AgentLearning\Catalog\ProposalProjection;
 use voku\AgentLearning\Catalog\TaskLearningProjection;
+use voku\AgentLearning\CorpusAnalysisResult;
 use voku\AgentLearning\LearningCatalog;
 use voku\AgentLearning\LearningNoteService;
 use voku\AgentLoop\ProjectLayout;
@@ -135,5 +136,18 @@ final readonly class LearningCatalogGateway
     public function task(string $taskId): TaskLearningProjection
     {
         return $this->catalog->forTask($taskId);
+    }
+
+    public function corpusAnalytics(): ?CorpusAnalysisResult
+    {
+        if (!is_dir($this->learningRoot)) {
+            return null;
+        }
+
+        try {
+            return $this->catalog->corpusAnalytics();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

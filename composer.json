@@ -35,7 +35,7 @@
   "require": {
     "php": "^8.3",
     "voku/agent-kanban": "^0.4.0",
-    "voku/agent-learning": "^0.18.4",
+    "voku/agent-learning": "^0.18.12",
     "voku/agent-loop": "^0.20.10",
     "voku/agent-map": "^0.11.5 || ^0.12.0 || ^0.13.0",
     "voku/agent-recall-compiler": "^0.15.0 || ^0.16.0 || ^0.17.1"
@@ -49,7 +49,7 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "https://github.com/voku/agent-loop-runner"
+      "url": "git@github.com:voku/agent-loop-runner.git"
     }
   ],
   "autoload": {

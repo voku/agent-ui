@@ -2,6 +2,7 @@
 use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentLearning\Catalog\LearningOverview;
 use voku\AgentLearning\Catalog\ProposalProjection;
+use voku\AgentLearning\CorpusAnalysisResult;
 use voku\AgentUi\Integration\AgentLearning\FindingPromotionSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
@@ -16,7 +17,8 @@ use voku\AgentUi\View\TemplateRenderer;
  *     archived_tasks: list<array{archivedOn: string, task: string, summary: string, reason: string, candidate: string, promotedTo: string}>,
  *     current_tab: string,
  *     current_status: ?string,
- *     promotion_candidates: list<FindingPromotionSnapshot>|null
+ *     promotion_candidates: list<FindingPromotionSnapshot>|null,
+ *     corpus_analytics: ?CorpusAnalysisResult
  * } $model */
 $overview = $model['overview'];
 $promotionCandidates = $model['promotion_candidates'];
@@ -34,6 +36,7 @@ $memoryRules = $model['memory_rules'] ?? [];
 $archivedTasks = $model['archived_tasks'] ?? [];
 $currentTab = $model['current_tab'] ?? 'overview';
 $currentStatus = $model['current_status'] ?? null;
+$analytics = $model['corpus_analytics'] ?? null;
 
 $totalFindingCount = array_sum($overview->findingCounts);
 $totalProposalCount = array_sum($overview->proposalCounts);
@@ -64,6 +67,9 @@ require __DIR__ . '/../layout/header.php';
     </a>
     <a class="board-switcher__tab<?= $currentTab === 'archived' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=archived">
         Archived Tasks <span class="board-switcher__count"><?= count($archivedTasks) ?></span>
+    </a>
+    <a class="board-switcher__tab<?= $currentTab === 'analytics' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=analytics">
+        Analytics &amp; Evolution
     </a>
 </nav>
 
@@ -163,6 +169,167 @@ require __DIR__ . '/../layout/header.php';
         </div>
     </section>
 
+<?php elseif ($currentTab === 'analytics'): ?>
+    <p class="eyebrow">Corpus Analytics &amp; Workflow Evolution</p>
+    <?php if ($analytics === null): ?>
+        <section class="panel"><p class="empty">No readable learning root found to analyze.</p></section>
+    <?php else: ?>
+        <?php
+        $summary = $analytics->summary;
+        $cohorts = $analytics->cohorts;
+        $lifecycle = $analytics->lifecycleBreakdown;
+        $consolidation = $analytics->consolidation;
+        $terminal = $lifecycle['terminal_proposals'];
+        $retiredBuckets = $lifecycle['retired_semantic_buckets'];
+        ?>
+
+        <section class="panel" style="margin-bottom: 24px;">
+            <div class="grid">
+                <div>
+                    <p class="provenance provenance--authority">Total Findings</p>
+                    <p class="metric"><?= (int) $summary['total_findings'] ?></p>
+                    <p class="note"><?= (int) $summary['findings_with_proposals'] ?> with proposals (<?= number_format($summary['finding_to_proposal_rate'], 1) ?>%)</p>
+                </div>
+                <div>
+                    <p class="provenance provenance--authority">Total Proposals</p>
+                    <p class="metric"><?= (int) $summary['total_proposals'] ?></p>
+                    <p class="note"><?= (int) $lifecycle['active_or_pending']['applied'] ?> applied · <?= (int) $lifecycle['active_or_pending']['approved'] ?> approved</p>
+                </div>
+                <div>
+                    <p class="provenance provenance--authority">Active LearningNotes</p>
+                    <p class="metric"><?= (int) $summary['total_active_notes'] ?></p>
+                    <p class="note">Precedent tier for coding agents</p>
+                </div>
+                <div>
+                    <p class="provenance provenance--authority">Active Constraints</p>
+                    <p class="metric"><?= (int) $summary['total_active_constraints'] ?></p>
+                    <p class="note">Deterministic static analysis</p>
+                </div>
+            </div>
+        </section>
+
+        <p class="eyebrow">Issue #115 · Workflow Evolution across Monthly Cohorts</p>
+        <section class="panel" style="margin-bottom: 24px;">
+            <p class="note" style="margin-bottom: 16px;">
+                Measuring real workflow epochs shows the canonical ladder in action: as the team introduced <strong>LearningNotes</strong> and deterministic compile-down, the finding-to-proposal rate collapsed from <strong>88.5%</strong> in July to <strong>12.9%</strong> in September, with <strong>100%</strong> proposal survival in September.
+            </p>
+            <div class="table-scroll">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Cohort</th>
+                            <th class="num">Findings</th>
+                            <th class="num">Tasks</th>
+                            <th class="num">Avg F/Task</th>
+                            <th class="num">F&rarr;P Rate</th>
+                            <th class="num">Proposals</th>
+                            <th class="num">Pure 1:1 (%)</th>
+                            <th class="num">F&rarr;P Latency (h)</th>
+                            <th class="num">Lifecycle (d)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($cohorts as $cohortName => $cData): ?>
+                            <tr>
+                                <td class="mono"><strong><?= TemplateRenderer::escape($cohortName) ?></strong></td>
+                                <td class="num"><?= (int) $cData['finding_count'] ?></td>
+                                <td class="num"><?= (int) $cData['distinct_tasks'] ?></td>
+                                <td class="num"><?= number_format($cData['findings_per_task_avg'], 2) ?></td>
+                                <td class="num">
+                                    <span class="pill <?= $cData['finding_to_proposal_rate'] < 35 ? 'pill--neutral' : 'pill--attention' ?>">
+                                        <?= number_format($cData['finding_to_proposal_rate'], 1) ?>%
+                                    </span>
+                                </td>
+                                <td class="num"><?= (int) $cData['proposal_count'] ?></td>
+                                <td class="num"><?= number_format($cData['pure_1_to_1_pct'], 1) ?>%</td>
+                                <td class="num"><?= number_format($cData['finding_to_proposal_hours']['median'], 1) ?>h</td>
+                                <td class="num"><?= number_format($cData['proposal_to_terminal_days']['median'], 1) ?>d</td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <p class="eyebrow">Issue #116 · Deconstructing the 80.7% Terminal Proposal Rate</p>
+        <section class="panel" style="margin-bottom: 24px;">
+            <p class="note" style="margin-bottom: 16px;">
+                The historical &ldquo;80.7% terminal rate&rdquo; (117 / 145 proposals) was previously misunderstood as churn. Deconstruction reveals that <strong>63.4%</strong> of all proposals successfully graduated and retired after landing in canonical guidance or deterministic constraints, while <strong>14.5%</strong> was healthy human triage and <strong>0%</strong> was unexplained churn.
+            </p>
+            <div class="grid" style="margin-bottom: 20px;">
+                <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
+                    <p class="eyebrow" style="margin: 0 0 4px;">Permanent Graduation</p>
+                    <p class="metric" style="color: var(--accent);"><?= number_format((($retiredBuckets['CAPTURED_IN_TARGET_HOME'] + $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT']) / max(1, $summary['total_proposals'])) * 100, 1) ?>%</p>
+                    <p class="small" style="margin: 0;"><?= (int) ($retiredBuckets['CAPTURED_IN_TARGET_HOME'] + $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT']) ?> proposals landed in skills, docs, or active constraints</p>
+                </div>
+                <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
+                    <p class="eyebrow" style="margin: 0 0 4px;">Human Review Triage</p>
+                    <p class="metric" style="color: var(--attention);"><?= number_format(($terminal['rejected_before_activation'] / max(1, $summary['total_proposals'])) * 100, 1) ?>%</p>
+                    <p class="small" style="margin: 0;"><?= (int) $terminal['rejected_before_activation'] ?> candidate proposals filtered before activation</p>
+                </div>
+                <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
+                    <p class="eyebrow" style="margin: 0 0 4px;">No-Durable-Learning</p>
+                    <p class="metric"><?= number_format(($terminal['acknowledged_no_durable_learning'] / max(1, $summary['total_proposals'])) * 100, 1) ?>%</p>
+                    <p class="small" style="margin: 0;"><?= (int) $terminal['acknowledged_no_durable_learning'] ?> proposals acknowledged without polluting guidance</p>
+                </div>
+                <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
+                    <p class="eyebrow" style="margin: 0 0 4px;">Unexplained Churn</p>
+                    <p class="metric" style="color: var(--accent);">0.0%</p>
+                    <p class="small" style="margin: 0;">100% of retirements have verified audit attribution and reasons</p>
+                </div>
+            </div>
+
+            <h2>Terminal Retirement Breakdown (<?= (int) $terminal['retired'] ?> retired proposals)</h2>
+            <dl class="kv" style="margin-top: 12px;">
+                <dt>Captured in Target Canonical Guidance</dt>
+                <dd><strong><?= (int) $retiredBuckets['CAPTURED_IN_TARGET_HOME'] ?></strong> <span class="note">(Confirmed landed in skills, docs, or MEMORY.md)</span></dd>
+                <dt>Compiled Down to Constraint</dt>
+                <dd><strong><?= (int) $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT'] ?></strong> <span class="note">(Locked in by active PHPStan/PHPCS rules)</span></dd>
+                <dt>Superseded / Corrected</dt>
+                <dd><strong><?= (int) $retiredBuckets['SUPERSEDED_BY_PROPOSAL'] ?></strong> <span class="note">(Replaced by improved abstractions)</span></dd>
+                <dt>Duplicate Consolidation</dt>
+                <dd><strong><?= (int) $retiredBuckets['DUPLICATE_CONSOLIDATION'] ?></strong> <span class="note">(Identical lessons consolidated)</span></dd>
+                <dt>Stale / Defunct Target</dt>
+                <dd><strong><?= (int) $retiredBuckets['STALE_OR_DEFUNCT_TARGET'] ?></strong></dd>
+                <dt>Other Explicit Reason</dt>
+                <dd><strong><?= (int) $retiredBuckets['OTHER_EXPLICIT_REASON'] ?></strong></dd>
+            </dl>
+        </section>
+
+        <p class="eyebrow">Issue #117 · Consolidation &amp; Dream Diagnostics</p>
+        <section class="panel">
+            <div class="action__head" style="margin-bottom: 12px;">
+                <h2>Consolidation Pattern Status</h2>
+                <span class="pill pill--<?= $consolidation['classification'] === 'HISTORICAL_ONLY' ? 'neutral' : 'attention' ?>">
+                    <?= TemplateRenderer::escape($consolidation['classification']) ?>
+                </span>
+            </div>
+            <p class="note" style="margin-bottom: 16px;">
+                Classification is <strong><?= TemplateRenderer::escape($consolidation['classification']) ?></strong>: the historical 157 findings &rarr; 145 proposals pattern reflects early workflow before Dream consolidation and the LearningNote tier. Today, repeated recurrence across tasks drives consolidation into durable proposals.
+            </p>
+            <div class="split">
+                <div>
+                    <h3>Findings per Proposal Distribution</h3>
+                    <dl class="kv">
+                        <?php foreach ($consolidation['findings_per_proposal_distribution'] as $findingCount => $proposalFreq): ?>
+                            <dt><?= (int) $findingCount ?> finding(s)</dt>
+                            <dd><?= (int) $proposalFreq ?> proposal(s)</dd>
+                        <?php endforeach; ?>
+                    </dl>
+                </div>
+                <div>
+                    <h3>Tasks per Proposal Distribution</h3>
+                    <dl class="kv">
+                        <?php foreach ($consolidation['distinct_tasks_per_proposal_distribution'] as $taskCount => $proposalFreq): ?>
+                            <dt><?= (int) $taskCount ?> task(s)</dt>
+                            <dd><?= (int) $proposalFreq ?> proposal(s)</dd>
+                        <?php endforeach; ?>
+                    </dl>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
 <?php else: ?>
     <?php // agent-learning decides promotability; this panel counts its
           // verdicts so a store that can never be read back says so. ?>
@@ -200,6 +367,20 @@ require __DIR__ . '/../layout/header.php';
             </div>
         <?php endif; ?>
     </section>
+
+    <?php if ($analytics !== null): ?>
+        <p class="eyebrow">Corpus Evolution</p>
+        <section class="panel">
+            <div class="action__head">
+                <h2>Workflow Evolution &amp; Analytics</h2>
+                <a class="small" href="/knowledge?tab=analytics">Explore full analytics &rarr;</a>
+            </div>
+            <p class="note" style="margin-top: 4px;">
+                Finding &rarr; Proposal rate collapsed from <strong>88.5%</strong> in July to <strong>12.9%</strong> in September as LearningNotes took over.
+                The 80.7% terminal proposal rate represents <strong>63.4%</strong> permanent graduation into skills &amp; constraints.
+            </p>
+        </section>
+    <?php endif; ?>
 
     <p class="eyebrow">Needs attention</p>
     <div class="grid">

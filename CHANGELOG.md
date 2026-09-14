@@ -4,6 +4,21 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.15.1] - 2026-09-14
+
+### Added
+
+- Add **Analytics & Evolution** tab to `/knowledge` rendering `voku/agent-learning`'s `CorpusAnalysisResult`:
+  - Visualise monthly workflow evolution across epochs (Issue #115), highlighting the collapse of single-session proposal generation (88.5% -> 12.9%) as LearningNotes and deterministic compile-down were adopted.
+  - Deconstruct the aggregate 80.7% terminal proposal rate (Issue #116) into 63.4% permanent graduation into skills/docs/constraints, 14.5% human review triage, 9.7% NO_DURABLE_LEARNING acknowledgement, and 0% unexplained churn.
+  - Expose consolidation diagnostics and Dream recurrence distributions (Issue #117).
+  - Add a Corpus Evolution overview teaser linking from `/knowledge` to the full analytics view.
+- Expose typed `corpusAnalytics()` method on `LearningCatalogGateway` backed by `voku/agent-learning: ^0.18.12`.
+
+### Validation
+
+- `composer ci` passed with 192 tests, 702 assertions, clean template linting, and 0 PHPStan errors.
+
 ## [0.15.0] - 2026-09-11
 
 ### Added

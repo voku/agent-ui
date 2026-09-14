@@ -57,6 +57,7 @@ final readonly class KnowledgeAction
             'current_tab' => $tab,
             'current_status' => $status,
             'promotion_candidates' => $this->learning->promotionCandidates(),
+            'corpus_analytics' => $this->learning->corpusAnalytics(),
         ]));
     }
 
