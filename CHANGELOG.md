@@ -4,6 +4,16 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.15.2] - 2026-09-14
+
+### Fixed
+
+- Align Knowledge Analytics tab with `voku/agent-learning` 0.18.13: render strict retirement buckets (`RATIONALE_CORRECTED`, `OTHER_AUDITED_REASON`, `UNKNOWN_LEGACY_REASON`) and handle optional consolidation classification gracefully.
+
+### Validation
+
+- `composer ci` passed with 192 tests, 702 assertions, clean template linting, and 0 PHPStan errors.
+
 ## [0.15.1] - 2026-09-14
 
 ### Added

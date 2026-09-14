@@ -282,30 +282,34 @@ require __DIR__ . '/../layout/header.php';
             <h2>Terminal Retirement Breakdown (<?= (int) $terminal['retired'] ?> retired proposals)</h2>
             <dl class="kv" style="margin-top: 12px;">
                 <dt>Captured in Target Canonical Guidance</dt>
-                <dd><strong><?= (int) $retiredBuckets['CAPTURED_IN_TARGET_HOME'] ?></strong> <span class="note">(Confirmed landed in skills, docs, or MEMORY.md)</span></dd>
+                <dd><strong><?= (int) ($retiredBuckets['CAPTURED_IN_TARGET_HOME'] ?? 0) ?></strong> <span class="note">(Confirmed landed in skills, docs, or MEMORY.md)</span></dd>
                 <dt>Compiled Down to Constraint</dt>
-                <dd><strong><?= (int) $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT'] ?></strong> <span class="note">(Locked in by active PHPStan/PHPCS rules)</span></dd>
+                <dd><strong><?= (int) ($retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT'] ?? 0) ?></strong> <span class="note">(Locked in by active PHPStan/PHPCS rules)</span></dd>
                 <dt>Superseded / Corrected</dt>
-                <dd><strong><?= (int) $retiredBuckets['SUPERSEDED_BY_PROPOSAL'] ?></strong> <span class="note">(Replaced by improved abstractions)</span></dd>
+                <dd><strong><?= (int) ($retiredBuckets['SUPERSEDED_BY_PROPOSAL'] ?? 0) ?></strong> <span class="note">(Replaced by improved abstractions)</span></dd>
                 <dt>Duplicate Consolidation</dt>
-                <dd><strong><?= (int) $retiredBuckets['DUPLICATE_CONSOLIDATION'] ?></strong> <span class="note">(Identical lessons consolidated)</span></dd>
-                <dt>Stale / Defunct Target</dt>
-                <dd><strong><?= (int) $retiredBuckets['STALE_OR_DEFUNCT_TARGET'] ?></strong></dd>
-                <dt>Other Explicit Reason</dt>
-                <dd><strong><?= (int) $retiredBuckets['OTHER_EXPLICIT_REASON'] ?></strong></dd>
+                <dd><strong><?= (int) ($retiredBuckets['DUPLICATE_CONSOLIDATION'] ?? 0) ?></strong> <span class="note">(Identical lessons consolidated)</span></dd>
+                <dt>Rationale Corrected</dt>
+                <dd><strong><?= (int) ($retiredBuckets['RATIONALE_CORRECTED'] ?? 0) ?></strong> <span class="note">(Abandoned in review / corrected abstraction)</span></dd>
+                <dt>Other Audited Reason</dt>
+                <dd><strong><?= (int) ($retiredBuckets['OTHER_AUDITED_REASON'] ?? $retiredBuckets['OTHER_EXPLICIT_REASON'] ?? 0) ?></strong></dd>
+                <dt>Unknown Legacy Reason</dt>
+                <dd><strong><?= (int) ($retiredBuckets['UNKNOWN_LEGACY_REASON'] ?? $retiredBuckets['STALE_OR_DEFUNCT_TARGET'] ?? 0) ?></strong></dd>
             </dl>
         </section>
 
         <p class="eyebrow">Issue #117 · Consolidation &amp; Dream Diagnostics</p>
         <section class="panel">
             <div class="action__head" style="margin-bottom: 12px;">
-                <h2>Consolidation Pattern Status</h2>
-                <span class="pill pill--<?= $consolidation['classification'] === 'HISTORICAL_ONLY' ? 'neutral' : 'attention' ?>">
-                    <?= TemplateRenderer::escape($consolidation['classification']) ?>
-                </span>
+                <h2>Consolidation Distributions</h2>
+                <?php if (!empty($consolidation['classification'])): ?>
+                    <span class="pill pill--<?= $consolidation['classification'] === 'HISTORICAL_ONLY' ? 'neutral' : 'attention' ?>">
+                        <?= TemplateRenderer::escape($consolidation['classification']) ?>
+                    </span>
+                <?php endif; ?>
             </div>
             <p class="note" style="margin-bottom: 16px;">
-                Classification is <strong><?= TemplateRenderer::escape($consolidation['classification']) ?></strong>: the historical 157 findings &rarr; 145 proposals pattern reflects early workflow before Dream consolidation and the LearningNote tier. Today, repeated recurrence across tasks drives consolidation into durable proposals.
+                Empirical distributions of findings and tasks per proposal across the corpus history. Repeated recurrence across tasks provides the evidence required for durable proposals.
             </p>
             <div class="split">
                 <div>

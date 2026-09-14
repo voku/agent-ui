@@ -163,7 +163,7 @@ final class KnowledgeAnalyticsTest extends TestCase
         self::assertStringContainsString('Issue #117 · Consolidation &amp; Dream Diagnostics', $body);
         self::assertStringContainsString('Permanent Graduation', $body);
         self::assertStringContainsString('Compiled Down to Constraint', $body);
-        self::assertStringContainsString('Consolidation Pattern Status', $body);
+        self::assertStringContainsString('Consolidation Distributions', $body);
     }
 
     private function removeDir(string $dir): void
