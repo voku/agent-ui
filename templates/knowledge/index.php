@@ -242,8 +242,8 @@ require __DIR__ . '/../layout/header.php';
                                 </td>
                                 <td class="num"><?= (int) $cData['proposal_count'] ?></td>
                                 <td class="num"><?= number_format($cData['pure_1_to_1_pct'], 1) ?>%</td>
-                                <td class="num"><?= number_format($cData['finding_to_proposal_hours']['median'], 1) ?>h</td>
-                                <td class="num"><?= number_format($cData['proposal_to_terminal_days']['median'], 1) ?>d</td>
+                                <td class="num"><?= $cData['finding_to_proposal_hours']['median'] !== null ? number_format((float)$cData['finding_to_proposal_hours']['median'], 1) . 'h' : '—' ?></td>
+                                <td class="num"><?= $cData['proposal_to_terminal_days']['median'] !== null ? number_format((float)$cData['proposal_to_terminal_days']['median'], 1) . 'd' : '—' ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -254,13 +254,13 @@ require __DIR__ . '/../layout/header.php';
         <p class="eyebrow">Issue #116 · Deconstructing the 80.7% Terminal Proposal Rate</p>
         <section class="panel" style="margin-bottom: 24px;">
             <p class="note" style="margin-bottom: 16px;">
-                The historical &ldquo;80.7% terminal rate&rdquo; (117 / 145 proposals) was previously misunderstood as churn. Deconstruction reveals that <strong>63.4%</strong> of all proposals successfully graduated and retired after landing in canonical guidance or deterministic constraints, while <strong>14.5%</strong> was healthy human triage and <strong>0%</strong> was unexplained churn.
+                The historical &ldquo;80.7% terminal rate&rdquo; (117 / 145 proposals) was previously misunderstood as churn. Deconstruction reveals that <strong>63.4%</strong> of all proposals successfully achieved a <strong>durable handoff</strong> into canonical guidance or deterministic constraints, while <strong>14.5%</strong> was healthy human triage and <strong>0%</strong> was unexplained churn.
             </p>
             <div class="grid" style="margin-bottom: 20px;">
                 <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
-                    <p class="eyebrow" style="margin: 0 0 4px;">Permanent Graduation</p>
+                    <p class="eyebrow" style="margin: 0 0 4px;">Durable Handoff</p>
                     <p class="metric" style="color: var(--accent);"><?= number_format((($retiredBuckets['CAPTURED_IN_TARGET_HOME'] + $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT']) / max(1, $summary['total_proposals'])) * 100, 1) ?>%</p>
-                    <p class="small" style="margin: 0;"><?= (int) ($retiredBuckets['CAPTURED_IN_TARGET_HOME'] + $retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT']) ?> proposals landed in skills, docs, or active constraints</p>
+                    <p class="small" style="margin: 0;"><?= (int) ($retiredBuckets['CAPTURED_IN_TARGET_HOME'] ?? 0) ?> soft/canonical guidance · <?= (int) ($retiredBuckets['COMPILED_DOWN_TO_CONSTRAINT'] ?? 0) ?> deterministic constraints</p>
                 </div>
                 <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
                     <p class="eyebrow" style="margin: 0 0 4px;">Human Review Triage</p>

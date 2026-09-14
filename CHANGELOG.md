@@ -4,6 +4,17 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.15.3] - 2026-09-14
+
+### Fixed
+
+- Rename "Permanent Graduation" to "Durable Handoff" to accurately reflect that landed guidance and active constraints are evolving lifecycle checkpoints, not immutable endpoints (#116).
+- Format unobserved cohort latencies cleanly as dashes instead of `0.0d` / `0.0h` (#115).
+
+### Validation
+
+- `composer ci` passed with 192 tests, 702 assertions, clean template linting, and 0 PHPStan errors.
+
 ## [0.15.2] - 2026-09-14
 
 ### Fixed

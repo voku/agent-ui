@@ -161,7 +161,7 @@ final class KnowledgeAnalyticsTest extends TestCase
         self::assertStringContainsString('Issue #115 · Workflow Evolution across Monthly Cohorts', $body);
         self::assertStringContainsString('Issue #116 · Deconstructing the 80.7% Terminal Proposal Rate', $body);
         self::assertStringContainsString('Issue #117 · Consolidation &amp; Dream Diagnostics', $body);
-        self::assertStringContainsString('Permanent Graduation', $body);
+        self::assertStringContainsString('Durable Handoff', $body);
         self::assertStringContainsString('Compiled Down to Constraint', $body);
         self::assertStringContainsString('Consolidation Distributions', $body);
     }
