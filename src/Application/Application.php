@@ -20,6 +20,7 @@ use voku\AgentUi\Feature\PromptWorkbench\PromptWorkbenchAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Setup\SetupAction;
 use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Task\WorkflowProgressAction;
 use voku\AgentUi\Feature\Work\WorkAction;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
@@ -31,6 +32,7 @@ use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowPromptGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
@@ -53,6 +55,7 @@ final readonly class Application
     private KnowledgeAction $knowledge;
     private MapAction $map;
     private TaskAction $task;
+    private WorkflowProgressAction $progress;
     private PromptWorkbenchAction $prompts;
     private ContextAction $context;
     private WorkAction $work;
@@ -68,6 +71,7 @@ final readonly class Application
     {
         $board = new BoardProjectionGateway($projectRoot);
         $workflow = new WorkflowProjectionGateway($projectRoot);
+        $workflowProgress = new WorkflowProgressGateway($projectRoot);
         $workflowPrompt = new WorkflowPromptGateway($projectRoot);
         $promptCatalog = new OperatingPromptCatalogGateway();
         $audit = new AuditTrailGateway($projectRoot);
@@ -105,6 +109,7 @@ final readonly class Application
             $csrf,
             $templates,
         );
+        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $csrf, $templates);
         $this->prompts = new PromptWorkbenchAction(
             $board,
             $workflowPrompt,
@@ -146,6 +151,7 @@ final readonly class Application
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),
                 'task' => ($this->task)($route['task_id'] ?? ''),
+                'task_progress' => ($this->progress)($route['task_id'] ?? ''),
                 'task_edit' => $this->task->edit($route['task_id'] ?? ''),
                 'task_update' => $this->task->update($route['task_id'] ?? '', $request),
                 'task_move' => $this->task->move($route['task_id'] ?? '', $request),
