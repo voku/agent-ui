@@ -78,7 +78,7 @@ final class WorkflowProgressTest extends TestCase
         self::assertStringNotContainsString('Approve Contract</button>', $after->body);
     }
 
-    public function testUnknownDecisionReturnTargetIsRejectedInsteadOfRedirected(): void
+    public function testUnknownDecisionReturnTargetFailsBeforeRecordingApproval(): void
     {
         $contracts = new TaskContractStore($this->root);
         $contracts->create('UI-36', 'Bounded redirect.', ['src'], [], ['composer ci'], 'planner');
@@ -100,6 +100,8 @@ final class WorkflowProgressTest extends TestCase
 
         self::assertSame(400, $response->status);
         self::assertStringContainsString('Unsupported human-decision return target.', $response->body);
+        self::assertSame(TaskContract::CANDIDATE, $contracts->find('UI-36')?->status);
+        self::assertNull($contracts->find('UI-36')?->approvedBy);
     }
 
     private function writeCard(string $id, string $title): void
