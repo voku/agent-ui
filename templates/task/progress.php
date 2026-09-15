@@ -80,6 +80,7 @@ require __DIR__ . '/../layout/header.php';
 
         <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve" style="margin-top:16px">
             <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+            <input type="hidden" name="return_to" value="progress">
             <p class="note" style="margin:0 0 10px">This records human authority over this exact Contract revision. It does not approve implementation, validation, review, or Learning.</p>
             <div class="form__row">
                 <label class="field"><span>Approver</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is approving"></label>
