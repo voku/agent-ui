@@ -109,7 +109,7 @@ final readonly class Application
             $csrf,
             $templates,
         );
-        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $templates);
+        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $csrf, $templates);
         $this->prompts = new PromptWorkbenchAction(
             $board,
             $workflowPrompt,
