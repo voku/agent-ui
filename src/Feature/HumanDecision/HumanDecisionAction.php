@@ -24,6 +24,7 @@ final readonly class HumanDecisionAction
     public function __invoke(string $taskId, string $route, Request $request): Response
     {
         $this->csrf->assertValid($request->body['_csrf'] ?? null);
+        $returnPath = $this->returnPath($taskId, $request);
         $actor = $this->required($request, 'actor', 200);
 
         $recorded = match ($route) {
@@ -34,7 +35,7 @@ final readonly class HumanDecisionAction
 
         $this->notice->record($recorded);
 
-        return Response::redirect($this->returnPath($taskId, $request));
+        return Response::redirect($returnPath);
     }
 
     private function approve(string $taskId, string $actor): string
