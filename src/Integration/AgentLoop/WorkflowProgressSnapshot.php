@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Integration\AgentLoop;
 
 use voku\AgentLoop\Run\RunProgressProjection;
+use voku\AgentLoop\Run\RunProgressStep;
 
 /**
  * UI read model for Loop-owned workflow progress.
@@ -32,7 +33,7 @@ final readonly class WorkflowProgressSnapshot
             nextAction: $projection->nextAction,
             nextActionKind: $projection->nextActionKind,
             steps: array_map(
-                static fn ($step): WorkflowProgressStepSnapshot => WorkflowProgressStepSnapshot::fromOwner($step),
+                static fn (RunProgressStep $step): WorkflowProgressStepSnapshot => WorkflowProgressStepSnapshot::fromOwner($step),
                 $projection->steps,
             ),
         );
