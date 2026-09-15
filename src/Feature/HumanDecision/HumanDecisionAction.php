@@ -34,7 +34,7 @@ final readonly class HumanDecisionAction
 
         $this->notice->record($recorded);
 
-        return Response::redirect('/task/' . rawurlencode($taskId));
+        return Response::redirect($this->returnPath($taskId, $request));
     }
 
     private function approve(string $taskId, string $actor): string
@@ -73,6 +73,19 @@ final readonly class HumanDecisionAction
         );
 
         return sprintf('agent-learning recorded the "%s" decision for %s.', str_replace('_', ' ', $decision), $taskId);
+    }
+
+    private function returnPath(string $taskId, Request $request): string
+    {
+        $returnTo = trim($request->body['return_to'] ?? '');
+        if ($returnTo === '') {
+            return '/task/' . rawurlencode($taskId);
+        }
+        if ($returnTo === 'progress') {
+            return '/task/' . rawurlencode($taskId) . '/progress';
+        }
+
+        throw new InvalidArgumentException('Unsupported human-decision return target.');
     }
 
     private function required(Request $request, string $key, int $maxLength): string
