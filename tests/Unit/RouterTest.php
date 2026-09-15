@@ -36,6 +36,7 @@ final class RouterTest extends TestCase
         yield 'knowledge proposal' => [new Request('GET', '/knowledge/proposals/proposal.2026-08-26.123'), ['route' => 'knowledge_proposal', 'knowledge_id' => 'proposal.2026-08-26.123']];
         yield 'knowledge guidance' => [new Request('GET', '/knowledge/guidance/proposal.2026-08-26.123'), ['route' => 'knowledge_guidance', 'knowledge_id' => 'proposal.2026-08-26.123']];
         yield 'task' => [new Request('GET', '/task/abc-12'), ['route' => 'task', 'task_id' => 'ABC-12']];
+        yield 'task progress' => [new Request('GET', '/task/abc-12/progress'), ['route' => 'task_progress', 'task_id' => 'ABC-12']];
         yield 'task edit' => [new Request('GET', '/task/abc-12/edit'), ['route' => 'task_edit', 'task_id' => 'ABC-12']];
         yield 'task update' => [new Request('POST', '/task/abc-12/edit'), ['route' => 'task_update', 'task_id' => 'ABC-12']];
         yield 'task move' => [new Request('POST', '/task/abc-12/move'), ['route' => 'task_move', 'task_id' => 'ABC-12']];
