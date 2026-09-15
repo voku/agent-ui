@@ -41,7 +41,7 @@ final class WorkflowProgressTest extends TestCase
             ['no workflow percentage'],
             ['composer ci'],
             'planner',
-            ['Contract approval is recordable from the workflow view.'],
+            acceptanceCriteria: ['Contract approval is recordable from the workflow view.'],
         );
 
         $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
