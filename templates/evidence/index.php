@@ -5,6 +5,7 @@ use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 /** @var array{workflow: WorkflowSnapshot, audit: TaskAuditSnapshot} $model */
 $workflow = $model['workflow'];
+$taskContext = $model['task_context'];
 $audit = $model['audit'];
 $title = $workflow->taskId . ' · Evidence · agent-ui';
 $nav = null;
@@ -12,8 +13,8 @@ $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($workflow->taskId) ?>"><?= TemplateRenderer::escape($workflow->taskId) ?></a><span>/</span>Evidence</p>
+<?php $taskNavCurrent = '/evidence'; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($workflow->taskId) ?></span>
     <h1>Evidence &amp; audit</h1>
     <p class="lede">Every fact below comes from an owner projection or store. Generated evidence stays evidence —
         it is not approval, and it is not workflow authority.</p>
@@ -130,5 +131,4 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </details>
 
-<?php $taskNavId = $workflow->taskId; $taskNavCurrent = '/evidence'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

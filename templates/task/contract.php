@@ -8,6 +8,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{card: CardSnapshot, contract: ?TaskContract, scope_impact: ContractScopeImpact, map_readiness: MapReadinessSnapshot, csrf_token: string} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $contract = $model['contract'];
 $scopeImpact = $model['scope_impact'];
 $mapReadiness = $model['map_readiness'];
@@ -25,9 +26,9 @@ require __DIR__ . '/../layout/header.php';
     <span>/</span>
     Contract
 </p>
+<?php $taskNavCurrent = '/contract'; require __DIR__ . '/../layout/task-context.php'; ?>
 
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
     <h1>Task Contract: <?= TemplateRenderer::escape($card->title) ?></h1>
     <p class="lede">The governed execution contract defining goal, scope boundary, validation, and acceptance criteria.</p>
 </div>
@@ -325,5 +326,4 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = '/contract'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

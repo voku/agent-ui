@@ -18,18 +18,22 @@ final readonly class WorkflowProgressAction
         private WorkflowProgressGateway $progress,
         private HumanDecisionGateway $decisions,
         private CsrfTokenManager $csrf,
+        private TaskContextComposer $taskContext,
         private TemplateRenderer $templates,
     ) {
     }
 
     public function __invoke(string $taskId): Response
     {
+        $card = $this->board->card($taskId);
+
         return Response::html($this->templates->render('task/progress', [
-            'card' => $this->board->card($taskId),
+            'card' => $card,
             'progress' => $this->progress->task($taskId),
             'human_decisions' => $this->decisions->available($taskId),
             'contract' => $this->decisions->contract($taskId),
             'csrf_token' => $this->csrf->token(),
+            'task_context' => $this->taskContext->forCard($card),
         ]));
     }
 }

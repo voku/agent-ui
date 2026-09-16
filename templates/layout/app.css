@@ -581,7 +581,41 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 
 /* ---------- task views ---------- */
 
-.task-nav { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--rule); align-items: flex-start; }
+/* The task context and its navigation read as one block, ahead of the view. */
+.task-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    align-items: flex-start;
+    padding: 16px 18px;
+    border: 1px solid var(--rule);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--surface);
+}
+.task-context__identity { flex: 1 1 260px; min-width: 0; }
+.task-context__id { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); display: block; }
+.task-context__title { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.task-context__facts { display: flex; gap: 24px; flex-wrap: wrap; }
+.task-context__fact { min-width: 0; }
+.task-context__value { margin: 4px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.task-context__next { flex: 1 1 100%; min-width: 0; }
+.task-context__action { margin: 4px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+/* A long owner command wraps inside the block; it never widens the page. */
+.task-context__action code { font-size: 12.5px; overflow-wrap: anywhere; min-width: 0; }
+
+.task-nav {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin: 0 0 26px;
+    padding: 14px 18px 16px;
+    border: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: var(--surface-alt);
+}
 .task-nav__group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .task-nav__label {
     font-size: 10px;

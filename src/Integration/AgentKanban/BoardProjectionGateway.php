@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentKanban;
 
+use InvalidArgumentException;
+use Throwable;
 use voku\AgentKanban\Cli\BoardContext;
 use voku\AgentKanban\Cli\BoardContextFactory;
 use voku\AgentKanban\Domain\Card;
@@ -76,7 +78,21 @@ final readonly class BoardProjectionGateway
         }
 
         $context = $this->context();
-        $loaded = $context->repository->load($cardId);
+
+        try {
+            $loaded = $context->repository->load($cardId);
+        } catch (Throwable $exception) {
+            // An id no board holds is a page that does not exist, not a failure of
+            // this control plane. Without this the operator got a 500 and a log
+            // line for a mistyped task id, or for a governed task agent-loop knows
+            // and agent-kanban has no card for.
+            throw new InvalidArgumentException(
+                'agent-kanban holds no card for task ' . $taskId . '.',
+                0,
+                $exception,
+            );
+        }
+
         $transitions = (new TransitionPolicy($context->config))->allowedTargets($loaded->lane);
         $boardKey = $context->config->id ?? $context->config->projectPrefix;
 

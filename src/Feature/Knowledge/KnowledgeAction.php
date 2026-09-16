@@ -7,6 +7,7 @@ namespace voku\AgentUi\Feature\Knowledge;
 use InvalidArgumentException;
 use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentLearning\Catalog\ProposalProjection;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
@@ -16,6 +17,7 @@ final readonly class KnowledgeAction
 {
     public function __construct(
         private LearningCatalogGateway $learning,
+        private TaskContextComposer $taskContext,
         private TemplateRenderer $templates,
     ) {
     }
@@ -102,6 +104,7 @@ final readonly class KnowledgeAction
     {
         return Response::html($this->templates->render('knowledge/task', [
             'learning' => $this->learning->task($taskId),
+            'task_context' => $this->taskContext->forTask($taskId),
         ]));
     }
 }

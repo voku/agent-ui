@@ -7,6 +7,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{workbench: PromptWorkbenchViewModel} $model */
 $workbench = $model['workbench'];
+$taskContext = $model['task_context'] ?? null;
 $selectedRecipe = null;
 foreach ($workbench->recipes as $recipe) {
     if ($recipe->id === $workbench->selectedRecipeId) {
@@ -27,8 +28,10 @@ require __DIR__ . '/../layout/header.php';
 <?php if ($workbench->taskAware && $workbench->taskId !== null): ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($workbench->taskId) ?>"><?= TemplateRenderer::escape($workbench->taskId) ?></a><span>/</span>Prompts</p>
 <?php endif; ?>
+<?php if ($taskContext !== null): ?>
+<?php $taskNavCurrent = '/prompts'; require __DIR__ . '/../layout/task-context.php'; ?>
+<?php endif; ?>
 <div class="page-head">
-    <?php if ($workbench->taskId !== null): ?><span class="page-head__id"><?= TemplateRenderer::escape($workbench->taskId) ?></span><?php endif; ?>
     <h1>Prompt Workbench</h1>
     <p class="lede">Choose what you are trying to do, then compose a workflow-owned envelope with the explicitly selected Recall recipe. The UI owns presentation and deterministic composition, not workflow authority or recipe semantics.</p>
 </div>
@@ -192,7 +195,4 @@ require __DIR__ . '/../layout/header.php';
 </section>
 <?php endif; ?>
 
-<?php if ($workbench->taskAware && $workbench->taskId !== null): ?>
-<?php $taskNavId = $workbench->taskId; $taskNavCurrent = '/prompts'; require __DIR__ . '/../layout/task-nav.php'; ?>
-<?php endif; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

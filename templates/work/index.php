@@ -6,6 +6,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{card: CardSnapshot, transparency: TaskTransparencyProjection} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $transparency = $model['transparency'];
 $contract = $transparency->contract;
 $observation = $transparency->observation;
@@ -18,8 +19,8 @@ $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Work &amp; review</p>
+<?php $taskNavCurrent = '/work'; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
     <h1>Work, scope &amp; review</h1>
     <p class="lede">Approved scope, current Git observation and the exact persisted review are shown side by side without turning repository activity into workflow truth.</p>
 </div>
@@ -252,5 +253,4 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = '/work'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
