@@ -71,8 +71,10 @@ final class WorkflowProgressTest extends TestCase
 
         self::assertSame(303, $recorded->status);
         self::assertSame('/task/UI-36/progress', $recorded->headers['Location'] ?? null);
-        self::assertSame(TaskContract::APPROVED, $contracts->find('UI-36')?->status);
-        self::assertSame('human-reviewer', $contracts->find('UI-36')?->approvedBy);
+        $contract = $contracts->find('UI-36');
+        self::assertNotNull($contract);
+        self::assertSame(TaskContract::APPROVED, $contract->status);
+        self::assertSame('human-reviewer', $contract->approvedBy);
 
         $after = $app->handle(new Request('GET', '/task/UI-36/progress'));
         self::assertStringNotContainsString('Approve Contract</button>', $after->body);
@@ -100,8 +102,10 @@ final class WorkflowProgressTest extends TestCase
 
         self::assertSame(400, $response->status);
         self::assertStringContainsString('Unsupported human-decision return target.', $response->body);
-        self::assertSame(TaskContract::CANDIDATE, $contracts->find('UI-36')?->status);
-        self::assertNull($contracts->find('UI-36')?->approvedBy);
+        $contract = $contracts->find('UI-36');
+        self::assertNotNull($contract);
+        self::assertSame(TaskContract::CANDIDATE, $contract->status);
+        self::assertNull($contract->approvedBy);
     }
 
     private function writeCard(string $id, string $title): void

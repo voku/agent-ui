@@ -33,7 +33,7 @@ final readonly class WorkflowProgressSnapshot
             nextAction: $projection->nextAction,
             nextActionKind: $projection->nextActionKind,
             steps: array_map(
-                static fn (RunProgressStep $step): WorkflowProgressStepSnapshot => WorkflowProgressStepSnapshot::fromOwner($step),
+                static fn(RunProgressStep $step): WorkflowProgressStepSnapshot => WorkflowProgressStepSnapshot::fromOwner($step),
                 $projection->steps,
             ),
         );
