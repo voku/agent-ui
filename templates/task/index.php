@@ -48,6 +48,7 @@ require __DIR__ . '/../layout/header.php';
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
     <div class="btn-row" style="margin:0">
+        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">Workflow</a>
         <a class="btn" href="/map?q=<?= rawurlencode($card->title) ?>">Find code &amp; impact</a>
         <a class="btn" href="/map/graph">Architecture</a>
         <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">Development trace</a>
@@ -75,8 +76,11 @@ require __DIR__ . '/../layout/header.php';
 <p class="eyebrow">Current state</p>
 <section class="panel action">
     <div class="action__head">
-        <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($workflow->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($workflow->state)) ?></span>
-        <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
+        <div>
+            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($workflow->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($workflow->state)) ?></span>
+            <span class="small faint" style="margin-left:8px">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
+        </div>
+        <a class="small" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">View workflow progress →</a>
     </div>
 
     <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
