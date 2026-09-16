@@ -4,6 +4,21 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Changed
+
+- Group the primary navigation into a workspace shell by developer intent - Work, Knowledge, Code, Tools - instead of six peer links, so choosing a destination no longer requires knowing which package owns the answer (#58, part of the #59 workbench epic).
+- Group the ten peer task views into Summary, Intent, Execution, Evidence and Tools, so "Edit card" no longer sits beside "Workflow" as an equal weight.
+- Mark the current section and the current task view with a weight and shape cue in addition to colour, and announce the group name to assistive technology without printing it on screen.
+
+Presentation only: every route and deep link keeps its URL, no lifecycle is inferred, no owner semantics are added, and navigation still works with JavaScript disabled.
+
+### Validation
+
+- `composer ci` passed with 204 tests, 786 assertions, clean template linting, and 0 PHPStan errors.
+- Differential render probe: the pre-change tree (`1ee94ad`) and the working tree were served side by side and 16 pages compared; HTTP statuses were identical and no previously emitted route disappeared.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added
