@@ -55,6 +55,9 @@ final class WorkflowProgressTest extends TestCase
         self::assertStringContainsString('composer ci', $before->body);
         self::assertStringContainsString('no workflow percentage', $before->body);
         self::assertStringContainsString('Contract approval is recordable from the workflow view.', $before->body);
+        self::assertStringContainsString('data-workflow-graph', $before->body);
+        self::assertStringContainsString('data-workflow-canvas', $before->body);
+        self::assertStringContainsString('data-workflow-elements', $before->body);
 
         $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
         self::assertIsString($csrf);

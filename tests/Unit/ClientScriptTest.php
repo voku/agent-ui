@@ -41,6 +41,12 @@ final class ClientScriptTest extends TestCase
         self::assertStringContainsString('toolbar.hidden = false', ClientScript::code());
     }
 
+    public function testTheWorkflowGraphControlsAreRevealedByTheScriptThatOperatesThem(): void
+    {
+        self::assertStringContainsString('tools.hidden = false', ClientScript::code());
+        self::assertStringContainsString('window.cytoscape', ClientScript::code());
+    }
+
     public function testHiddenChromeStaysHiddenWhateverDisplayAComponentDeclares(): void
     {
         // Browser dogfood caught the graph toolbar rendering for a reader with

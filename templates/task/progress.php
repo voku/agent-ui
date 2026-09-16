@@ -104,6 +104,71 @@ require __DIR__ . '/../layout/header.php';
         <p class="muted">No governed workflow timeline applies to this task.</p>
     </section>
 <?php else: ?>
+    <?php
+    $graphElements = [];
+    foreach ($progress->steps as $index => $step) {
+        $graphElements[] = [
+            'group' => 'nodes',
+            'data' => [
+                'id' => 'step_' . $index,
+                'index' => $index + 1,
+                'step_id' => $step->id,
+                'label' => ($index + 1) . '. ' . $step->label,
+                'status' => $step->status,
+                'owner' => $step->owner,
+                'reason' => $step->reason ?? '',
+            ],
+            'position' => [
+                'x' => 100.0 + ($index * 190.0),
+                'y' => 110.0,
+            ],
+        ];
+
+        if ($index > 0) {
+            $prevStep = $progress->steps[$index - 1];
+            $graphElements[] = [
+                'group' => 'edges',
+                'data' => [
+                    'id' => 'edge_' . ($index - 1) . '_' . $index,
+                    'source' => 'step_' . ($index - 1),
+                    'target' => 'step_' . $index,
+                    'status' => $prevStep->status === 'done' ? 'done' : 'pending',
+                ],
+            ];
+        }
+    }
+    ?>
+    <section class="panel workflow-graph-container" data-workflow-graph style="margin-bottom: 20px; padding: 16px;">
+        <div class="action__head" style="margin-bottom: 12px;">
+            <div>
+                <strong style="font-size: 14px;">Workflow Graph</strong>
+                <span class="small faint" style="margin-left:8px">Visual pipeline &amp; active stage · drag to arrange, scroll to zoom</span>
+            </div>
+            <div class="workflow-graph__tools" data-workflow-tools hidden style="display:flex;gap:6px;align-items:center">
+                <button type="button" class="btn btn--small" data-wf-zoom="in" title="Zoom in">+</button>
+                <button type="button" class="btn btn--small" data-wf-zoom="out" title="Zoom out">−</button>
+                <button type="button" class="btn btn--small" data-wf-zoom="fit" title="Fit to viewport">Fit</button>
+                <button type="button" class="btn btn--small" data-wf-reset title="Reset positions">Reset</button>
+            </div>
+        </div>
+        <div class="workflow-graph__canvas" data-workflow-canvas
+             data-workflow-elements="<?= TemplateRenderer::escape(json_encode($graphElements, JSON_THROW_ON_ERROR)) ?>"
+             style="width: 100%; height: 230px; background: var(--surface-alt); border: 1px solid var(--rule); border-radius: var(--radius-sm); position: relative; overflow: hidden;">
+        </div>
+        <div class="workflow-graph__inspector" data-workflow-inspector hidden style="margin-top: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-sm);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="mono small faint" data-wf-inspector-index></span>
+                    <strong data-wf-inspector-label></strong>
+                    <span class="pill" data-wf-inspector-pill></span>
+                </div>
+                <span class="small faint" data-wf-inspector-owner></span>
+            </div>
+            <p class="note" data-wf-inspector-reason style="margin:8px 0 0" hidden></p>
+        </div>
+    </section>
+
+    <p class="eyebrow" style="margin-top: 24px;">Workflow steps detail</p>
     <ol class="stack" style="list-style:none;padding:0;margin:0">
         <?php foreach ($progress->steps as $index => $step): ?>
             <?php
@@ -114,7 +179,7 @@ require __DIR__ . '/../layout/header.php';
                 default => 'neutral',
             };
             ?>
-            <li class="panel<?= $step->status === 'blocked' ? ' panel--danger' : ($step->status === 'current' ? ' panel--attention' : '') ?>" style="margin:0">
+            <li id="step-panel-<?= (int) $index ?>" class="panel<?= $step->status === 'blocked' ? ' panel--danger' : ($step->status === 'current' ? ' panel--attention' : '') ?>" style="margin:0">
                 <div class="action__head">
                     <div style="display:flex;gap:10px;align-items:center;min-width:0">
                         <span class="mono small faint"><?= (int) $index + 1 ?></span>

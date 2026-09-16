@@ -225,3 +225,213 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         if (event.key === 'Escape' && selected !== null) { clearFocus(); }
     });
 }());
+
+/* Interactive workflow graph powered by Cytoscape.js.
+ *
+ * Progressive enhancement over the server-rendered step list: this renders an
+ * interactive node graph showing the sequential workflow stages, color-coded
+ * by Loop-owned status (done, current, blocked, pending, not-applicable).
+ * Clicking any node reveals its details in the inspector and highlights the
+ * corresponding item in the step list. */
+(function () {
+    var container = document.querySelector('[data-workflow-graph]');
+    if (!container || typeof window.cytoscape !== 'function') { return; }
+
+    var canvas = container.querySelector('[data-workflow-canvas]');
+    var tools = container.querySelector('[data-workflow-tools]');
+    var inspector = container.querySelector('[data-workflow-inspector]');
+    if (!canvas) { return; }
+
+    var rawElements = canvas.getAttribute('data-workflow-elements');
+    if (!rawElements) { return; }
+
+    var elements;
+    try {
+        elements = JSON.parse(rawElements);
+    } catch (e) {
+        return;
+    }
+
+    if (!Array.isArray(elements) || elements.length === 0) { return; }
+
+    if (tools) { tools.hidden = false; }
+
+    var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    var cy = window.cytoscape({
+        container: canvas,
+        elements: elements,
+        boxSelectionEnabled: false,
+        autounselectify: false,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'shape': 'round-rectangle',
+                    'width': 150,
+                    'height': 52,
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'text-wrap': 'wrap',
+                    'text-max-width': 130,
+                    'font-family': 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+                    'font-size': 11,
+                    'font-weight': 600,
+                    'border-width': 2,
+                    'border-radius': 6,
+                    'background-color': isDark ? '#21242b' : '#f7f7f4',
+                    'border-color': isDark ? '#3c4048' : '#d2cfc7',
+                    'color': isDark ? '#a8a69f' : '#56544e'
+                }
+            },
+            {
+                selector: 'node[status = "done"]',
+                style: {
+                    'background-color': isDark ? '#1a2b25' : '#eaf2ee',
+                    'border-color': isDark ? '#79c2a5' : '#2f6b57',
+                    'color': isDark ? '#79c2a5' : '#2f6b57'
+                }
+            },
+            {
+                selector: 'node[status = "current"]',
+                style: {
+                    'background-color': isDark ? '#2c2418' : '#fbf2e2',
+                    'border-color': isDark ? '#e0b169' : '#8a5a12',
+                    'color': isDark ? '#e0b169' : '#8a5a12',
+                    'border-width': 3
+                }
+            },
+            {
+                selector: 'node[status = "blocked"]',
+                style: {
+                    'background-color': isDark ? '#2e1d1b' : '#fbeceb',
+                    'border-color': isDark ? '#e88b80' : '#9c2f26',
+                    'color': isDark ? '#e88b80' : '#9c2f26'
+                }
+            },
+            {
+                selector: 'node[status = "not_applicable"]',
+                style: {
+                    'background-color': isDark ? '#101116' : '#f3f3f0',
+                    'border-color': isDark ? '#2e3138' : '#e4e2dc',
+                    'border-style': 'dashed',
+                    'color': isDark ? '#7b7973' : '#8a8781'
+                }
+            },
+            {
+                selector: 'node:selected',
+                style: {
+                    'border-width': 4,
+                    'border-color': isDark ? '#e8e7e3' : '#1a1a17'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'curve-style': 'bezier',
+                    'target-arrow-shape': 'triangle',
+                    'arrow-scale': 1.1,
+                    'width': 2,
+                    'line-color': isDark ? '#3c4048' : '#d2cfc7',
+                    'target-arrow-color': isDark ? '#3c4048' : '#d2cfc7'
+                }
+            },
+            {
+                selector: 'edge[status = "done"]',
+                style: {
+                    'width': 3,
+                    'line-color': isDark ? '#79c2a5' : '#2f6b57',
+                    'target-arrow-color': isDark ? '#79c2a5' : '#2f6b57'
+                }
+            }
+        ],
+        layout: {
+            name: 'preset',
+            fit: true,
+            padding: 30
+        }
+    });
+
+    function showInspector(node) {
+        if (!inspector) { return; }
+        var data = node.data();
+        var indexEl = inspector.querySelector('[data-wf-inspector-index]');
+        var labelEl = inspector.querySelector('[data-wf-inspector-label]');
+        var pillEl = inspector.querySelector('[data-wf-inspector-pill]');
+        var ownerEl = inspector.querySelector('[data-wf-inspector-owner]');
+        var reasonEl = inspector.querySelector('[data-wf-inspector-reason]');
+
+        if (indexEl) { indexEl.textContent = data.index || ''; }
+        if (labelEl) { labelEl.textContent = data.label || ''; }
+        if (pillEl) {
+            pillEl.textContent = data.status || '';
+            var tone = 'neutral';
+            if (data.status === 'done') { tone = 'ok'; }
+            else if (data.status === 'current') { tone = 'attention'; }
+            else if (data.status === 'blocked') { tone = 'blocked'; }
+            pillEl.className = 'pill pill--' + tone;
+        }
+        if (ownerEl) { ownerEl.textContent = data.owner ? 'owner: ' + data.owner : ''; }
+        if (reasonEl) {
+            if (data.reason && data.reason.trim() !== '') {
+                reasonEl.textContent = data.reason;
+                reasonEl.hidden = false;
+            } else {
+                reasonEl.hidden = true;
+            }
+        }
+        inspector.hidden = false;
+
+        var stepPanelId = 'step-panel-' + (Number(data.index) - 1);
+        var stepItem = document.getElementById(stepPanelId);
+        if (stepItem) {
+            document.querySelectorAll('[id^="step-panel-"]').forEach(function (panel) {
+                panel.style.outline = 'none';
+            });
+            stepItem.style.outline = '2px solid var(--accent)';
+            stepItem.style.outlineOffset = '2px';
+        }
+    }
+
+    var currentNode = cy.nodes('[status = "current"]');
+    if (currentNode.length === 0) {
+        currentNode = cy.nodes('[status = "blocked"]');
+    }
+    if (currentNode.length > 0) {
+        currentNode.select();
+        showInspector(currentNode[0]);
+    }
+
+    cy.on('tap', 'node', function (evt) {
+        showInspector(evt.target);
+    });
+
+    if (tools) {
+        tools.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!(target instanceof Element)) { return; }
+            var zoomAction = target.getAttribute('data-wf-zoom');
+            if (zoomAction === 'in') {
+                cy.zoom({ level: cy.zoom() * 1.25, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+                return;
+            }
+            if (zoomAction === 'out') {
+                cy.zoom({ level: cy.zoom() * 0.8, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+                return;
+            }
+            if (zoomAction === 'fit') {
+                cy.fit(null, 30);
+                return;
+            }
+            if (target.hasAttribute('data-wf-reset')) {
+                cy.elements().layout({ name: 'preset', fit: true, padding: 30 }).run();
+            }
+        });
+    }
+
+    window.addEventListener('resize', function () {
+        cy.resize();
+        cy.fit(null, 30);
+    });
+}());

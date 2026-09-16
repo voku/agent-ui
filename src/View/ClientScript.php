@@ -27,7 +27,15 @@ final class ClientScript
             if ($code === false) {
                 throw new RuntimeException('Unable to read the bundled client script.');
             }
-            self::$code = $code;
+            $vendor = '';
+            $vendorPath = __DIR__ . '/vendor/cytoscape.min.js';
+            if (is_file($vendorPath)) {
+                $vendorContent = file_get_contents($vendorPath);
+                if ($vendorContent !== false) {
+                    $vendor = $vendorContent . "\n";
+                }
+            }
+            self::$code = $vendor . $code;
         }
 
         return self::$code;
