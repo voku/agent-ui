@@ -3,14 +3,15 @@ use voku\AgentUi\Integration\AgentLoop\TaskAuditSnapshot;
 use voku\AgentUi\View\TemplateRenderer;
 /** @var array{audit: TaskAuditSnapshot} $model */
 $audit = $model['audit'];
+$taskContext = $model['task_context'];
 $title = $audit->taskId . ' · History · agent-ui';
 $nav = null;
 $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($audit->taskId) ?>"><?= TemplateRenderer::escape($audit->taskId) ?></a><span>/</span>History</p>
+<?php $taskNavCurrent = '/history'; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($audit->taskId) ?></span>
     <h1>Audit history</h1>
     <p class="lede">Newest first. Every entry is a timestamped fact read from an owner record — absence is left
         as absence rather than filled in with an inferred event.</p>
@@ -33,5 +34,4 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<?php $taskNavId = $audit->taskId; $taskNavCurrent = '/history'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

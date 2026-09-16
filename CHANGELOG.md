@@ -4,6 +4,30 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Carry a persistent task context across all ten task views: task identity, agent-kanban's lane, agent-loop's run state and agent-loop's canonical next action, each labelled with the owner it came from and rendered verbatim, with the task navigation directly beneath it (#58, part of the #59 workbench epic).
+
+### Changed
+
+- Group the primary navigation into a workspace shell by developer intent - Work, Knowledge, Code, Tools - instead of six peer links, so choosing a destination no longer requires knowing which package owns the answer (#58).
+- Group the ten peer task views into Summary, Intent, Execution, Evidence and Tools, so "Edit card" no longer sits beside "Workflow" as an equal weight.
+- Mark the current section and the current task view with a weight and shape cue in addition to colour, and announce the group name to assistive technology without printing it on screen.
+- Move the task navigation from the very bottom of each task page to the top, where the context it belongs to is.
+
+Presentation and HTTP normalization only: every route and deep link keeps its URL, no lifecycle is inferred, no owner semantics are added, and navigation still works with JavaScript disabled.
+
+### Fixed
+
+- Render a 404 page instead of a 500 for a task id no board holds - the case a governed task with a Contract and a Run but no agent-kanban card actually reaches.
+
+### Validation
+
+- `composer ci` passed with 211 tests, 931 assertions, clean template linting, and 0 PHPStan errors.
+- Differential render probes against `1ee94ad` and `64e7fed`: 16 pages served side by side in each case, identical HTTP statuses, and no previously emitted route lost.
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

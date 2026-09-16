@@ -12,6 +12,7 @@ use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 /** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $contract = $model['contract'] ?? null;
@@ -41,9 +42,9 @@ $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><?= TemplateRenderer::escape($card->lane) ?></p>
+<?php $taskNavCurrent = ''; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div>
-        <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
         <h1><?= TemplateRenderer::escape($card->title) ?></h1>
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
@@ -420,5 +421,4 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </section>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = ''; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

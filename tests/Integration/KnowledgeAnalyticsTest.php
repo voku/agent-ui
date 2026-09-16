@@ -6,8 +6,11 @@ namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
 final class KnowledgeAnalyticsTest extends TestCase
@@ -138,6 +141,7 @@ final class KnowledgeAnalyticsTest extends TestCase
     {
         $action = new KnowledgeAction(
             new LearningCatalogGateway($this->root),
+            new TaskContextComposer(new BoardProjectionGateway($this->root), new WorkflowProjectionGateway($this->root)),
             new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
         );
 
@@ -152,6 +156,7 @@ final class KnowledgeAnalyticsTest extends TestCase
     {
         $action = new KnowledgeAction(
             new LearningCatalogGateway($this->root),
+            new TaskContextComposer(new BoardProjectionGateway($this->root), new WorkflowProjectionGateway($this->root)),
             new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
         );
 

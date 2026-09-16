@@ -31,6 +31,7 @@ final readonly class TaskAction
         private TaskTransparencyGateway $transparency,
         private CardMutationGateway $cardMutation,
         private MapProjectionGateway $map,
+        private TaskContextComposer $taskContext,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
@@ -54,6 +55,7 @@ final readonly class TaskAction
             'context_coverage' => $transparency->context,
             'task_transparency' => $transparency,
             'csrf_token' => $this->csrf->token(),
+            'task_context' => $this->taskContext->forCard($card),
         ]));
     }
 
@@ -87,6 +89,7 @@ final readonly class TaskAction
             'card' => $card,
             'lanes' => $lanes,
             'csrf_token' => $this->csrf->token(),
+            'task_context' => $this->taskContext->forCard($card),
         ]));
     }
 
@@ -197,6 +200,7 @@ final readonly class TaskAction
             'scope_impact' => ContractScopeImpact::compose($this->map, $contract),
             'map_readiness' => $this->map->readiness(),
             'csrf_token' => $this->csrf->token(),
+            'task_context' => $this->taskContext->forCard($card),
         ]));
     }
 

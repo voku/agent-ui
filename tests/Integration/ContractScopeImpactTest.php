@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentUi\Feature\Task\ContractScopeImpact;
 use voku\AgentUi\Feature\Task\ContractScopeImpactEntry;
+use voku\AgentUi\Feature\Task\TaskContext;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\View\TemplateRenderer;
@@ -183,6 +184,7 @@ final class ContractScopeImpactTest extends TestCase
             'scope_impact' => ContractScopeImpact::compose($map, $contract),
             'map_readiness' => $map->readiness(),
             'csrf_token' => 'token',
+            'task_context' => new TaskContext('UI-1', 'Fixture task', 'doing', 'incomplete', 'agent-loop enter UI-1', 'command'),
         ]);
     }
 

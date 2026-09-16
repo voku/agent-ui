@@ -8,6 +8,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract: ?TaskContract, csrf_token: string} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $progress = $model['progress'];
 $decisions = $model['human_decisions'];
 $contract = $model['contract'];
@@ -18,9 +19,9 @@ $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Workflow progress</p>
+<?php $taskNavCurrent = '/progress'; require __DIR__ . '/../layout/task-context.php'; ?>
 
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
     <h1>Workflow progress</h1>
     <p class="lede">Where this task is in the Loop-owned governed workflow. The order and status come from agent-loop; this page does not reconstruct lifecycle policy.</p>
 </div>
@@ -197,5 +198,4 @@ require __DIR__ . '/../layout/header.php';
     <p class="note">Done, current, pending, blocked and not-applicable remain distinct owner-projected states. agent-ui does not calculate a percentage complete.</p>
 <?php endif; ?>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = '/progress'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

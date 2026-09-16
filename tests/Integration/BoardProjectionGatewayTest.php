@@ -6,6 +6,7 @@ namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use voku\AgentKanban\Exception\ValidationException;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 
 /**
@@ -58,6 +59,19 @@ final class BoardProjectionGatewayTest extends TestCase
         self::assertSame('TEST', $board->projectPrefix);
         self::assertCount(1, $board->cards);
         self::assertSame('TEST-1', $board->cards[0]->id);
+    }
+
+    public function testCardLookupPreservesOwnerValidationFailures(): void
+    {
+        file_put_contents($this->root . '/.agent-loop/todo/board.md', "# Board Metadata\n\n- **Project prefix:** TEST\n");
+        file_put_contents(
+            $this->root . '/.agent-loop/todo/cards/TEST-1.md',
+            "# TEST-1 — Malformed card\n\n- **Lane:** BACKLOG\n- **Status:** todo\n- **Priority:** not-a-number\n",
+        );
+
+        $this->expectException(ValidationException::class);
+
+        (new BoardProjectionGateway($this->root))->card('TEST-1');
     }
 
     public function testReevaluatesTheOwnerBoardRootAfterItIsRelocated(): void

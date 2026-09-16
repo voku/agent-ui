@@ -7,6 +7,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{card: CardSnapshot, context: ContextExplanationSnapshot, coverage: ContextCoverage} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $context = $model['context'];
 $coverage = $model['coverage'];
 $explanation = $context->explanation;
@@ -34,8 +35,8 @@ $futureWork = $coverage->futureWork->toArray();
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Context</p>
+<?php $taskNavCurrent = '/context'; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
     <h1>Context &amp; constraints</h1>
     <p class="lede">The exact persisted context Recall compiled for this task, plus agent-loop's owner-backed record of skipped and budget-omitted context. Opening this page never recompiles anything.</p>
 </div>
@@ -246,5 +247,4 @@ require __DIR__ . '/../layout/header.php';
     </section>
 </div>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = '/context'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use voku\AgentRecallCompiler\OperatingPromptArgument;
 use voku\AgentRecallCompiler\OperatingPromptRecipe;
 use voku\AgentRecallCompiler\OperatingPromptRequest;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
@@ -26,6 +27,7 @@ final readonly class PromptWorkbenchAction
         private ContextExplanationGateway $context,
         private PromptApplicabilityEvaluator $applicability,
         private PromptComposer $composer,
+        private TaskContextComposer $taskContext,
         private TemplateRenderer $templates,
     ) {
     }
@@ -131,6 +133,7 @@ final readonly class PromptWorkbenchAction
                 composition: $composition,
                 errors: array_values(array_unique($errors)),
             ),
+            'task_context' => $card === null ? null : $this->taskContext->forCard($card),
         ]), $errors === [] ? 200 : 400);
     }
 

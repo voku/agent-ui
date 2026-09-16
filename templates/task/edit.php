@@ -4,6 +4,7 @@ use voku\AgentUi\View\TemplateRenderer;
 
 /** @var array{card: CardSnapshot, lanes: list<string>, csrf_token: string} $model */
 $card = $model['card'];
+$taskContext = $model['task_context'];
 $lanes = $model['lanes'];
 $csrf = $model['csrf_token'];
 
@@ -19,9 +20,9 @@ require __DIR__ . '/../layout/header.php';
     <span>/</span>
     Edit
 </p>
+<?php $taskNavCurrent = '/edit'; require __DIR__ . '/../layout/task-context.php'; ?>
 
 <div class="page-head">
-    <span class="page-head__id"><?= TemplateRenderer::escape($card->id) ?></span>
     <h1>Edit Card: <?= TemplateRenderer::escape($card->title) ?></h1>
     <p class="lede">Modify TODO fields and lane placement governed by agent-kanban.</p>
 </div>
@@ -115,5 +116,4 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php $taskNavId = $card->id; $taskNavCurrent = '/edit'; require __DIR__ . '/../layout/task-nav.php'; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

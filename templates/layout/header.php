@@ -21,13 +21,53 @@ $projectLabel ??= null;
 <header class="masthead">
     <div class="masthead__inner">
         <a class="brand" href="/"><span class="brand__mark" aria-hidden="true"></span>agent-ui</a>
-        <nav aria-label="Primary">
-            <a href="/"<?= $nav === 'home' ? ' aria-current="page"' : '' ?>>Overview</a>
-            <a href="/setup"<?= $nav === 'setup' ? ' aria-current="page"' : '' ?>>Setup</a>
-            <a href="/prompts"<?= $nav === 'prompts' ? ' aria-current="page"' : '' ?>>Prompts</a>
-            <a href="/board"<?= $nav === 'board' ? ' aria-current="page"' : '' ?>>Board</a>
-            <a href="/map"<?= $nav === 'map' ? ' aria-current="page"' : '' ?>>Map</a>
-            <a href="/knowledge"<?= $nav === 'knowledge' ? ' aria-current="page"' : '' ?>>Knowledge</a>
+        <?php
+        /**
+         * Grouped by the question a developer is asking, not by which package owns
+         * the answer. A flat `Overview | Setup | Prompts | Board | Map | Knowledge`
+         * row made every concept a peer, so choosing required knowing the
+         * architecture first. Daily work (Work, Knowledge) leads; the tools that
+         * support it stay one click away instead of competing for the same
+         * attention. Routes and URLs are unchanged - this is presentation only.
+         */
+        $workspaceSections = [
+            'Work' => [
+                ['/', 'Overview', 'home'],
+                ['/board', 'Tasks', 'board'],
+            ],
+            'Knowledge' => [
+                ['/knowledge', 'Knowledge', 'knowledge'],
+            ],
+            'Code' => [
+                ['/map', 'Map', 'map'],
+            ],
+            'Tools' => [
+                ['/prompts', 'Prompts', 'prompts'],
+                ['/setup', 'Setup', 'setup'],
+            ],
+        ];
+        ?>
+        <nav class="workspace-nav" aria-label="Primary">
+            <?php foreach ($workspaceSections as $section => $links): ?>
+                <?php
+                $sectionCurrent = false;
+                foreach ($links as [, , $key]) {
+                    $sectionCurrent = $sectionCurrent || $nav === $key;
+                }
+                ?>
+                <div class="workspace-nav__group<?= $sectionCurrent ? ' workspace-nav__group--current' : '' ?>">
+                    <span class="workspace-nav__label" aria-hidden="true"><?= TemplateRenderer::escape($section) ?></span>
+                    <ul class="workspace-nav__links">
+                        <?php foreach ($links as [$href, $label, $key]): ?>
+                            <li><a href="<?= $href ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><?php
+                                /* The group name is decoration for sighted scanning; the
+                                   accessible name carries it so a screen reader hears the
+                                   same grouping the eye gets. */
+                                ?><span class="visually-hidden"><?= TemplateRenderer::escape($section) ?>: </span><?= TemplateRenderer::escape($label) ?></a></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endforeach; ?>
         </nav>
         <?php if ($projectLabel !== null): ?>
             <div class="masthead__meta"><span class="mono"><?= TemplateRenderer::escape($projectLabel) ?></span></div>

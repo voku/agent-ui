@@ -154,8 +154,34 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
     flex: none;
 }
 
-.masthead nav { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
-.masthead nav a {
+/* Text carried for assistive technology only. The group name is decoration for
+   the eye; without this it would print into every link label. */
+.visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.workspace-nav { display: flex; gap: 18px; flex-wrap: wrap; min-width: 0; align-items: flex-start; }
+.workspace-nav__group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.workspace-nav__label {
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-faint, var(--ink-soft));
+    padding-left: 10px;
+    opacity: .75;
+}
+/* The section a developer is in stays legible without relying on colour alone. */
+.workspace-nav__group--current .workspace-nav__label { opacity: 1; font-weight: 650; }
+.workspace-nav__links { display: flex; gap: 4px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.workspace-nav__links a {
+    display: block;
     padding: 5px 10px;
     border-radius: var(--radius-sm);
     color: var(--ink-soft);
@@ -163,8 +189,14 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
     font-size: 13.5px;
     transition: background .12s ease, color .12s ease;
 }
-.masthead nav a:hover { background: var(--surface-alt); color: var(--ink); }
-.masthead nav a[aria-current="page"] { color: var(--ink); background: var(--surface-alt); font-weight: 550; }
+.workspace-nav__links a:hover { background: var(--surface-alt); color: var(--ink); }
+.workspace-nav__links a[aria-current="page"] {
+    color: var(--ink);
+    background: var(--surface-alt);
+    font-weight: 550;
+    /* Not colour alone: the current page keeps a shape cue too. */
+    box-shadow: inset 0 -2px 0 currentColor;
+}
 
 .masthead__meta {
     margin-left: auto;
@@ -549,8 +581,58 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 
 /* ---------- task views ---------- */
 
-.task-nav { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--rule); }
-.btn--current { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+/* The task context and its navigation read as one block, ahead of the view. */
+.task-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+    align-items: flex-start;
+    padding: 16px 18px;
+    border: 1px solid var(--rule);
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--surface);
+}
+.task-context__identity { flex: 1 1 260px; min-width: 0; }
+.task-context__id { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); display: block; }
+.task-context__title { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.task-context__facts { display: flex; gap: 24px; flex-wrap: wrap; }
+.task-context__fact { min-width: 0; }
+.task-context__value { margin: 4px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.task-context__next { flex: 1 1 100%; min-width: 0; }
+.task-context__action { margin: 4px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+/* A long owner command wraps inside the block; it never widens the page. */
+.task-context__action code { font-size: 12.5px; overflow-wrap: anywhere; min-width: 0; }
+
+.task-nav {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin: 0 0 26px;
+    padding: 14px 18px 16px;
+    border: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: var(--surface-alt);
+}
+.task-nav__group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.task-nav__label {
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-faint, var(--ink-soft));
+    opacity: .75;
+}
+.task-nav__links { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
+/* Not colour alone: the current view keeps a weight and shape cue too. */
+.btn--current {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 currentColor;
+}
 
 /* ---------- table ---------- */
 
@@ -657,6 +739,11 @@ details.raw[open] > summary { margin-bottom: 10px; }
 @media (max-width: 640px) {
     .masthead__inner, .wrap { padding-left: 16px; padding-right: 16px; }
     .masthead__meta { display: none; }
+    /* Narrow screens: the group labels cost a row each, and the links still carry
+       the grouping for assistive technology, so drop the decoration rather than
+       the navigation. */
+    .workspace-nav { gap: 10px; }
+    .workspace-nav__label { display: none; }
     .split > * + * { padding: 14px 0 2px; border-left: none; border-top: 1px solid var(--rule); margin-top: 12px; }
 }
 

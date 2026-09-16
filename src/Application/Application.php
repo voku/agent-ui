@@ -20,6 +20,7 @@ use voku\AgentUi\Feature\PromptWorkbench\PromptWorkbenchAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
 use voku\AgentUi\Feature\Setup\SetupAction;
 use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Feature\Task\WorkflowProgressAction;
 use voku\AgentUi\Feature\Work\WorkAction;
 use voku\AgentUi\Http\Request;
@@ -86,6 +87,7 @@ final readonly class Application
         $map = new MapProjectionGateway($projectRoot, $mapArtifacts);
         $source = new SourceViewGateway($projectRoot, $mapArtifacts);
         $codeSearch = new CodeSearchGateway($projectRoot, $mapArtifacts, $map, $source);
+        $taskContext = new TaskContextComposer($board, $workflow);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;
@@ -95,7 +97,7 @@ final readonly class Application
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $map, $runner, $templates);
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->board = new BoardAction($board, $mutation, $csrf, $templates);
-        $this->knowledge = new KnowledgeAction($learning, $templates);
+        $this->knowledge = new KnowledgeAction($learning, $taskContext, $templates);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
         $this->task = new TaskAction(
             $board,
@@ -106,10 +108,11 @@ final readonly class Application
             $transparency,
             $mutation,
             $map,
+            $taskContext,
             $csrf,
             $templates,
         );
-        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $csrf, $templates);
+        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $csrf, $taskContext, $templates);
         $this->prompts = new PromptWorkbenchAction(
             $board,
             $workflowPrompt,
@@ -117,12 +120,13 @@ final readonly class Application
             $context,
             new PromptApplicabilityEvaluator(),
             new PromptComposer(),
+            $taskContext,
             $templates,
         );
-        $this->context = new ContextAction($board, $context, $transparency, $templates);
-        $this->work = new WorkAction($board, $transparency, $templates);
-        $this->evidence = new EvidenceAction($workflow, $audit, $templates);
-        $this->history = new HistoryAction($audit, $templates);
+        $this->context = new ContextAction($board, $context, $transparency, $taskContext, $templates);
+        $this->work = new WorkAction($board, $transparency, $taskContext, $templates);
+        $this->evidence = new EvidenceAction($workflow, $audit, $taskContext, $templates);
+        $this->history = new HistoryAction($audit, $taskContext, $templates);
         $this->humanDecision = new HumanDecisionAction($decisions, $csrf);
         $this->runner = new RunnerAction($runner, $csrf);
     }
