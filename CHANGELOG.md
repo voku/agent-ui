@@ -4,6 +4,21 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.16.0] - 2026-09-16
+
+### Added
+
+- Add workflow progress projection view at `/task/{id}/progress`, exposing deterministic stage transitions, task completion status, and active decision context directly from `voku/agent-loop`'s `RunProgressProjector` (#57).
+- Render interactive workflow stage diagram using Cytoscape.js, featuring zoom, fit, reset controls, light/dark mode styling, active node auto-selection, node inspection panel, and smooth scrolling to detail cards.
+- Support complete zero-JS fallback accessibility with pure CSS status badges and sequential stage cards for environments without client-side script execution.
+- Wire human decision actions (`APPROVED`, `APPROVED_WITH_MODIFICATIONS`, `REJECTED`) directly within the workflow progress view, redirecting seamlessly back to `/task/{id}/progress`.
+- Add workflow progress navigation links across task headers, detail panels, and task navigation menus.
+- Bump `voku/agent-loop` dependency to `^0.20.14`.
+
+### Validation
+
+- `composer ci` passed with 197 tests, 738 assertions, clean template linting, and 0 PHPStan errors.
+
 ## [0.15.3] - 2026-09-14
 
 ### Fixed
