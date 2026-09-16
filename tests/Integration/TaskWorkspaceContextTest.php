@@ -54,6 +54,7 @@ final class TaskWorkspaceContextTest extends TestCase
         $this->removeDirectory($this->root);
     }
 
+    /** Which task you are looking at must not depend on which of its ten views you opened. */
     public function testEveryTaskViewCarriesTheSameTaskIdentity(): void
     {
         $app = $this->applicationWithCard();
@@ -197,6 +198,7 @@ final class TaskWorkspaceContextTest extends TestCase
         ]);
     }
 
+    /** Builds the control plane over a throwaway board holding one card, through its real create route. */
     private function applicationWithCard(): Application
     {
         $app = new Application($this->root, $this->templates);
@@ -219,6 +221,7 @@ final class TaskWorkspaceContextTest extends TestCase
         return $app;
     }
 
+    /** Fetches one task view through the real router, failing the test if it stopped answering. */
     private function view(Application $app, string $suffix): string
     {
         $response = $app->handle(new Request('GET', '/task/APP-1' . $suffix));

@@ -29,6 +29,7 @@ final class WorkspaceShellTest extends TestCase
         '/work', '/evidence', '/history', '/prompts', '/learning',
     ];
 
+    /** Grouping is a rewrite of the link table, so the six destinations are listed and checked one by one. */
     public function testThePrimaryNavigationStillReachesEveryRouteItReachedBefore(): void
     {
         $header = $this->read('templates/layout/header.php');
@@ -42,6 +43,7 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
+    /** The same guarantee for the ten task views, whose suffixes are the deep links people have bookmarked. */
     public function testEveryTaskViewSurvivesTheGrouping(): void
     {
         $nav = $this->read('templates/layout/task-nav.php');
@@ -55,6 +57,7 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
+    /** The four areas are the product hierarchy; a flat list returning would undo the change silently. */
     public function testNavigationIsGroupedByDeveloperIntentRatherThanFlat(): void
     {
         $header = $this->read('templates/layout/header.php');
@@ -64,6 +67,7 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
+    /** The task groups follow the story - where it stands, what was agreed, what was done, what proves it. */
     public function testTaskViewsAreGroupedByTheTaskStory(): void
     {
         $nav = $this->read('templates/layout/task-nav.php');
@@ -73,6 +77,12 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
+    /**
+     * Where you are is announced to assistive technology and shown without relying on colour.
+     *
+     * `aria-current` alone would leave a sighted reader with only a hue, and a hue alone
+     * would leave a screen reader with nothing; both cues have to be present.
+     */
     public function testTheCurrentDestinationIsAnnouncedAndNotSignalledByColourAlone(): void
     {
         $header = $this->read('templates/layout/header.php');
@@ -116,6 +126,7 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
+    /** Reads a template or stylesheet from the repository root, asserting it exists. */
     private function read(string $relative): string
     {
         $contents = file_get_contents(dirname(__DIR__, 2) . '/' . $relative);
