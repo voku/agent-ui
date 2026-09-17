@@ -46,6 +46,13 @@ final class ApplicationWorkflowTest extends TestCase
         rmdir($path);
     }
 
+    /**
+     * One pass through the governed path, driven the way an operator drives it.
+     *
+     * Card creation, the task page, Contract proposal and approval each go through
+     * the real router and the real owner gateways, so a break in the wiring between
+     * them fails here rather than in a unit test that mocks the seam away.
+     */
     public function testEndToEndCardCreationAndContractApproval(): void
     {
         $app = new Application($this->root, $this->templates);
@@ -206,6 +213,7 @@ final class ApplicationWorkflowTest extends TestCase
         );
     }
 
+    /** The cockpit's own sections, and the order they read in: attention before health. */
     public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void
     {
         $app = new Application($this->root, $this->templates);
