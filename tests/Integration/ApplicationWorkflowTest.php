@@ -46,6 +46,13 @@ final class ApplicationWorkflowTest extends TestCase
         rmdir($path);
     }
 
+    /**
+     * One pass through the governed path, driven the way an operator drives it.
+     *
+     * Card creation, the task page, Contract proposal and approval each go through
+     * the real router and the real owner gateways, so a break in the wiring between
+     * them fails here rather than in a unit test that mocks the seam away.
+     */
     public function testEndToEndCardCreationAndContractApproval(): void
     {
         $app = new Application($this->root, $this->templates);
@@ -81,7 +88,8 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Edit card', $taskResponse->body);
         self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
         self::assertStringContainsString('Architecture', $taskResponse->body);
-        self::assertStringContainsString('Development trace', $taskResponse->body);
+        // The history route keeps its page-head shortcut's job in the task navigation.
+        self::assertStringContainsString('History', $taskResponse->body);
         self::assertStringContainsString('href="/map?q=Build%20login%20system"', $taskResponse->body);
         self::assertStringContainsString('href="/map/graph"', $taskResponse->body);
         self::assertStringContainsString('href="/task/APP-1/history"', $taskResponse->body);
@@ -164,6 +172,48 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('/map/graph', $workResponse->body);
     }
 
+    /**
+     * Current work groups by what tasks share, which is the kind and not the sentence.
+     *
+     * The first attempt grouped by the next-action string. It looked correct and
+     * made the page longer: every template carries its own task id, so no two
+     * tasks ever shared a string and each got a heading of its own. Counting
+     * groups against tasks is the assertion that would have caught it.
+     */
+    public function testCurrentWorkGroupsTasksThatShareANextActionKind(): void
+    {
+        $app = new Application($this->root, $this->templates);
+        $csrf = (new CsrfTokenManager())->token();
+
+        foreach (['APP-1', 'APP-2', 'APP-3'] as $id) {
+            $app->handle(new Request('POST', '/board/new', body: [
+                '_csrf' => $csrf,
+                'card_id' => $id,
+                'title' => 'Card ' . $id,
+                'lane' => 'BACKLOG',
+                'status' => 'todo',
+                'summary' => 'Fixture',
+                'task_brief' => 'Fixture brief.',
+                'validation' => 'composer test',
+            ]));
+        }
+
+        $cockpit = $app->handle(new Request('GET', '/'));
+        self::assertSame(200, $cockpit->status);
+        $body = $cockpit->body;
+
+        foreach (['APP-1', 'APP-2', 'APP-3'] as $id) {
+            self::assertStringContainsString('href="/task/' . $id . '"', $body, $id . ' left Current work');
+        }
+
+        self::assertSame(
+            1,
+            substr_count($body, 'class="workgroup"'),
+            'Three tasks waiting on the same kind of action must not produce three groups',
+        );
+    }
+
+    /** The cockpit's own sections, and the order they read in: attention before health. */
     public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void
     {
         $app = new Application($this->root, $this->templates);
@@ -171,7 +221,14 @@ final class ApplicationWorkflowTest extends TestCase
         $response = $app->handle(new Request('GET', '/'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('Developer Cockpit', $response->body);
-        self::assertStringContainsString('System Vitals', $response->body);
+        self::assertStringContainsString('System &amp; tooling', $response->body);
+        // Health explains what a page may not be able to answer; it is not the first
+        // question a returning developer asks, so it reads after the work it supports.
+        self::assertLessThan(
+            (int) strpos($response->body, 'System &amp; tooling'),
+            (int) strpos($response->body, 'Needs you'),
+            'System and tooling health must not precede the work that needs a person',
+        );
         self::assertStringContainsString('Code Map', $response->body);
         self::assertStringContainsString('Kanban Flow', $response->body);
         self::assertStringContainsString('Attention Radar', $response->body);

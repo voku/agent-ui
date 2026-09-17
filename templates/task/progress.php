@@ -32,10 +32,8 @@ require __DIR__ . '/../layout/header.php';
         <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($progress->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($progress->state)) ?></span>
         <span class="small faint">task <?= TemplateRenderer::escape($progress->taskId) ?></span>
     </div>
-    <h2 style="margin-top:16px">Canonical next action</h2>
-    <p class="action__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($progress->nextActionKind)) ?></p>
-    <div class="codeblock"><pre><?= TemplateRenderer::escape($progress->nextAction) ?></pre></div>
-    <p class="note">The action is carried from the same agent-loop policy evaluation as the workflow progress below.</p>
+    <p class="note">The canonical next action at the top of this page comes from the same agent-loop
+        policy evaluation as the workflow progress below, so it is shown there once rather than twice here.</p>
 </section>
 
 <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT) && $contract !== null): ?>

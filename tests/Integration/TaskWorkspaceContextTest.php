@@ -91,6 +91,32 @@ final class TaskWorkspaceContextTest extends TestCase
         }
     }
 
+    /**
+     * One canonical next action per page, because there is one canonical next action.
+     *
+     * The persistent context made the task summary page print Loop's sentence
+     * twice - once at the top for every view, once again in its own `Current
+     * state` panel. Counting occurrences pins the architectural intent, which is
+     * that the context block is the single presentation of Loop's answer; an
+     * assertion on markup shape would have passed with both blocks present.
+     */
+    public function testTheCanonicalNextActionIsRenderedExactlyOncePerView(): void
+    {
+        $app = $this->applicationWithCard();
+        $expected = (new WorkflowProjectionGateway($this->root))->task('APP-1')->nextAction;
+        $needle = TemplateRenderer::escape($expected);
+
+        self::assertNotSame('', $expected);
+
+        foreach (self::VIEWS as $view) {
+            self::assertSame(
+                1,
+                substr_count($this->view($app, $view), $needle),
+                '/task/APP-1' . $view . ' does not render the canonical next action exactly once',
+            );
+        }
+    }
+
     /** Context and navigation come before the view's own answer, for the eye and the keyboard. */
     public function testTheContextAndItsNavigationPrecedeThePageBody(): void
     {

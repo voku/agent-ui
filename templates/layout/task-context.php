@@ -15,12 +15,14 @@ use voku\AgentUi\View\TemplateRenderer;
  *
  * Those facts live here instead, ahead of the page body and ahead of the task
  * navigation, so they arrive before the view-specific answer and in that order
- * for the keyboard too.
+ * for the keyboard too. The canonical next action lives here and only here: it
+ * is the one thing every view's reader may want to run, and having it in one
+ * place means no page has to show it twice.
  *
  * The next action is Loop's sentence, printed as Loop wrote it. The UI does not
- * shorten it, rank it against anything, or decide whether it applies: doing so
- * would make this header a second opinion about the lifecycle, which is exactly
- * the authority agent-ui does not hold.
+ * shorten it, rank it, or decide whether it applies: doing so would make this
+ * header a second opinion about the lifecycle, which is exactly the authority
+ * agent-ui does not hold.
  *
  * @var TaskContext $taskContext     the facts that stay true across views
  * @var string      $taskNavCurrent  the view being rendered, for the navigation below
@@ -29,29 +31,33 @@ $taskNavId = $taskContext->taskId;
 ?>
 <section class="task-context" aria-label="Task context">
     <div class="task-context__identity">
-        <span class="task-context__id"><?= TemplateRenderer::escape($taskContext->taskId) ?></span>
+        <p class="task-context__id"><?= TemplateRenderer::escape($taskContext->taskId) ?></p>
         <p class="task-context__title"><?= TemplateRenderer::escape($taskContext->title) ?></p>
     </div>
 
-    <div class="task-context__facts">
+    <dl class="task-context__facts">
         <div class="task-context__fact">
-            <p class="provenance provenance--authority">agent-kanban · lane</p>
-            <p class="task-context__value"><?= TemplateRenderer::escape($taskContext->lane) ?></p>
+            <dt class="provenance provenance--authority">agent-kanban · lane</dt>
+            <dd class="task-context__value"><?= TemplateRenderer::escape($taskContext->lane) ?></dd>
         </div>
         <div class="task-context__fact">
-            <p class="provenance provenance--authority">agent-loop · run state</p>
-            <p class="task-context__value">
+            <dt class="provenance provenance--authority">agent-loop · run state</dt>
+            <dd class="task-context__value">
                 <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->workflowState)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->workflowState)) ?></span>
-            </p>
+            </dd>
         </div>
-    </div>
+    </dl>
 
     <div class="task-context__next">
-        <p class="provenance provenance--authority">agent-loop · canonical next action</p>
-        <p class="task-context__action">
+        <p class="provenance provenance--authority">
+            agent-loop · canonical next action
             <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->nextActionKind)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->nextActionKind)) ?></span>
-            <code><?= TemplateRenderer::escape($taskContext->nextAction) ?></code>
         </p>
+        <p class="task-context__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($taskContext->nextActionKind)) ?></p>
+        <div class="codeblock">
+            <pre id="task-context-next"><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
+            <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button>
+        </div>
     </div>
 </section>
 

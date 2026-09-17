@@ -16,17 +16,24 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - Group the ten peer task views into Summary, Intent, Execution, Evidence and Tools, so "Edit card" no longer sits beside "Workflow" as an equal weight.
 - Mark the current section and the current task view with a weight and shape cue in addition to colour, and announce the group name to assistive technology without printing it on screen.
 - Move the task navigation from the very bottom of each task page to the top, where the context it belongs to is.
+- Order the Overview by the questions a returning developer asks: what needs a person, then current work, then the board, then knowledge, with system vitals and architecture pulse last under `System & tooling` (#58 slice C).
+- Group Current work by agent-loop's own `next_action_kind` instead of listing one identical placeholder command per task. Each group's exact commands stay verbatim behind a keyboard-operable disclosure; the cockpit is ~20% shorter than before the grouping.
+- Give the workspace a clearer visual hierarchy: larger page headings, section labels carried by a hairline, roomier panels, and lanes and execution modes sized to their own content instead of stretching to the tallest sibling.
 
 Presentation and HTTP normalization only: every route and deep link keeps its URL, no lifecycle is inferred, no owner semantics are added, and navigation still works with JavaScript disabled.
 
 ### Fixed
 
 - Render a 404 page instead of a 500 for a task id no board holds - the case a governed task with a Contract and a Run but no agent-kanban card actually reaches.
+- Render agent-loop's canonical next action exactly once per task view. The persistent task context left the earlier copies in place, so `/task/{id}` and `/task/{id}/progress` each printed it twice.
+- Drop the task-summary duplication the persistent context replaced: the breadcrumb lane, the page-head links now in the task navigation, and the repeated run state and lane in `Current state`. The page keeps its own H1 and everything summary-specific.
+- Stop the task title breaking one character per line on a phone. The task-context grid had no floor on its identity column, so at 390px the facts took the width and `overflow-wrap: anywhere` did the rest.
 
 ### Validation
 
-- `composer ci` passed with 211 tests, 931 assertions, clean template linting, and 0 PHPStan errors.
+- `composer ci` passed with 215 tests, 963 assertions, clean template linting, and 0 PHPStan errors.
 - Differential render probes against `1ee94ad` and `64e7fed`: 16 pages served side by side in each case, identical HTTP statuses, and no previously emitted route lost.
+- Rendered evidence, not source inspection: full-page screenshots of `/`, `/board`, `/task/UI-1`, `/task/UI-1/progress`, `/knowledge`, `/map`, `/setup` and `/prompts` at 1440px, plus `/` and `/task/UI-1` in dark mode and at 390px.
 
 ## [0.16.0] - 2026-09-16
 
