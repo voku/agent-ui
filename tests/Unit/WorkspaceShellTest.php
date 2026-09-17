@@ -116,6 +116,28 @@ final class WorkspaceShellTest extends TestCase
         self::assertMatchesRegularExpression('/\.visually-hidden\s*\{[^}]*clip-path:\s*inset\(50%\)/s', $css);
     }
 
+    /**
+     * The task identity column keeps a floor, or a phone breaks the title per character.
+     *
+     * With a bare `auto` second column the facts took the width at 390px, the
+     * identity column collapsed toward zero, and `overflow-wrap: anywhere` then
+     * set the task title one letter per line. Rendered at that width it was
+     * unmistakable; no assertion about markup would have noticed.
+     */
+    public function testTheTaskContextIdentityColumnCannotCollapse(): void
+    {
+        $css = $this->read('templates/layout/app.css');
+
+        self::assertMatchesRegularExpression(
+            '/\.task-context\s*\{[^}]*grid-template-columns:\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)/s',
+            $css,
+        );
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 640px\) \{[^}]*\.task-context \{ grid-template-columns: minmax\(0, 1fr\); \}/s',
+            $css,
+        );
+    }
+
     /** Core navigation must not depend on JavaScript. */
     public function testTheShellUsesNoScript(): void
     {

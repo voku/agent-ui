@@ -41,20 +41,18 @@ $nav = null;
 $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
-<p class="crumbs"><a href="/board">Board</a><span>/</span><?= TemplateRenderer::escape($card->lane) ?></p>
+<p class="crumbs"><a href="/board">Board</a></p>
 <?php $taskNavCurrent = ''; require __DIR__ . '/../layout/task-context.php'; ?>
-<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+<div class="page-head page-head--split">
     <div>
         <h1><?= TemplateRenderer::escape($card->title) ?></h1>
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
+    <?php /* Workflow, Contract and Edit card are in the task navigation above; what
+             remains here is the way out of the task and into the code. */ ?>
     <div class="btn-row" style="margin:0">
-        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">Workflow</a>
         <a class="btn" href="/map?q=<?= rawurlencode($card->title) ?>">Find code &amp; impact</a>
         <a class="btn" href="/map/graph">Architecture</a>
-        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/history">Development trace</a>
-        <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/edit">Edit card</a>
-        <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Contract</a>
     </div>
 </div>
 
@@ -78,17 +76,12 @@ require __DIR__ . '/../layout/header.php';
 <section class="panel action">
     <div class="action__head">
         <div>
-            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($workflow->state)) ?>"><?= TemplateRenderer::escape(Presentation::label($workflow->state)) ?></span>
-            <span class="small faint" style="margin-left:8px">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
+            <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
         </div>
         <a class="small" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">View workflow progress →</a>
     </div>
 
     <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
-        <div>
-            <span class="small faint">Lane:</span>
-            <strong><?= TemplateRenderer::escape($card->lane) ?></strong>
-        </div>
         <?php if ($card->status !== ''): ?>
             <div>
                 <span class="small faint">Status:</span>
@@ -123,13 +116,8 @@ require __DIR__ . '/../layout/header.php';
         </div>
     <?php endif; ?>
 
-    <h2 style="margin-top:16px">Canonical next action</h2>
-    <p class="action__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($workflow->nextActionKind)) ?></p>
-    <div class="codeblock">
-        <pre id="next-action"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre>
-        <button type="button" class="copy" hidden data-copy-target="next-action">Copy</button>
-    </div>
-    <p class="note">Rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
+    <p class="note">The canonical next action for this task is at the top of every one of its views,
+        rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
 </section>
 
 <p class="eyebrow">Context &amp; constraints</p>

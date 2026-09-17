@@ -211,15 +211,23 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 72px; }
 
-.page-head { margin-bottom: 26px; }
-.page-head h1 {
-    font-size: 21px;
-    font-weight: 650;
-    letter-spacing: -.015em;
-    margin: 0 0 6px;
-    line-height: 1.3;
+.page-head { margin-bottom: 28px; }
+.page-head--split {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
 }
-.page-head .lede { margin: 0; color: var(--ink-soft); max-width: 68ch; }
+.page-head h1 {
+    font-size: 25px;
+    font-weight: 660;
+    letter-spacing: -.021em;
+    margin: 0 0 7px;
+    line-height: 1.24;
+    text-wrap: balance;
+}
+.page-head .lede { margin: 0; color: var(--ink-soft); max-width: 68ch; font-size: 14.5px; }
 .page-head__id { font-family: var(--mono); font-size: 13px; color: var(--ink-faint); display: block; margin-bottom: 4px; }
 
 .crumbs { font-size: 12.5px; color: var(--ink-faint); margin: 0 0 10px; }
@@ -228,17 +236,95 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 .crumbs span { margin: 0 6px; opacity: .6; }
 
 .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 11px;
     font-weight: 620;
     text-transform: uppercase;
     letter-spacing: .095em;
     color: var(--ink-faint);
-    margin: 34px 0 12px;
+    margin: 38px 0 13px;
+}
+/* A hairline carries the label across the column, so sections separate without boxes. */
+.eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+    min-width: 0;
 }
 .eyebrow:first-child { margin-top: 0; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
 .stack > * + * { margin-top: 12px; }
+
+/* ---------- work grouped by its canonical next action ---------- */
+
+/*
+ * The command is the heading and the tasks are the list under it, which is the
+ * shape the data actually has: one owner sentence, many tasks waiting on it.
+ */
+.workgroup { padding: 4px 0 2px; }
+.workgroup + .workgroup { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--rule); }
+.workgroup__count {
+    margin-left: auto;
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+}
+.workgroup__hint { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.workgroup__commands { margin-top: 12px; }
+.workgroup__commands > summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--ink-soft);
+    list-style-position: outside;
+}
+.workgroup__commands > summary:hover { color: var(--ink); }
+.workgroup__command-id {
+    margin: 12px 0 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+}
+.workgroup__action {
+    margin: 4px 0 0;
+    padding: 10px 13px;
+    background: var(--bg-sunk);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+.workgroup__tasks { list-style: none; margin: 10px 0 0; padding: 0; }
+.workgroup__tasks li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 6px 0;
+    min-width: 0;
+}
+.workgroup__tasks li + li { border-top: 1px solid var(--rule); }
+.workgroup__tasks a {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+    text-decoration: none;
+    color: inherit;
+}
+.workgroup__tasks a:hover .workgroup__title { text-decoration: underline; }
+.workgroup__id { font-family: var(--mono); font-size: 12.5px; color: var(--accent); flex: none; }
+.workgroup__title { font-weight: 550; overflow-wrap: anywhere; }
 
 /* ---------- panels ---------- */
 
@@ -246,7 +332,7 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
     background: var(--surface);
     border: 1px solid var(--rule);
     border-radius: var(--radius);
-    padding: 16px 18px;
+    padding: 18px 20px;
     box-shadow: var(--shadow-sm);
 }
 .panel > :first-child { margin-top: 0; }
@@ -382,7 +468,7 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 
 /* ---------- authority vs observation ---------- */
 
-.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; align-items: start; }
 .split > * { padding: 2px 18px 2px 0; }
 .split > * + * { padding: 2px 0 2px 18px; border-left: 1px solid var(--rule); }
 
@@ -403,7 +489,8 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 
 /* ---------- modes ---------- */
 
-.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+/* Each execution mode is as tall as it needs; the shorter one is not padded out. */
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: start; }
 .mode {
     border: 1px solid var(--rule);
     border-radius: var(--radius);
@@ -419,6 +506,8 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(206px, 1fr);
+    /* Each lane is as tall as its own cards; an empty lane is not a tall empty box. */
+    align-items: start;
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 6px;
@@ -583,49 +672,70 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 
 /* The task context and its navigation read as one block, ahead of the view. */
 .task-context {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px 28px;
-    align-items: flex-start;
-    padding: 16px 18px;
+    display: grid;
+    /*
+     * The identity column keeps a floor. With a bare `auto` second column the
+     * facts took the width on a phone, the title column collapsed toward zero,
+     * and `overflow-wrap: anywhere` then broke the title one character per line.
+     */
+    grid-template-columns: minmax(min(100%, 240px), 1fr) minmax(0, auto);
+    gap: 14px 32px;
+    align-items: start;
+    padding: 18px 20px 20px;
     border: 1px solid var(--rule);
     border-bottom: 0;
     border-radius: var(--radius) var(--radius) 0 0;
     background: var(--surface);
+    box-shadow: var(--shadow-sm);
 }
-.task-context__identity { flex: 1 1 260px; min-width: 0; }
-.task-context__id { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); display: block; }
-.task-context__title { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.task-context__facts { display: flex; gap: 24px; flex-wrap: wrap; }
+.task-context__identity { min-width: 0; }
+.task-context__id {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+}
+.task-context__title {
+    margin: 3px 0 0;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -.011em;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+.task-context__facts { display: flex; gap: 28px; flex-wrap: wrap; margin: 0; }
 .task-context__fact { min-width: 0; }
-.task-context__value { margin: 4px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
-.task-context__next { flex: 1 1 100%; min-width: 0; }
-.task-context__action { margin: 4px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-/* A long owner command wraps inside the block; it never widens the page. */
-.task-context__action code { font-size: 12.5px; overflow-wrap: anywhere; min-width: 0; }
+.task-context__fact dt { margin: 0; }
+.task-context__value { margin: 5px 0 0; font-size: 13.5px; font-weight: 550; overflow-wrap: anywhere; }
+/* The next action spans the block: it is the one line a reader may want to run. */
+.task-context__next { grid-column: 1 / -1; min-width: 0; }
+.task-context__next .provenance { flex-wrap: wrap; }
+.task-context__hint { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.task-context__next .codeblock { margin-top: 8px; }
+
+.task-nav__group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.task-nav__label {
+    font-size: 10px;
+    font-weight: 620;
+    letter-spacing: .085em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.task-nav__links { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
 
 .task-nav {
     display: flex;
-    gap: 20px;
+    gap: 22px;
     flex-wrap: wrap;
     align-items: flex-start;
-    margin: 0 0 26px;
-    padding: 14px 18px 16px;
+    margin: 0 0 28px;
+    padding: 14px 20px 16px;
     border: 1px solid var(--rule);
-    border-top: 1px solid var(--rule);
     border-radius: 0 0 var(--radius) var(--radius);
     background: var(--surface-alt);
+    box-shadow: var(--shadow-sm);
 }
-.task-nav__group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.task-nav__label {
-    font-size: 10px;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: var(--ink-faint, var(--ink-soft));
-    opacity: .75;
-}
-.task-nav__links { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
-/* Not colour alone: the current view keeps a weight and shape cue too. */
 .btn--current {
     border-color: var(--accent);
     color: var(--accent);
@@ -737,6 +847,8 @@ details.raw[open] > summary { margin-bottom: 10px; }
 }
 
 @media (max-width: 640px) {
+    .task-context { grid-template-columns: minmax(0, 1fr); }
+    .task-context__facts { gap: 20px; }
     .masthead__inner, .wrap { padding-left: 16px; padding-right: 16px; }
     .masthead__meta { display: none; }
     /* Narrow screens: the group labels cost a row each, and the links still carry
