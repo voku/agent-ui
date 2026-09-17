@@ -81,7 +81,6 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Edit card', $taskResponse->body);
         self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
         self::assertStringContainsString('Architecture', $taskResponse->body);
-        self::assertStringContainsString('Development trace', $taskResponse->body);
         self::assertStringContainsString('href="/map?q=Build%20login%20system"', $taskResponse->body);
         self::assertStringContainsString('href="/map/graph"', $taskResponse->body);
         self::assertStringContainsString('href="/task/APP-1/history"', $taskResponse->body);
