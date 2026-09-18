@@ -345,6 +345,15 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 .panel--attention { border-left: 3px solid var(--attention); background: linear-gradient(to right, var(--attention-soft), var(--surface) 220px); }
 .panel--danger { border-left: 3px solid var(--blocked); background: linear-gradient(to right, var(--blocked-soft), var(--surface) 220px); }
 
+.command-card {
+    scroll-margin-top: 72px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.command-card:target {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 .muted { color: var(--ink-soft); }
 .faint { color: var(--ink-faint); }
 .small { font-size: 12.5px; }

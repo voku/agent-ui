@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\View;
 
+use voku\AgentLoop\Cli\CommandId;
+
 /**
  * Presentation-only vocabulary mapping for the UI.
  *
@@ -152,5 +154,26 @@ final class Presentation
         $owner = $reference['owner'] ?? null;
 
         return is_string($owner) ? $owner : null;
+    }
+
+    /**
+     * Resolves a command identity from an owner action string when it names a valid Loop command.
+     */
+    public static function commandReference(?string $action): ?string
+    {
+        if ($action === null || $action === '') {
+            return null;
+        }
+
+        if (preg_match('#^(?:\./)?(?:vendor/bin/|bin/)?agent-loop\s+([a-zA-Z0-9:_-]+)#', trim($action), $matches) !== 1) {
+            return null;
+        }
+
+        $id = CommandId::tryFrom($matches[1]);
+        if ($id === null) {
+            return null;
+        }
+
+        return $id->value;
     }
 }

@@ -82,4 +82,23 @@ final class PresentationTest extends TestCase
         self::assertNull(Presentation::referenceOwner([]));
         self::assertNull(Presentation::referenceState(['state' => 42]));
     }
+
+    public function testCommandReferenceResolvesKnownLoopCommands(): void
+    {
+        self::assertSame('enter', Presentation::commandReference('vendor/bin/agent-loop enter TASK-123 --format=json'));
+        self::assertSame('finish', Presentation::commandReference('./vendor/bin/agent-loop finish TASK-123 --format=json'));
+        self::assertSame('quick', Presentation::commandReference('bin/agent-loop quick TASK-123 "goal" --file=src/Foo.php'));
+        self::assertSame('board:verify', Presentation::commandReference('agent-loop board:verify'));
+        self::assertSame('init', Presentation::commandReference('vendor/bin/agent-loop init host-status --format=json'));
+        self::assertSame('edit', Presentation::commandReference('agent-loop edit CLASS::METHOD [options] -- INSTRUCTION'));
+    }
+
+    public function testCommandReferenceReturnsNullForNonMatchingActions(): void
+    {
+        self::assertNull(Presentation::commandReference(null));
+        self::assertNull(Presentation::commandReference(''));
+        self::assertNull(Presentation::commandReference('A human decision is required before this can run.'));
+        self::assertNull(Presentation::commandReference('vendor/bin/agent-loop unknown-subcommand'));
+        self::assertNull(Presentation::commandReference('composer test'));
+    }
 }

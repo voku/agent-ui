@@ -58,6 +58,12 @@ $taskNavId = $taskContext->taskId;
             <pre id="task-context-next"><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
             <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button>
         </div>
+        <?php $cmdRef = Presentation::commandReference($taskContext->nextAction); ?>
+        <?php if ($cmdRef !== null): ?>
+            <p class="small note" style="margin-top:6px">
+                <a href="/commands#<?= TemplateRenderer::escape($cmdRef) ?>">View command reference: <code><?= TemplateRenderer::escape($cmdRef) ?></code> →</a>
+            </p>
+        <?php endif; ?>
     </div>
 </section>
 

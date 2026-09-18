@@ -123,6 +123,10 @@ foreach ($work as $item) {
                     <?php foreach ($items as $item): ?>
                         <p class="workgroup__command-id"><?= TemplateRenderer::escape($item->taskId) ?></p>
                         <pre class="workgroup__action"><?= TemplateRenderer::escape($item->nextAction) ?></pre>
+                        <?php $cmdRef = Presentation::commandReference($item->nextAction); ?>
+                        <?php if ($cmdRef !== null): ?>
+                            <p class="small note" style="margin:2px 0 8px"><a href="/commands#<?= TemplateRenderer::escape($cmdRef) ?>">View command reference: <code><?= TemplateRenderer::escape($cmdRef) ?></code> →</a></p>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </details>
             </div>

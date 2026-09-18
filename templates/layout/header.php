@@ -43,6 +43,7 @@ $projectLabel ??= null;
             ],
             'Tools' => [
                 ['/prompts', 'Prompts', 'prompts'],
+                ['/commands', 'Commands', 'commands'],
                 ['/setup', 'Setup', 'setup'],
             ],
         ];
