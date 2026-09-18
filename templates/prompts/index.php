@@ -191,6 +191,10 @@ require __DIR__ . '/../layout/header.php';
     <?php if ($workflow->nextAction !== null): ?>
         <h2>Canonical next action</h2>
         <div class="codeblock"><pre id="workbench-next"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><button type="button" class="copy" hidden data-copy-target="workbench-next">Copy</button></div>
+        <?php $cmdRef = Presentation::commandReference($workflow->nextAction); ?>
+        <?php if ($cmdRef !== null): ?>
+            <p class="small note" style="margin-top:6px"><a href="/commands#<?= TemplateRenderer::escape($cmdRef) ?>">View command reference: <code><?= TemplateRenderer::escape($cmdRef) ?></code> →</a></p>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
 <?php endif; ?>

@@ -7,6 +7,7 @@ namespace voku\AgentUi\Application;
 use InvalidArgumentException;
 use Throwable;
 use voku\AgentUi\Feature\Board\BoardAction;
+use voku\AgentUi\Feature\Commands\CommandsAction;
 use voku\AgentUi\Feature\Context\ContextAction;
 use voku\AgentUi\Feature\Evidence\EvidenceAction;
 use voku\AgentUi\Feature\History\HistoryAction;
@@ -30,6 +31,7 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
+use voku\AgentUi\Integration\AgentLoop\CommandCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
@@ -52,6 +54,7 @@ final readonly class Application
     private Router $router;
     private HomeAction $home;
     private SetupAction $setup;
+    private CommandsAction $commands;
     private BoardAction $board;
     private KnowledgeAction $knowledge;
     private MapAction $map;
@@ -82,6 +85,7 @@ final readonly class Application
         $transparency = new TaskTransparencyGateway($projectRoot);
         $learning = new LearningCatalogGateway($projectRoot);
         $setup = new RepositorySetupGateway($projectRoot);
+        $commandCatalog = new CommandCatalogGateway();
         $mutation = new CardMutationGateway($projectRoot);
         $mapArtifacts = new MapArtifactLocator($projectRoot);
         $map = new MapProjectionGateway($projectRoot, $mapArtifacts);
@@ -96,6 +100,7 @@ final readonly class Application
         $this->router = new Router();
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $map, $runner, $templates);
         $this->setup = new SetupAction($setup, $csrf, $templates);
+        $this->commands = new CommandsAction($commandCatalog, $templates);
         $this->board = new BoardAction($board, $mutation, $csrf, $templates);
         $this->knowledge = new KnowledgeAction($learning, $taskContext, $templates);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
@@ -141,6 +146,7 @@ final readonly class Application
                 'home' => ($this->home)(),
                 'setup' => $this->setup->overview(),
                 'prompts' => $this->prompts->newTask($request),
+                'commands' => ($this->commands)($request),
                 'board' => ($this->board)($request),
                 'board_new' => $this->board->newCard($request),
                 'board_create' => $this->board->createCard($request),

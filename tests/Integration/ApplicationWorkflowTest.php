@@ -237,4 +237,20 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringContainsString('Architecture Graph', $response->body);
         self::assertStringContainsString('Prompt Workbench', $response->body);
     }
+
+    public function testCommandsReferenceRouteDispatchesAndRendersCatalog(): void
+    {
+        $app = new Application($this->root, $this->templates);
+
+        $response = $app->handle(new Request('GET', '/commands'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Commands Reference', $response->body);
+        self::assertStringContainsString('enter', $response->body);
+        self::assertStringContainsString('finish', $response->body);
+        self::assertStringContainsString('quick', $response->body);
+
+        $filtered = $app->handle(new Request('GET', '/commands', query: ['group' => 'workflow']));
+        self::assertSame(200, $filtered->status);
+        self::assertStringContainsString('enter', $filtered->body);
+    }
 }

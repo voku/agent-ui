@@ -4,6 +4,19 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Typed `CommandCatalogGateway` in `src/Integration/AgentLoop/` consuming the authoritative `CommandCatalog` from `voku/agent-loop` 0.20.18 (#63).
+- `/commands` route and server-rendered reference view displaying all 21 top-level loop commands grouped by `CommandGroup` (Workflow & Lifecycle, Evidence & Learning, Inspection & Navigation, Setup & Operational) with owner badges, usage codeblocks with copy buttons, quick-jump anchor pills, and server-rendered group/owner/search filtering (#63).
+- Added `Commands` navigation link under `Tools` in the workspace shell header (#63).
+- Exact `next_action` → command-reference link resolving canonical loop command identities from action strings across the persistent task context header, developer cockpit workgroups, and prompt workbench (#63).
+
+### Changed
+
+- Bumped `voku/agent-loop` constraint to `^0.20.18` to require the typed Command Catalog release (#63).
+
 ## [0.17.0] - 2026-09-17
 
 ### Added

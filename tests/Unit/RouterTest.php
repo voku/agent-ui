@@ -19,6 +19,7 @@ final class RouterTest extends TestCase
         yield 'home' => [new Request('GET', '/'), ['route' => 'home']];
         yield 'setup' => [new Request('GET', '/setup'), ['route' => 'setup']];
         yield 'prompts' => [new Request('GET', '/prompts'), ['route' => 'prompts']];
+        yield 'commands' => [new Request('GET', '/commands'), ['route' => 'commands']];
         yield 'prompts post' => [new Request('POST', '/prompts'), ['route' => 'prompts']];
         yield 'board' => [new Request('GET', '/board'), ['route' => 'board']];
         yield 'board new' => [new Request('GET', '/board/new'), ['route' => 'board_new']];
