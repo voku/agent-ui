@@ -92,7 +92,38 @@ final class KnowledgeAnalyticsTest extends TestCase
         ], JSON_THROW_ON_ERROR));
 
         // Active note
-        file_put_contents($learning . '/notes/active/note.1.json', json_encode(['id' => 'note.1'], JSON_THROW_ON_ERROR));
+        file_put_contents($learning . '/notes/active/learning-note.2026-07-01.001.json', json_encode([
+            'schema_version' => '1.0',
+            'id' => 'learning-note.2026-07-01.001',
+            'pattern_key' => 'workflow.analytics_fixture',
+            'status' => 'active',
+            'scope' => ['src/'],
+            'tags' => ['analytics'],
+            'source_findings' => ['finding.2026-06-01.001'],
+            'source_proposals' => [],
+            'validation_case' => [
+                'given' => 'A learning corpus contains an active note.',
+                'when' => 'Knowledge analytics reads the corpus.',
+                'then' => 'The active note is counted without bypassing Learning validation.',
+            ],
+            'repository_evidence' => [],
+            'content' => [
+                'title' => 'Analytics fixture note',
+                'context' => 'Knowledge analytics needs one valid active LearningNote.',
+                'guidance' => 'Read active notes through the Learning owner boundary.',
+                'why_it_works' => 'The fixture follows the persisted LearningNote contract.',
+                'when_to_apply' => 'When rendering knowledge analytics with active notes.',
+                'when_not_to_apply' => 'When Learning is absent.',
+                'verification' => 'Run KnowledgeAnalyticsTest.',
+                'symptoms' => null,
+                'failed_approaches' => [],
+                'root_cause' => null,
+                'examples' => [],
+            ],
+            'created_at' => '2026-07-01T10:00:00+00:00',
+            'updated_at' => '2026-07-01T10:00:00+00:00',
+            'retired_reason' => null,
+        ], JSON_THROW_ON_ERROR));
 
         // Active constraint linked to proposal.2026-06-05.001
         file_put_contents($learning . '/constraints/active/constraint.rule1.json', json_encode([
