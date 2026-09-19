@@ -4,6 +4,12 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## Unreleased
+
+### Changed
+
+- Require `voku/agent-map ^0.16.0`, aligning the UI with the current released first-party Map owner baseline.
+
 ## [0.18.0] - 2026-09-18
 
 ### Added
