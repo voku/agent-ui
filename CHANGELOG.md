@@ -8,7 +8,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Changed
 
-- Require `voku/agent-map ^0.16.0`, aligning the UI with the current released first-party Map owner baseline.
+- Require `voku/agent-map ^0.16.0`, aligning the UI with the coordinated released Map 0.16 owner line.
+- Require `voku/agent-loop ^0.20.26` and `voku/agent-recall-compiler ^0.20.0` so the released first-party dependency graph resolves Map 0.16 without compatibility unions or VCS fallbacks.
 
 ## [0.18.0] - 2026-09-18
 
