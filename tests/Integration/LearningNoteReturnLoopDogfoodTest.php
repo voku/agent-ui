@@ -15,7 +15,6 @@ use voku\AgentLearning\LearningNoteDraft;
 use voku\AgentLearning\LearningNoteRepositoryEvidence;
 use voku\AgentLearning\LearningNoteService;
 use voku\AgentLearning\ValidationCase;
-use voku\AgentLoop\Dispatcher;
 use voku\AgentLoop\ProjectLayout;
 use voku\AgentLoop\Run\GovernedRunStore;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
@@ -90,16 +89,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         );
         $contracts->approve($taskA, 'agent-ui-maintainer');
 
-        $dispatcherA = new Dispatcher($this->root);
-        $recallRunnerA = static function (array $recallRest) use ($dispatcherA): int {
-            /** @var list<string> $recallRest */
-            return $dispatcherA->run([
-                'agent-loop',
-                'recall',
-                ...$recallRest,
-            ]);
-        };
-        $appA = new HostFrontDoorApplication($this->root, $recallRunnerA);
+        $appA = new HostFrontDoorApplication($this->root);
 
         $enterA = $this->runApp($appA, 'enter', [$taskA, '--format=json']);
         self::assertSame(0, $enterA['exit'], json_encode($enterA['payload'], JSON_THROW_ON_ERROR));
@@ -173,7 +163,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         self::assertContains($sessionA->id, $removedSessions);
         self::assertDirectoryDoesNotExist($sessionA->path);
 
-        unset($dispatcherA, $recallRunnerA, $appA, $enterA, $finishPrep, $finishClose, $reviewReport, $runA, $sessionA);
+        unset($appA, $enterA, $finishPrep, $finishClose, $reviewReport, $runA, $sessionA);
 
         $sourceSha = (string) hash_file('sha256', $this->root . '/composer.json');
         $publishedNote = $learningService->publish(
@@ -214,16 +204,7 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         );
         $contractsB->approve($taskB, 'agent-ui-maintainer');
 
-        $dispatcherB = new Dispatcher($this->root);
-        $recallRunnerB = static function (array $recallRest) use ($dispatcherB): int {
-            /** @var list<string> $recallRest */
-            return $dispatcherB->run([
-                'agent-loop',
-                'recall',
-                ...$recallRest,
-            ]);
-        };
-        $appB = new HostFrontDoorApplication($this->root, $recallRunnerB);
+        $appB = new HostFrontDoorApplication($this->root);
 
         $enterB = $this->runApp($appB, 'enter', [$taskB, '--format=json']);
         self::assertSame(0, $enterB['exit'], json_encode($enterB['payload'], JSON_THROW_ON_ERROR));
