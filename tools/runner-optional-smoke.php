@@ -63,24 +63,7 @@ try {
         '--by', 'agent-ui-matrix',
     ]));
 
-    $enter = new HostFrontDoorCommand(
-        $root,
-        static function (array $argv) use ($root, $taskId): int {
-            $directory = $root . '/.agent-loop/recall/' . $taskId;
-            mkdir($directory, 0o775, true);
-            file_put_contents($directory . '/meta.json', json_encode([
-                'schema_version' => '1.0',
-                'task_id' => $taskId,
-                'compilation_id' => 'runner-optional-matrix',
-                'selected_guidance' => [],
-                'selected_constraints' => [],
-                'output_hashes' => [],
-            ], JSON_THROW_ON_ERROR));
-            file_put_contents($directory . '/system.md', "# Recall\nStay governed.\n");
-
-            return 0;
-        },
-    );
+    $enter = new HostFrontDoorCommand($root);
     silent(static fn (): int => $enter->run('enter', [$taskId, '--format=json']));
 
     $application = new Application($root, dirname(__DIR__) . '/templates');
