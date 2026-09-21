@@ -4,6 +4,12 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.18.2] - 2026-09-21
+
+### Changed
+
+- Require `voku/agent-loop ^0.20.30`, `voku/agent-map ^0.18.0`, and `voku/agent-recall-compiler ^0.22.0`, keeping the UI's first-party dependency graph compatible with the current released Loop line.
+
 ## [0.18.1] - 2026-09-20
 
 ### Changed
