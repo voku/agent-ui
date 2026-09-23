@@ -7,6 +7,7 @@ namespace voku\AgentUi\Integration\AgentMap;
 use Throwable;
 use voku\AgentMap\Search\HybridSearch;
 use voku\AgentMap\Search\SearchIndexStore;
+use voku\AgentMap\Search\SearchReadinessInspector;
 
 /**
  * Code search for the Map surface, answered entirely by agent-map.
@@ -46,67 +47,73 @@ final readonly class CodeSearchGateway
     public function readiness(): SearchReadinessSnapshot
     {
         $databasePath = $this->locator->paths->searchDatabase();
+        $databaseExists = is_file($databasePath);
 
         if (!SearchIndexStore::supportsFts5()) {
             return new SearchReadinessSnapshot(
                 status: 'unsupported',
                 fts5Supported: false,
                 databasePath: $databasePath,
-                databaseExists: is_file($databasePath),
+                databaseExists: $databaseExists,
                 chunkCount: 0,
                 vectorCount: 0,
                 failure: 'This PHP build has no SQLite FTS5, so agent-map cannot answer lexical code search.',
+                reason: 'fts5_unavailable',
             );
         }
 
-        if (!is_file($databasePath)) {
+        $map = $this->locator->readIndex();
+        if ($map === null) {
             return new SearchReadinessSnapshot(
-                status: 'missing',
+                status: 'unavailable',
                 fts5Supported: true,
                 databasePath: $databasePath,
-                databaseExists: false,
+                databaseExists: $databaseExists,
                 chunkCount: 0,
                 vectorCount: 0,
+                failure: 'No readable agent-map index, so Search currentness cannot be established.',
+                reason: 'map_missing',
             );
         }
 
-        try {
-            $store = new SearchIndexStore($databasePath);
-            $index = $this->locator->loadIndex();
-            $mapSnapshot = $index?->fingerprint?->sourceDigest;
-            $indexSnapshot = $store->meta('map_snapshot');
-            $chunks = $store->chunkCount();
-            $failures = $store->integrityFailures();
+        // Currentness is agent-map's decision (snapshot, chunk policy, fingerprintless
+        // maps, empty indexes); the UI adds display facts only.
+        $owner = (new SearchReadinessInspector())->inspect($map['index'], $map['path'], $databasePath);
 
-            $status = match (true) {
-                $chunks === 0 => 'missing',
-                $failures !== [] => 'invalid',
-                $mapSnapshot !== null && $indexSnapshot !== null && $indexSnapshot !== $mapSnapshot => 'stale',
-                default => 'ready',
-            };
-
-            return new SearchReadinessSnapshot(
-                status: $status,
-                fts5Supported: true,
-                databasePath: $databasePath,
-                databaseExists: true,
-                chunkCount: $chunks,
-                vectorCount: $store->vectorCount(),
-                indexSnapshot: $indexSnapshot,
-                mapSnapshot: $mapSnapshot,
-                integrityFailures: $failures,
-            );
-        } catch (Throwable $exception) {
-            return new SearchReadinessSnapshot(
-                status: 'invalid',
-                fts5Supported: true,
-                databasePath: $databasePath,
-                databaseExists: true,
-                chunkCount: 0,
-                vectorCount: 0,
-                failure: $exception->getMessage(),
-            );
+        $chunks = 0;
+        $vectors = 0;
+        $failures = [];
+        $displayFailure = null;
+        if ($databaseExists && $owner->state !== 'invalid') {
+            try {
+                $store = new SearchIndexStore($databasePath);
+                $chunks = $store->chunkCount();
+                $vectors = $store->vectorCount();
+                $failures = $store->integrityFailures();
+            } catch (Throwable $exception) {
+                $displayFailure = $exception->getMessage();
+            }
         }
+
+        $status = $owner->state;
+        if ($status === 'ready' && ($failures !== [] || $displayFailure !== null)) {
+            $status = 'invalid';
+        }
+
+        return new SearchReadinessSnapshot(
+            status: $status,
+            fts5Supported: true,
+            databasePath: $databasePath,
+            databaseExists: $databaseExists,
+            chunkCount: $chunks,
+            vectorCount: $vectors,
+            indexSnapshot: $owner->searchSnapshot,
+            mapSnapshot: $owner->mapSnapshot,
+            integrityFailures: $failures,
+            failure: $status === 'ready' ? null : ($displayFailure ?? $owner->message),
+            reason: $owner->reason,
+            recoveryCommand: $owner->recoveryCommand,
+        );
     }
 
     /**

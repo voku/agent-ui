@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use voku\AgentMap\Search\ChunkPolicy;
 use voku\AgentMap\Search\CodeChunk;
 use voku\AgentMap\Search\Embedding\CorpusEmbeddingProvider;
 use voku\AgentMap\Search\SearchIndexStore;
@@ -203,7 +204,61 @@ final class CodeSearchGatewayTest extends TestCase
         self::assertNotSame([], $result->hits);
     }
 
-    private function writeIndexedFile(?string $sourceDigest = null): string
+    public function testMissingSearchCarriesTheOwnerRecoveryCommand(): void
+    {
+        $this->writeIndexedFile();
+
+        $readiness = (new CodeSearchGateway($this->fixture->root))->readiness();
+
+        self::assertSame('missing', $readiness->status);
+        self::assertStringStartsWith('agent-map search-index build ', (string) $readiness->recoveryCommand);
+        self::assertStringContainsString('--database=' . $readiness->databasePath, (string) $readiness->recoveryCommand);
+    }
+
+    public function testAnOutdatedChunkPolicyIsStaleEvenWhenSnapshotsAgree(): void
+    {
+        if (!SearchIndexStore::supportsFts5()) {
+            self::markTestSkipped('This PHP build has no SQLite FTS5.');
+        }
+
+        $sha = $this->writeIndexedFile();
+        $this->writeSearchIndex($sha);
+        (new SearchIndexStore($this->fixture->root . '/.agent-map/search.sqlite'))->setMeta('chunk_policy_version', '0');
+
+        $readiness = (new CodeSearchGateway($this->fixture->root))->readiness();
+
+        self::assertSame('stale', $readiness->status);
+        self::assertSame('chunk_policy_stale', $readiness->reason);
+        self::assertStringStartsWith('agent-map search-index refresh ', (string) $readiness->recoveryCommand);
+    }
+
+    public function testAFingerprintlessMapCannotProveSearchIsCurrent(): void
+    {
+        if (!SearchIndexStore::supportsFts5()) {
+            self::markTestSkipped('This PHP build has no SQLite FTS5.');
+        }
+
+        // The UI used to report this as ready: chunks existed and there was no
+        // map snapshot to disagree with. Without a fingerprint agent-map cannot
+        // prove currentness, so the UI must not claim it either.
+        $sha = $this->fixture->writeFile('src/Greeter.php', "<?php\nfinal class Greeter {}\n");
+        $this->fixture->writeMap([['path' => 'src/Greeter.php', 'sha256' => $sha, 'namespace' => '', 'symbols' => []]]);
+        $this->writeSearchIndex($sha);
+
+        $readiness = (new CodeSearchGateway($this->fixture->root))->readiness();
+
+        self::assertSame('unavailable', $readiness->status);
+        self::assertFalse($readiness->isUsable());
+        self::assertSame('map_snapshot_unverifiable', $readiness->reason);
+    }
+
+    private const string CURRENT_MAP_DIGEST = 'sha256:map-current';
+
+    /**
+     * A realistic current map carries a fingerprint: without one agent-map cannot
+     * prove Search currentness, and the UI must not claim it either.
+     */
+    private function writeIndexedFile(string $sourceDigest = self::CURRENT_MAP_DIGEST): string
     {
         $source = <<<'PHP'
             <?php
@@ -242,7 +297,7 @@ final class CodeSearchGatewayTest extends TestCase
         return $sha;
     }
 
-    private function writeSearchIndex(string $sourceSha, ?string $mapSnapshot = null): void
+    private function writeSearchIndex(string $sourceSha, string $mapSnapshot = self::CURRENT_MAP_DIGEST): void
     {
         $store = new SearchIndexStore($this->fixture->root . '/.agent-map/search.sqlite');
         $store->replaceChunks([
@@ -258,8 +313,7 @@ final class CodeSearchGatewayTest extends TestCase
                 content: "public function greet(string \$name): string\n{\n    // Greet the caller cordially.\n    return 'hello ' . \$name;\n}\n",
             ),
         ]);
-        if ($mapSnapshot !== null) {
-            $store->setMeta('map_snapshot', $mapSnapshot);
-        }
+        $store->setMeta('map_snapshot', $mapSnapshot);
+        $store->setMeta('chunk_policy_version', (string) ChunkPolicy::VERSION);
     }
 }

@@ -114,8 +114,10 @@ require __DIR__ . '/../layout/header.php';
             <p class="note" style="margin-top:12px">
                 agent-map's derived chunk index did not answer, so these are symbol matches from the canonical map query, listed in index order.
                 There is no channel ranking, no structural-term analysis and no search-index snapshot to report, because none was produced.
-                Build the chunk index to search inside method bodies and comments, and to get agent-map's own ranked provenance:
-                <code>vendor/bin/agent-map search-index build --root=.</code>
+                <?php if ($searchReadiness->recoveryCommand !== null): ?>
+                    Build or refresh the chunk index to search inside method bodies and comments, and to get agent-map's own ranked provenance:
+                    <code>vendor/bin/<?= TemplateRenderer::escape($searchReadiness->recoveryCommand) ?></code>
+                <?php endif; ?>
             </p>
         <?php elseif ($result->degradedReason === 'semantic_channel_unavailable'): ?>
             <p class="note" style="margin-top:12px">
@@ -255,21 +257,23 @@ require __DIR__ . '/../layout/header.php';
             </dd>
         <?php endif; ?>
     </dl>
-    <?php if ($searchReadiness->status === 'missing'): ?>
-        <p class="note" style="margin-top:12px">Build the chunk index to search inside method bodies, comments and error strings:
-            <code>vendor/bin/agent-map search-index build --root=.</code>. Until then, search falls back to the structural symbol query.
-        </p>
-    <?php elseif ($searchReadiness->status === 'stale'): ?>
-        <p class="note" style="margin-top:12px">The chunk index is behind the map. Refresh it with
-            <code>vendor/bin/agent-map search-index refresh --root=.</code>.
+    <?php if (in_array($searchReadiness->status, ['missing', 'stale'], true) && $searchReadiness->recoveryCommand !== null): ?>
+        <p class="note" style="margin-top:12px">
+            <?= $searchReadiness->status === 'missing'
+                ? 'Build the chunk index to search inside method bodies, comments and error strings. Until then, search falls back to the structural symbol query.'
+                : 'The chunk index is behind the map.' ?>
+            agent-map's recovery: <code>vendor/bin/<?= TemplateRenderer::escape($searchReadiness->recoveryCommand) ?></code>
         </p>
     <?php elseif ($searchReadiness->integrityFailures !== []): ?>
         <p class="note" style="margin-top:12px;color:var(--blocked)">
-            agent-map reports <?= count($searchReadiness->integrityFailures) ?> integrity failure(s). Rebuild with
-            <code>vendor/bin/agent-map search-index build --root=.</code>.
+            agent-map reports <?= count($searchReadiness->integrityFailures) ?> integrity failure(s).
+            <?php if ($searchReadiness->recoveryCommand !== null): ?>agent-map's recovery: <code>vendor/bin/<?= TemplateRenderer::escape($searchReadiness->recoveryCommand) ?></code><?php endif; ?>
         </p>
     <?php elseif ($searchReadiness->failure !== null): ?>
-        <p class="note" style="margin-top:12px;color:var(--blocked)"><?= TemplateRenderer::escape($searchReadiness->failure) ?></p>
+        <p class="note" style="margin-top:12px;color:var(--blocked)">
+            <?= TemplateRenderer::escape($searchReadiness->failure) ?>
+            <?php if ($searchReadiness->recoveryCommand !== null): ?>agent-map's recovery: <code>vendor/bin/<?= TemplateRenderer::escape($searchReadiness->recoveryCommand) ?></code><?php endif; ?>
+        </p>
     <?php endif; ?>
 </section>
 
