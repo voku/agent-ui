@@ -4,6 +4,13 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.18.4] - 2026-09-23
+
+### Changed
+
+- Align the released first-party dependency graph with `voku/agent-loop ^0.20.40`, `voku/agent-learning ^0.18.24`, and `voku/agent-recall-compiler ^0.25.0`. This removes the direct Recall 0.24 constraint that prevented Composer from resolving Loop 0.20.40 and keeps the UI on typed owner projections without reconstructing sparse Learning or Recall semantics (#74).
+- Prove the coordinated graph on PHP 8.3, 8.4, and 8.5, including the lowest-supported dependency graph and both Runner-installed and Runner-absent integration matrices (#74).
+
 ## [0.18.3] - 2026-09-23
 
 ### Changed
