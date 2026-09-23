@@ -38,7 +38,7 @@
     "voku/agent-learning": "^0.18.15",
     "voku/agent-loop": "^0.20.32",
     "voku/agent-map": "^0.18.0",
-    "voku/agent-recall-compiler": "^0.23.0"
+    "voku/agent-recall-compiler": "^0.24.0"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
