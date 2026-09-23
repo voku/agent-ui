@@ -132,6 +132,6 @@ final class CodeSearchPageTest extends TestCase
                     ]),
                 ],
             ],
-        ]);
+        ], sourceDigest: 'sha256:map-current'); // real maps carry a fingerprint; without one Search currentness is unprovable
     }
 }

@@ -59,7 +59,7 @@ final class CodeSearchSemanticProviderTest extends TestCase
                     ]),
                 ],
             ],
-        ]);
+        ], sourceDigest: 'sha256:map-current'); // real maps carry a fingerprint; without one Search currentness is unprovable
 
         $index = $this->fixture->root . '/.agent-map/php-symbols.json';
         $database = $this->fixture->root . '/.agent-map/search.sqlite';

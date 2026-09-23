@@ -11,6 +11,9 @@ namespace voku\AgentUi\Integration\AgentMap;
  * because the PHP build has no FTS5. Each of those is a different sentence to
  * the developer and a different command to run, so they are kept apart instead
  * of collapsed into one "search unavailable".
+ *
+ * Status, reason and recovery come from agent-map's SearchReadinessInspector;
+ * the UI only adds display facts (chunk and vector counts, integrity failures).
  */
 final readonly class SearchReadinessSnapshot
 {
@@ -26,6 +29,8 @@ final readonly class SearchReadinessSnapshot
         public ?string $mapSnapshot = null,
         public array $integrityFailures = [],
         public ?string $failure = null,
+        public ?string $reason = null,
+        public ?string $recoveryCommand = null,
     ) {
     }
 
