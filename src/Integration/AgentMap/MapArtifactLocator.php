@@ -19,7 +19,7 @@ use voku\AgentMap\MapArtifactPaths;
  * agent-loop's: `MapArtifactPaths` owns every filename below the root, and
  * `ProjectLayout` owns the governed root. The only decision made here is the
  * one the embedder is allowed to make - preferring a repository-local
- * `.agent-map/` directory when the developer built one there.
+ * `.agent-map/` index when the developer built one there.
  */
 final readonly class MapArtifactLocator
 {
@@ -42,7 +42,11 @@ final readonly class MapArtifactLocator
         $this->projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
         $layout = new ProjectLayout($this->projectRoot);
         $this->candidateRoots = array_values(array_unique(['.agent-map', $layout->mapRoot()]));
-        $this->mapRoot = is_dir($this->projectRoot . '/.agent-map')
+        // Prefer the repository-local root only when it holds an index: a
+        // `.agent-map/` directory with scratch files must not hide the
+        // governed index behind a "no map" page.
+        $local = MapArtifactPaths::forProject($this->projectRoot, '.agent-map');
+        $this->mapRoot = is_file($local->indexJson()) || is_file($local->indexToon())
             ? '.agent-map'
             : $layout->mapRoot();
         $this->paths = MapArtifactPaths::forProject($this->projectRoot, $this->mapRoot);
