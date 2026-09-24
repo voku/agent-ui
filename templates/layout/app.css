@@ -307,6 +307,13 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
 .stack > * + * { margin-top: 12px; }
 
+/*
+ * A fact with no place on the timeline is still one entry among others, so it
+ * gets the same separation the timeline rows have. Without it the first one ran
+ * straight on from the paragraph explaining the section and read as part of it.
+ */
+.untimed > * { border-top: 1px solid var(--rule); padding-top: 12px; }
+
 /* ---------- work grouped by its canonical next action ---------- */
 
 /*

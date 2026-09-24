@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentKanban;
 
+use DateTimeInterface;
 use InvalidArgumentException;
 use voku\AgentKanban\Cli\BoardContext;
 use voku\AgentKanban\Cli\BoardContextFactory;
@@ -124,6 +125,7 @@ final readonly class BoardProjectionGateway
             claimActor: $card->claim?->actor,
             allowedTransitions: $allowedTransitions,
             boardId: $boardId,
+            createdAt: $card->createdAt?->format(DateTimeInterface::ATOM),
         );
     }
 }

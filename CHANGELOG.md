@@ -4,6 +4,34 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Compose the task history from every owner that holds part of the story, not only agent-loop: the board card's creation (agent-kanban), each Contract revision's proposal and approval including superseded ones (agent-loop), and Findings and Proposals produced by the work (agent-learning). Each entry names the owner that published its timestamp (#59 step 3).
+- Show facts whose owner publishes no timestamp in a separate **Known, but not placed in time** list, naming the owner and what is missing, rather than omitting them or giving them a position.
+- Place each proposal's acknowledgement, application and retirement on the task history, at the moment and with the actor agent-learning records (requires `voku/agent-learning` `^0.18.26`, which added them to `ProposalProjection` for this, voku/agent-learning#140). Durable guidance is its source proposal promoted, so the moment it became durable is that proposal's `proposal_applied` event — placed once, not again as a guidance event. Guidance approved but not yet applied contributes nothing, since that transition has not happened; only guidance recorded as applied with no applied time is still listed as untimed.
+
+### Fixed
+
+- Render the current Contract revision's approval once. The audit report and the Contract store both publish it, and reading both put it on the page twice.
+- Never order a fact by the spelling of a string that names no moment. The sort fell back to `strcmp()` for anything it could not parse, which is not a weaker ordering but a different one: mixed with real timestamps it stopped being transitive, so the rendered order depended on which owner was read first. Such a value now goes to **Known, but not placed in time** with what its owner said, and the guard lives on `TaskActivityEvent` so a placed event cannot carry an unplaceable time. The check also rejects `now`/`tomorrow`, which `DateTimeImmutable` resolves against the clock; rollovers like `2026-02-30`, which it silently turns into March 2nd; and a relative suffix after a real moment such as `2026-09-24T08:00:00+00:00 +1 week`, which opens with a date an owner did write and parses, without a warning, to October 1st.
+- Order facts that share an instant by the facts themselves rather than by the order the composer happens to read owners in, so reordering the read calls can no longer reorder a rendered page with nothing in the diff to say so.
+- List a board card that has no parsable Created line under **Known, but not placed in time** instead of dropping its row. A card with no Created line is still a card, and omitting it read as "this task was never on a board".
+- Read the audit snapshot once per request. The page head and the timeline each asked the gateway for it, which meant two sets of four owner store reads (~21 ms each here) and two chances to disagree if a run wrote in between. `TaskActivityComposer::forTask()` now takes the snapshot the action already read.
+- Restore the separator between entries in the untimed list, which was written as `var(--line)` where the palette defines `--rule`. An unresolvable custom property makes the browser drop the whole declaration silently, so the rule was simply absent; `WorkspaceShellTest` now asserts every property the stylesheet reads is one it defines.
+
+### Changed
+
+- Name the page **Task history** rather than **Audit history**. It has not been only the audit report's timeline since it started composing agent-kanban, agent-loop and agent-learning facts.
+
+### Validation
+
+- `composer ci` passed with 280 tests, 1234 assertions, clean template linting, and 0 PHPStan errors, against the released `voku/agent-learning` 0.18.26.
+- The proposal fixtures are written in agent-learning's own record shape and pass its validators: owner-format ids, a scope no broader than the source finding, and — for applied guidance — a real target file whose sha256 matches, rather than a record dated before the proof policy to avoid the check. Eight mutations of the new placement logic are each killed.
+- Rendered against this repository's own `.agent-loop` state: `/task/UI-1/history` shows one `task_created` (agent-kanban), one `contract_proposed` and one `contract_approved` (agent-loop), `validation_passed`, `review_acknowledged` and `learning_decided`, newest first and with no repeated entry.
+- Rendered `/task/UI-21/history` in Chromium against a copy of this repository's state with the card's Created line removed, to see the untimed entry and its separator on the page rather than in a fixture.
+
 ## [0.18.7] - 2026-09-24
 
 ### Changed

@@ -7,6 +7,7 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\History\TaskActivity;
 use voku\AgentUi\Feature\Task\TaskContext;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
@@ -220,6 +221,7 @@ final class TaskWorkspaceContextTest extends TestCase
     {
         return (new TemplateRenderer($this->templates))->render('history/index', [
             'audit' => (new AuditTrailGateway($this->root))->task($context->taskId),
+            'activity' => new TaskActivity([], []),
             'task_context' => $context,
         ]);
     }

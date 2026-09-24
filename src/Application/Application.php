@@ -11,6 +11,7 @@ use voku\AgentUi\Feature\Commands\CommandsAction;
 use voku\AgentUi\Feature\Context\ContextAction;
 use voku\AgentUi\Feature\Evidence\EvidenceAction;
 use voku\AgentUi\Feature\History\HistoryAction;
+use voku\AgentUi\Feature\History\TaskActivityComposer;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
 use voku\AgentUi\Feature\Knowledge\DreamAction;
@@ -135,7 +136,12 @@ final readonly class Application
         $this->context = new ContextAction($board, $context, $transparency, $taskContext, $templates);
         $this->work = new WorkAction($board, $transparency, $taskContext, $templates);
         $this->evidence = new EvidenceAction($workflow, $audit, $taskContext, $templates);
-        $this->history = new HistoryAction($audit, $taskContext, $templates);
+        $this->history = new HistoryAction(
+            $audit,
+            new TaskActivityComposer($decisions, $learning, $board),
+            $taskContext,
+            $templates,
+        );
         $this->humanDecision = new HumanDecisionAction($decisions, $csrf);
         $this->runner = new RunnerAction($runner, $csrf);
     }
