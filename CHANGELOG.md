@@ -4,6 +4,32 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.18.5] - 2026-09-24
+
+### Added
+
+- Knowledge → Dream (`/knowledge/dream`) runs agent-loop's `WorkflowDreamService` preview and shows agent-learning's reviewable decisions, warnings and metrics as the owner reports them; viewing writes nothing. A CSRF-protected, explicitly confirmed POST re-runs Dream through the owner and writes candidate Proposals only, which still need review before becoming guidance.
+- Require `voku/agent-loop ^0.20.44` and `voku/agent-learning ^0.18.25` for the typed Dream API.
+
+### Changed
+
+- Rebrand the control plane with the agent-loop identity from `voku/agent_loop_demo`: the gradient infinity mark as logo and favicon, a deep-navy masthead banner with a brand-gradient hairline, the violet → blue → cyan palette (owner authority now reads in brand blue), Inter / JetBrains Mono type stacks, and a gradient primary action. Everything stays inlined — no asset route, no build step, no web-font fetch — and the semantic state colours (attention, blocked) are unchanged.
+
+### Fixed
+
+- Prompt Workbench no longer jumps: the recipe catalog and the chosen recipe's inputs plus result sit side by side, choosing a recipe applies immediately, and the result is previewed live from the same POST endpoint as a server-rendered fragment (`_fragment=result`), so the preview is byte-identical to Generate. Without JavaScript each submit targets `#recipe-fields` / `#prompt-result`, so the browser lands on what changed instead of the page top. An out-of-date prompt is removed rather than left copyable.
+- Knowledge no longer prints statistics frozen into the template from another corpus (`88.5% → 12.9%`, `80.7%`, `63.4%`, `117 / 145`, a hard-coded `0.0%` churn card) or internal issue numbers; every figure now comes from this repository's agent-learning analytics.
+- The Knowledge tab, finding/proposal filter and Map region filter now show which one is selected; `pill--selected`, `pill--accent`, `pill--muted`, `.metric` and `.board-switcher__count` had no styles, and two templates referenced undefined colour tokens.
+- The ~370 KB graph library is inlined only on the workflow progress page instead of every page (~470 KB → ~105 KB per page); the CSP names both scripts by hash.
+- The workflow graph reads its colours from the design tokens instead of hard-coded values from the previous palette.
+- The favicon is no longer blocked by the Content-Security-Policy (`img-src 'self' data:`).
+- Task views use a compact tab row and no longer repeat the task title as the page heading, so each view's own content starts above the fold; the pinned masthead no longer wraps into a double-height bar at mid widths or covers a sixth of a phone screen.
+- Map search readiness, its reason and the recovery command now come from agent-map's `SearchReadinessInspector` instead of a UI-side fingerprint comparison that ignored the chunk policy version, reported a fingerprintless map as ready, and hard-coded `search-index build|refresh --root=.` (#76).
+
+### Validation
+
+- Local `composer ci` checks passed (238 tests, PHPStan, template lint, cs-check) against `voku/agent-loop 0.20.44` and `voku/agent-learning 0.18.25`; exact-head PR CI is the release gate.
+
 ## [0.18.4] - 2026-09-23
 
 ### Changed

@@ -181,6 +181,8 @@ final class KnowledgeAnalyticsTest extends TestCase
         self::assertStringContainsString('Corpus Evolution', $body);
         self::assertStringContainsString('Workflow Evolution &amp; Analytics', $body);
         self::assertStringContainsString('href="/knowledge?tab=analytics"', $body);
+        self::assertStringContainsString('<strong>1</strong> finding(s) and <strong>2</strong> proposal(s) recorded', $body);
+        self::assertStringNotContainsString('88.5%', $body);
     }
 
     public function testAnalyticsTabRendersEvolutionLifecycleAndConsolidationSections(): void
@@ -194,9 +196,15 @@ final class KnowledgeAnalyticsTest extends TestCase
         $body = $action->overview(new Request('GET', '/knowledge', ['tab' => 'analytics']))->body;
 
         self::assertStringContainsString('Corpus Analytics &amp; Workflow Evolution', $body);
-        self::assertStringContainsString('Issue #115 · Workflow Evolution across Monthly Cohorts', $body);
-        self::assertStringContainsString('Issue #116 · Deconstructing the 80.7% Terminal Proposal Rate', $body);
-        self::assertStringContainsString('Issue #117 · Consolidation &amp; Dream Diagnostics', $body);
+        self::assertStringContainsString('Workflow evolution across monthly cohorts', $body);
+        self::assertStringContainsString('Terminal proposal breakdown', $body);
+        self::assertStringContainsString('Consolidation &amp; dream diagnostics', $body);
+        // Every number is this corpus's, not a figure frozen into the template
+        // from another repository's history.
+        self::assertStringContainsString('How the 2 proposal(s) in this corpus ended', $body);
+        foreach (['80.7%', '88.5%', '63.4%', '117 / 145', 'Issue #11'] as $frozen) {
+            self::assertStringNotContainsString($frozen, $body);
+        }
         self::assertStringContainsString('Durable Handoff', $body);
         self::assertStringContainsString('Compiled Down to Constraint', $body);
         self::assertStringContainsString('Consolidation Distributions', $body);

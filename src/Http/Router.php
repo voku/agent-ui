@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'health'|'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'commands'|'knowledge'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'task'|'task_progress'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
+    /** @return array{route: 'health'|'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'commands'|'knowledge'|'knowledge_dream'|'knowledge_dream_write'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'task'|'task_progress'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET') {
@@ -53,6 +53,9 @@ final readonly class Router
             }
             if ($request->path === '/knowledge') {
                 return ['route' => 'knowledge'];
+            }
+            if ($request->path === '/knowledge/dream') {
+                return ['route' => 'knowledge_dream'];
             }
             foreach ([
                 'knowledge_finding' => '#^/knowledge/findings/([A-Za-z0-9._-]+)$#',
@@ -108,6 +111,9 @@ final readonly class Router
             }
             if ($request->path === '/setup/sync-git') {
                 return ['route' => 'setup_sync_git'];
+            }
+            if ($request->path === '/knowledge/dream') {
+                return ['route' => 'knowledge_dream_write'];
             }
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/prompts$#')) !== null) {
                 return ['route' => 'task_prompts', 'task_id' => $taskId];

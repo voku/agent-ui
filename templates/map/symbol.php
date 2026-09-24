@@ -86,7 +86,7 @@ require __DIR__ . '/../layout/header.php';
                     </div>
                     <span class="small faint">L<?= (int) $m['lineStart'] ?>-<?= (int) $m['lineEnd'] ?></span>
                 </div>
-                <p class="small mono" style="margin:6px 0;color:var(--muted)">
+                <p class="small mono" style="margin:6px 0;color:var(--ink-soft)">
                     (<?= TemplateRenderer::escape(implode(', ', $m['parameters'])) ?>)<?php if ($m['returnType'] !== null): ?>: <?= TemplateRenderer::escape($m['returnType']) ?><?php endif; ?>
                 </p>
                 <div style="display:flex;gap:6px;margin-top:8px">

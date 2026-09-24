@@ -13,6 +13,7 @@ use voku\AgentUi\Feature\Evidence\EvidenceAction;
 use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
+use voku\AgentUi\Feature\Knowledge\DreamAction;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
 use voku\AgentUi\Feature\Map\MapAction;
 use voku\AgentUi\Feature\PromptWorkbench\PromptApplicabilityEvaluator;
@@ -32,6 +33,7 @@ use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\CommandCatalogGateway;
+use voku\AgentUi\Integration\AgentLoop\DreamGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
@@ -57,6 +59,7 @@ final readonly class Application
     private CommandsAction $commands;
     private BoardAction $board;
     private KnowledgeAction $knowledge;
+    private DreamAction $dream;
     private MapAction $map;
     private TaskAction $task;
     private WorkflowProgressAction $progress;
@@ -103,6 +106,7 @@ final readonly class Application
         $this->commands = new CommandsAction($commandCatalog, $templates);
         $this->board = new BoardAction($board, $mutation, $csrf, $templates);
         $this->knowledge = new KnowledgeAction($learning, $taskContext, $templates);
+        $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
         $this->task = new TaskAction(
             $board,
@@ -157,6 +161,8 @@ final readonly class Application
                 'map_source' => $this->map->sourceView($request),
                 'map_impact' => $this->map->impact($request),
                 'knowledge' => $this->knowledge->overview($request),
+                'knowledge_dream' => $this->dream->preview(),
+                'knowledge_dream_write' => $this->dream->writeCandidates($request),
                 'knowledge_finding' => $this->knowledge->finding($route['knowledge_id'] ?? ''),
                 'knowledge_proposal' => $this->knowledge->proposal($route['knowledge_id'] ?? ''),
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),

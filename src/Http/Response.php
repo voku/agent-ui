@@ -48,7 +48,7 @@ final readonly class Response
      */
     public static function contentSecurityPolicy(): string
     {
-        return "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src "
+        return "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src "
             . ClientScript::cspSource()
             . "; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
     }

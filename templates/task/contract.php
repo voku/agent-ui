@@ -29,7 +29,7 @@ require __DIR__ . '/../layout/header.php';
 <?php $taskNavCurrent = '/contract'; require __DIR__ . '/../layout/task-context.php'; ?>
 
 <div class="page-head">
-    <h1>Task Contract: <?= TemplateRenderer::escape($card->title) ?></h1>
+    <h1>Contract</h1>
     <p class="lede">The governed execution contract defining goal, scope boundary, validation, and acceptance criteria.</p>
 </div>
 

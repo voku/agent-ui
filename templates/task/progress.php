@@ -3,6 +3,7 @@ use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
+use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -196,4 +197,5 @@ require __DIR__ . '/../layout/header.php';
     <p class="note">Done, current, pending, blocked and not-applicable remain distinct owner-projected states. agent-ui does not calculate a percentage complete.</p>
 <?php endif; ?>
 
+<?php if (ClientScript::graphLibrary() !== ''): ?><script><?= ClientScript::graphLibrary() ?></script><?php endif; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
