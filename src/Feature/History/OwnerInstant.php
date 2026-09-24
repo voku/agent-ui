@@ -20,9 +20,10 @@ use Exception;
  * getLastErrors() rather than by failing.
  *
  * So: the string must open with an absolute calendar date and time, it must
- * parse, and the parse must be clean. Anything else is a string the owner
- * published and this page cannot place, which is a fact about the owner and is
- * shown as one rather than sorted into the story by its spelling.
+ * carry no relative component, it must parse, and the parse must be clean.
+ * Anything else is a string the owner published and this page cannot place,
+ * which is a fact about the owner and is shown as one rather than sorted into
+ * the story by its spelling.
  */
 final readonly class OwnerInstant
 {
@@ -36,6 +37,18 @@ final readonly class OwnerInstant
     public static function parse(string $at): ?DateTimeImmutable
     {
         if (preg_match(self::ABSOLUTE, $at) !== 1) {
+            return null;
+        }
+
+        // Anchoring only the start is not enough, because DateTimeImmutable goes
+        // on reading after the date: `2026-09-24T08:00:00+00:00 +1 week` opens
+        // with a real moment, passes the pattern, and comes back as October 1st
+        // without a warning. Asking date_parse() whether anything relative was
+        // found catches every shape of that - `+1 week`, `tomorrow`,
+        // `next monday`, `3 days ago` - without this class having to enumerate
+        // the absolute formats an owner is allowed to write.
+        $parts = date_parse($at);
+        if (isset($parts['relative'])) {
             return null;
         }
 

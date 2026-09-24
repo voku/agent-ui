@@ -444,7 +444,9 @@ final class TaskActivityTimelineTest extends TestCase
      * that accepts relative words and resolves them to today, which would date a
      * fact by when the page was rendered. Rollover is the other half - February
      * 30th does not throw, it becomes March 2nd and says so only in
-     * getLastErrors().
+     * getLastErrors(). And a relative suffix after a real moment is the third:
+     * the string opens with a date the owner did write and ends somewhere else
+     * entirely.
      *
      * @return list<array{string}>
      */
@@ -463,6 +465,14 @@ final class TaskActivityTimelineTest extends TestCase
             // date no owner ever wrote.
             ['2026-02-30T00:00:00+00:00'],
             ['2026-00-00T00:00:00+00:00'],
+            // And these open with a real moment, so anchoring only the start of
+            // the string let them through: DateTimeImmutable keeps reading and
+            // applies the relative part, returning October 1st, the 25th, the
+            // 28th and the 21st respectively - without a warning.
+            ['2026-09-24T08:00:00+00:00 +1 week'],
+            ['2026-09-24T08:00 tomorrow'],
+            ['2026-09-24T08:00:00+00:00 next monday'],
+            ['2026-09-24T08:00:00Z 3 days ago'],
         ];
     }
 
