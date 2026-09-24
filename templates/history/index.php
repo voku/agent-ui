@@ -1,8 +1,10 @@
 <?php
+use voku\AgentUi\Feature\History\TaskActivity;
 use voku\AgentUi\Integration\AgentLoop\TaskAuditSnapshot;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{audit: TaskAuditSnapshot} $model */
+/** @var array{audit: TaskAuditSnapshot, activity: TaskActivity} $model */
 $audit = $model['audit'];
+$activity = $model['activity'];
 $taskContext = $model['task_context'];
 $title = $audit->taskId . ' · History · agent-ui';
 $nav = null;
@@ -17,20 +19,40 @@ require __DIR__ . '/../layout/header.php';
         as absence rather than filled in with an inferred event.</p>
 </div>
 
-<?php if ($audit->timeline === []): ?>
-    <section class="panel"><p class="empty">No timestamped audit events are available for this task yet.</p></section>
+<?php if ($activity->events === []): ?>
+    <section class="panel"><p class="empty">No owner has published a timestamped fact for this task yet.</p></section>
 <?php else: ?>
     <section class="panel">
         <ol class="timeline">
-            <?php foreach ($audit->timeline as $entry): ?>
+            <?php foreach ($activity->events as $event): ?>
                 <li>
-                    <span class="timeline__when"><?= TemplateRenderer::escape($entry->at) ?></span>
-                    <span class="pill pill--neutral" style="margin-left:8px"><?= TemplateRenderer::escape($entry->kind) ?></span>
-                    <p class="timeline__title"><?= TemplateRenderer::escape($entry->title) ?></p>
-                    <p class="timeline__detail"><?= TemplateRenderer::escape($entry->detail) ?></p>
+                    <span class="timeline__when"><?= TemplateRenderer::escape($event->at) ?></span>
+                    <span class="pill pill--neutral" style="margin-left:8px"><?= TemplateRenderer::escape($event->kind) ?></span>
+                    <p class="timeline__title"><?= TemplateRenderer::escape($event->title) ?></p>
+                    <p class="timeline__detail"><?= TemplateRenderer::escape($event->detail) ?></p>
+                    <p class="provenance provenance--authority"><?= TemplateRenderer::escape($event->owner) ?></p>
                 </li>
             <?php endforeach; ?>
         </ol>
+    </section>
+<?php endif; ?>
+
+<?php if ($activity->untimed !== []): ?>
+    <p class="eyebrow">Known, but not placed in time</p>
+    <section class="panel">
+        <p class="note" style="margin-top:0">These facts belong to this task and their owners publish no timestamp for
+            them. Putting them on the timeline would mean the UI deciding when they happened, so they are listed here
+            with the field that is missing instead.</p>
+        <div class="stack">
+            <?php foreach ($activity->untimed as $fact): ?>
+                <article>
+                    <p class="provenance provenance--authority"><?= TemplateRenderer::escape($fact->owner) ?> · <?= TemplateRenderer::escape($fact->kind) ?></p>
+                    <p class="timeline__title" style="margin-top:4px"><?= TemplateRenderer::escape($fact->title) ?></p>
+                    <p class="timeline__detail"><?= TemplateRenderer::escape($fact->detail) ?></p>
+                    <p class="note"><?= TemplateRenderer::escape($fact->missing) ?></p>
+                </article>
+            <?php endforeach; ?>
+        </div>
     </section>
 <?php endif; ?>
 

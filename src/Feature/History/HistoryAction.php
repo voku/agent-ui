@@ -13,6 +13,7 @@ final readonly class HistoryAction
 {
     public function __construct(
         private AuditTrailGateway $audit,
+        private TaskActivityComposer $activity,
         private TaskContextComposer $taskContext,
         private TemplateRenderer $templates,
     ) {
@@ -22,6 +23,7 @@ final readonly class HistoryAction
     {
         return Response::html($this->templates->render('history/index', [
             'audit' => $this->audit->task($taskId),
+            'activity' => $this->activity->forTask($taskId),
             'task_context' => $this->taskContext->forTask($taskId),
         ]));
     }

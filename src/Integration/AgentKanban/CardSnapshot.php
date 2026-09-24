@@ -24,6 +24,15 @@ final readonly class CardSnapshot
         public ?string $claimActor = null,
         public array $allowedTransitions = [],
         public ?string $boardId = null,
+        /**
+         * When agent-kanban says the card was written, or null when it cannot say.
+         *
+         * The owner already models this as nullable - a card whose file carries no
+         * parsable created date has no creation time as far as the board is
+         * concerned - so the UI carries the null through rather than reaching for
+         * the file's mtime.
+         */
+        public ?string $createdAt = null,
     ) {
     }
 }

@@ -4,6 +4,22 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Compose the task history from every owner that holds part of the story, not only agent-loop: the board card's creation (agent-kanban), each Contract revision's proposal and approval including superseded ones (agent-loop), and Findings and Proposals produced by the work (agent-learning). Each entry names the owner that published its timestamp (#59 step 3).
+- Show facts whose owner publishes no timestamp in a separate **Known, but not placed in time** list, naming the owner and the missing field, rather than omitting them or giving them a position. `GuidanceProjection` carries no promotion time — the underlying Proposal does, and agent-learning's guidance projection drops it — so durable guidance is listed there rather than relabelled with its source proposal's approval time.
+
+### Fixed
+
+- Render the current Contract revision's approval once. The audit report and the Contract store both publish it, and reading both put it on the page twice.
+
+### Validation
+
+- `composer ci` passed with 252 tests, 1163 assertions, clean template linting, and 0 PHPStan errors.
+- Rendered against this repository's own `.agent-loop` state: `/task/UI-1/history` shows one `task_created` (agent-kanban), one `contract_proposed` and one `contract_approved` (agent-loop), `validation_passed`, `review_acknowledged` and `learning_decided`, newest first and with no repeated entry.
+
 ## [0.18.7] - 2026-09-24
 
 ### Changed
