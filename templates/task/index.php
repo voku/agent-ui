@@ -45,7 +45,7 @@ require __DIR__ . '/../layout/header.php';
 <?php $taskNavCurrent = ''; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head page-head--split">
     <div>
-        <h1><?= TemplateRenderer::escape($card->title) ?></h1>
+        <h1>Task overview</h1>
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
     <?php /* Workflow, Contract and Edit card are in the task navigation above; what

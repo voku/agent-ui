@@ -1,27 +1,155 @@
 /* Progressive enhancement only: every command stays visible and selectable without it. */
-document.querySelectorAll('.copy').forEach(function (button) {
+function enhanceCopyButtons(root) {
     if (!navigator.clipboard) { return; }
-    var original = button.textContent;
-    button.hidden = false;
-    button.addEventListener('click', function () {
-        var source = document.getElementById(button.dataset.copyTarget);
-        if (!source || button.disabled) { return; }
-        button.disabled = true;
-        navigator.clipboard.writeText(source.textContent.trim()).then(function () {
-            button.textContent = 'Copied';
-            button.dataset.copied = '1';
-            setTimeout(function () {
+    root.querySelectorAll('.copy').forEach(function (button) {
+        if (button.dataset.copyReady === '1') { return; }
+        button.dataset.copyReady = '1';
+        var original = button.textContent;
+        button.hidden = false;
+        button.addEventListener('click', function () {
+            var source = document.getElementById(button.dataset.copyTarget);
+            if (!source || button.disabled) { return; }
+            button.disabled = true;
+            navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+                button.textContent = 'Copied';
+                button.dataset.copied = '1';
+                setTimeout(function () {
+                    button.textContent = original;
+                    delete button.dataset.copied;
+                    button.disabled = false;
+                }, 1500);
+            }, function () {
                 button.textContent = original;
                 delete button.dataset.copied;
                 button.disabled = false;
-            }, 1500);
-        }, function () {
-            button.textContent = original;
-            delete button.dataset.copied;
-            button.disabled = false;
+            });
         });
     });
-});
+}
+enhanceCopyButtons(document);
+
+/* Prompt Workbench.
+ *
+ * Without this the workbench is two full-page round trips: "Load selected
+ * recipe" and "Generate". Here the recipe's owner-declared fields appear as
+ * soon as a recipe is chosen, and the result region is refreshed in place by
+ * POSTing the same form to the same endpoint for the server-rendered result
+ * fragment. The browser composes nothing: every byte of the preview is what
+ * Generate returns. */
+(function () {
+    var form = document.querySelector('[data-prompt-workbench]');
+    if (!form || !window.fetch || !window.FormData || !window.URLSearchParams) { return; }
+    var result = form.querySelector('[data-prompt-result]');
+    var status = form.querySelector('[data-prompt-status]');
+    var empty = form.querySelector('[data-prompt-empty]');
+    var generateRow = form.querySelector('[data-prompt-generate-row]');
+    var selectRow = form.querySelector('[data-prompt-select-row]');
+    var fieldsets = Array.prototype.slice.call(form.querySelectorAll('[data-recipe-fields]'));
+    if (!result) { return; }
+
+    /* Choosing a recipe now applies immediately, so the round-trip button
+       would only reload what is already on screen. */
+    if (selectRow) { selectRow.hidden = true; }
+
+    var timer = null;
+    var controller = null;
+    var sequence = 0;
+
+    function say(message) { if (status) { status.textContent = message; } }
+
+    function selectedRecipe() {
+        var checked = form.querySelector('input[name="recipe"]:checked');
+        return checked ? checked.value : '';
+    }
+
+    /* Disabled fieldsets are not submitted, so only the chosen recipe's
+       arguments reach the owner even where two recipes share a name. */
+    function showRecipe(recipeId) {
+        fieldsets.forEach(function (fieldset) {
+            var active = fieldset.getAttribute('data-recipe-fields') === recipeId;
+            fieldset.hidden = !active;
+            fieldset.disabled = !active;
+        });
+        if (empty) { empty.hidden = recipeId !== ''; }
+        if (generateRow) { generateRow.hidden = recipeId === ''; }
+    }
+
+    /* A prompt for other inputs than the ones on screen must not stay
+       copyable, so an out-of-date result is removed rather than left behind. */
+    function clearResult(message) {
+        sequence += 1;
+        if (controller) { controller.abort(); controller = null; }
+        result.innerHTML = '';
+        result.removeAttribute('aria-busy');
+        say(message);
+    }
+
+    function preview() {
+        if (selectedRecipe() === '') { return; }
+        if (!form.checkValidity()) {
+            clearResult('Fill in the required fields to preview the prompt.');
+            return;
+        }
+        var data = new FormData(form);
+        data.set('action', 'generate');
+        data.set('_fragment', 'result');
+        if (controller) { controller.abort(); }
+        controller = typeof AbortController === 'function' ? new AbortController() : null;
+        var mine = ++sequence;
+        result.setAttribute('aria-busy', 'true');
+        say('Updating preview…');
+        fetch(form.getAttribute('action') || window.location.pathname, {
+            method: 'POST',
+            body: new URLSearchParams(data),
+            credentials: 'same-origin',
+            headers: { 'Accept': 'text/html' },
+            signal: controller ? controller.signal : undefined
+        }).then(function (response) {
+            return response.text().then(function (html) { return { ok: response.ok, html: html }; });
+        }).then(function (payload) {
+            if (mine !== sequence) { return; }
+            result.innerHTML = payload.html;
+            result.removeAttribute('aria-busy');
+            enhanceCopyButtons(result);
+            say(payload.ok ? 'Preview is current.' : 'The owner refused this prompt; see why below.');
+        }).catch(function (error) {
+            if (error && error.name === 'AbortError') { return; }
+            if (mine !== sequence) { return; }
+            result.removeAttribute('aria-busy');
+            say('Preview unavailable. Generate still works.');
+        });
+    }
+
+    function schedule() {
+        if (timer) { clearTimeout(timer); }
+        timer = setTimeout(preview, 350);
+    }
+
+    form.addEventListener('change', function (event) {
+        var target = event.target;
+        if (target instanceof HTMLInputElement && target.name === 'recipe') {
+            showRecipe(target.value);
+            clearResult('');
+            preview();
+            return;
+        }
+        schedule();
+    });
+    form.addEventListener('input', function (event) {
+        if (event.target instanceof HTMLInputElement && event.target.name === 'recipe') { return; }
+        schedule();
+    });
+    form.addEventListener('submit', function (event) {
+        var submitter = event.submitter;
+        if (!submitter || submitter.value !== 'generate') { return; }
+        event.preventDefault();
+        if (timer) { clearTimeout(timer); }
+        preview();
+        result.focus({ preventScroll: true });
+    });
+
+    showRecipe(selectedRecipe());
+}());
 
 /* Graph connection highlighting on node hover */
 document.querySelectorAll('.graph-node-link').forEach(function (node) {
@@ -256,7 +384,30 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
 
     if (tools) { tools.hidden = false; }
 
-    var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    /* Canvas styles cannot read CSS custom properties, so resolve the design
+       tokens once. Hard-coded hex values here drifted from the stylesheet the
+       moment the palette changed. */
+    var rootStyle = window.getComputedStyle(document.documentElement);
+    function token(name, fallback) {
+        var value = rootStyle.getPropertyValue(name).trim();
+        return value === '' ? fallback : value;
+    }
+    var palette = {
+        surface: token('--surface-alt', '#f3f5fb'),
+        sunk: token('--bg-sunk', '#eef0f7'),
+        rule: token('--rule', '#e2e6f0'),
+        ruleStrong: token('--rule-strong', '#cdd3e1'),
+        ink: token('--ink', '#0b0f19'),
+        inkSoft: token('--ink-soft', '#4a5268'),
+        inkFaint: token('--ink-faint', '#7c8499'),
+        accent: token('--accent', '#2563eb'),
+        accentSoft: token('--accent-soft', '#eaf0fe'),
+        attention: token('--attention', '#8a5a12'),
+        attentionSoft: token('--attention-soft', '#fbf2e2'),
+        blocked: token('--blocked', '#b42318'),
+        blockedSoft: token('--blocked-soft', '#fdeceb'),
+        sans: token('--sans', 'ui-sans-serif, system-ui, sans-serif')
+    };
 
     var cy = window.cytoscape({
         container: canvas,
@@ -275,55 +426,55 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                     'text-halign': 'center',
                     'text-wrap': 'wrap',
                     'text-max-width': 130,
-                    'font-family': 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+                    'font-family': palette.sans,
                     'font-size': 11,
                     'font-weight': 600,
                     'border-width': 2,
                     'border-radius': 6,
-                    'background-color': isDark ? '#21242b' : '#f7f7f4',
-                    'border-color': isDark ? '#3c4048' : '#d2cfc7',
-                    'color': isDark ? '#a8a69f' : '#56544e'
+                    'background-color': palette.surface,
+                    'border-color': palette.ruleStrong,
+                    'color': palette.inkSoft
                 }
             },
             {
                 selector: 'node[status = "done"]',
                 style: {
-                    'background-color': isDark ? '#1a2b25' : '#eaf2ee',
-                    'border-color': isDark ? '#79c2a5' : '#2f6b57',
-                    'color': isDark ? '#79c2a5' : '#2f6b57'
+                    'background-color': palette.accentSoft,
+                    'border-color': palette.accent,
+                    'color': palette.accent
                 }
             },
             {
                 selector: 'node[status = "current"]',
                 style: {
-                    'background-color': isDark ? '#2c2418' : '#fbf2e2',
-                    'border-color': isDark ? '#e0b169' : '#8a5a12',
-                    'color': isDark ? '#e0b169' : '#8a5a12',
+                    'background-color': palette.attentionSoft,
+                    'border-color': palette.attention,
+                    'color': palette.attention,
                     'border-width': 3
                 }
             },
             {
                 selector: 'node[status = "blocked"]',
                 style: {
-                    'background-color': isDark ? '#2e1d1b' : '#fbeceb',
-                    'border-color': isDark ? '#e88b80' : '#9c2f26',
-                    'color': isDark ? '#e88b80' : '#9c2f26'
+                    'background-color': palette.blockedSoft,
+                    'border-color': palette.blocked,
+                    'color': palette.blocked
                 }
             },
             {
                 selector: 'node[status = "not_applicable"]',
                 style: {
-                    'background-color': isDark ? '#101116' : '#f3f3f0',
-                    'border-color': isDark ? '#2e3138' : '#e4e2dc',
+                    'background-color': palette.sunk,
+                    'border-color': palette.rule,
                     'border-style': 'dashed',
-                    'color': isDark ? '#7b7973' : '#8a8781'
+                    'color': palette.inkFaint
                 }
             },
             {
                 selector: 'node:selected',
                 style: {
                     'border-width': 4,
-                    'border-color': isDark ? '#e8e7e3' : '#1a1a17'
+                    'border-color': palette.ink
                 }
             },
             {
@@ -333,16 +484,16 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                     'target-arrow-shape': 'triangle',
                     'arrow-scale': 1.1,
                     'width': 2,
-                    'line-color': isDark ? '#3c4048' : '#d2cfc7',
-                    'target-arrow-color': isDark ? '#3c4048' : '#d2cfc7'
+                    'line-color': palette.ruleStrong,
+                    'target-arrow-color': palette.ruleStrong
                 }
             },
             {
                 selector: 'edge[status = "done"]',
                 style: {
                     'width': 3,
-                    'line-color': isDark ? '#79c2a5' : '#2f6b57',
-                    'target-arrow-color': isDark ? '#79c2a5' : '#2f6b57'
+                    'line-color': palette.accent,
+                    'target-arrow-color': palette.accent
                 }
             }
         ],

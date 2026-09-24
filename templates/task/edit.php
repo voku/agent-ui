@@ -23,7 +23,7 @@ require __DIR__ . '/../layout/header.php';
 <?php $taskNavCurrent = '/edit'; require __DIR__ . '/../layout/task-context.php'; ?>
 
 <div class="page-head">
-    <h1>Edit Card: <?= TemplateRenderer::escape($card->title) ?></h1>
+    <h1>Edit card</h1>
     <p class="lede">Modify TODO fields and lane placement governed by agent-kanban.</p>
 </div>
 

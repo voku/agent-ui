@@ -17,7 +17,18 @@ final class ClientScriptTest extends TestCase
     {
         $expected = "'sha256-" . base64_encode(hash('sha256', ClientScript::code(), true)) . "'";
 
-        self::assertStringContainsString('script-src ' . $expected . ';', Response::contentSecurityPolicy());
+        self::assertStringContainsString('script-src ' . $expected, Response::contentSecurityPolicy());
+    }
+
+    public function testTheGraphLibraryIsPermittedByHashButNotShippedOnEveryPage(): void
+    {
+        $library = ClientScript::graphLibrary();
+        self::assertNotSame('', $library);
+        self::assertStringNotContainsString($library, ClientScript::code());
+        self::assertStringContainsString(
+            "'sha256-" . base64_encode(hash('sha256', $library, true)) . "'",
+            Response::contentSecurityPolicy(),
+        );
     }
 
     public function testTheScriptSourceIsNamedByHashRatherThanAllowingAnyInlineScript(): void

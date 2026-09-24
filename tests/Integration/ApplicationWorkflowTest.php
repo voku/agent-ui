@@ -99,7 +99,7 @@ final class ApplicationWorkflowTest extends TestCase
         // 4. GET /task/APP-1/edit renders edit form
         $editResponse = $app->handle(new Request('GET', '/task/APP-1/edit'));
         self::assertSame(200, $editResponse->status);
-        self::assertStringContainsString('Edit Card: Build login system', $editResponse->body);
+        self::assertStringContainsString('<h1>Edit card</h1>', $editResponse->body);
         self::assertStringContainsString('Build login system', $editResponse->body);
 
         // 5. POST /task/APP-1/move moves card to READY
@@ -252,5 +252,70 @@ final class ApplicationWorkflowTest extends TestCase
         $filtered = $app->handle(new Request('GET', '/commands', query: ['group' => 'workflow']));
         self::assertSame(200, $filtered->status);
         self::assertStringContainsString('enter', $filtered->body);
+    }
+
+    /**
+     * The workbench answers the live preview with the result region alone.
+     *
+     * It is the same POST and the same owner calls as Generate, so the preview
+     * is the exact prompt Generate would print, and a refusal arrives as the
+     * owner's reasons rather than as a page the script would have to pick apart.
+     */
+    public function testPromptWorkbenchServesTheResultFragmentForTheLivePreview(): void
+    {
+        $app = new Application($this->root, $this->templates);
+        $body = [
+            'task_id' => 'APP-7',
+            'goal' => 'Stop the workbench from jumping',
+            'recipe' => 'discovery-first',
+            'action' => 'generate',
+        ];
+
+        $page = $app->handle(new Request('POST', '/prompts', body: $body));
+        $fragment = $app->handle(new Request('POST', '/prompts', body: $body + ['_fragment' => 'result']));
+
+        self::assertSame(200, $fragment->status);
+        self::assertStringNotContainsString('<html', $fragment->body);
+        self::assertStringNotContainsString('class="masthead"', $fragment->body);
+        self::assertStringContainsString('id="workbench-prompt"', $fragment->body);
+        preg_match('/sha256:([0-9a-f]{64})/', $fragment->body, $digest);
+        $promptDigest = $digest[1] ?? null;
+        self::assertIsString($promptDigest);
+        self::assertStringContainsString('sha256:' . $promptDigest, $page->body, 'Preview and Generate must print the same prompt digest');
+
+        $refused = $app->handle(new Request('POST', '/prompts', body: ['recipe' => 'discovery-first', 'action' => 'generate', '_fragment' => 'result']));
+        self::assertSame(400, $refused->status);
+        self::assertStringContainsString('Prompt not generated', $refused->body);
+        self::assertStringNotContainsString('id="workbench-prompt"', $refused->body);
+    }
+
+    /**
+     * Every recipe's owner-declared fields are on the page, but only the chosen
+     * recipe's are enabled, so a shared argument name is never submitted twice.
+     * Each submit targets the region it changes, so a reader without the
+     * script lands on the result rather than back at the top of the page.
+     */
+    public function testPromptWorkbenchRendersEveryRecipeFieldsetWithOnlyTheSelectedOneEnabled(): void
+    {
+        $app = new Application($this->root, $this->templates);
+
+        $page = $app->handle(new Request('POST', '/prompts', body: [
+            'task_id' => 'APP-7',
+            'goal' => 'x',
+            'recipe' => 'discovery-first',
+            'action' => 'select',
+        ]))->body;
+
+        $fieldsets = preg_match_all('/<fieldset class="recipe-fields" data-recipe-fields="([^"]+)"([^>]*)>/', $page, $matches, PREG_SET_ORDER);
+        self::assertGreaterThan(1, $fieldsets);
+        foreach ($matches as [, $recipeId, $attributes]) {
+            if ($recipeId === 'discovery-first') {
+                self::assertStringNotContainsString('disabled', $attributes);
+            } else {
+                self::assertStringContainsString('hidden disabled', $attributes);
+            }
+        }
+        self::assertStringContainsString('formaction="/prompts#recipe-fields"', $page);
+        self::assertStringContainsString('formaction="/prompts#prompt-result"', $page);
     }
 }

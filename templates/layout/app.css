@@ -243,6 +243,9 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
     background: rgba(255, 255, 255, .05);
 }
 .masthead :focus-visible { outline-color: var(--brand-cyan); }
+/* The project label is a courtesy; when it would wrap it doubles the pinned
+   header's height and pushes sticky content under it, so it yields first. */
+@media (max-width: 1180px) { .masthead__meta { display: none; } }
 
 /* ---------- layout ---------- */
 
@@ -781,15 +784,27 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
     text-transform: uppercase;
     color: var(--ink-faint);
 }
-.task-nav__links { display: flex; gap: 6px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.task-nav__links { display: flex; gap: 2px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
+/* Tabs, not a wall of buttons: at full button weight the eleven views took
+   two rows and pushed every task view's own content below the fold. */
+.task-nav .btn {
+    padding: 4px 9px;
+    font-size: 12.5px;
+    font-weight: 550;
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+}
+.task-nav .btn:hover { background: var(--surface); border-color: var(--rule); color: var(--ink); }
+.task-nav .btn.btn--current { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
 .task-nav {
     display: flex;
-    gap: 22px;
+    gap: 6px 20px;
     flex-wrap: wrap;
     align-items: flex-start;
     margin: 0 0 28px;
-    padding: 14px 20px 16px;
+    padding: 10px 16px 12px;
     border: 1px solid var(--rule);
     border-radius: 0 0 var(--radius) var(--radius);
     background: var(--surface-alt);
@@ -875,6 +890,114 @@ table.table td.num { font-variant-numeric: tabular-nums; }
     font-weight: 600;
 }
 
+.board-switcher__count {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    color: var(--ink-faint);
+}
+.board-switcher a[aria-current="page"] .board-switcher__count { background: var(--surface); color: var(--accent); }
+
+/* ---------- pill variants used as filters and counters ---------- */
+
+/* These modifiers were referenced by templates without a rule, so a selected
+   filter or region looked exactly like every other one. */
+a.pill { text-decoration: none; }
+a.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill--accent,
+.pill--selected {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    /* Not colour alone: the chosen chip also keeps a shape cue. */
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pill--muted { color: var(--ink-faint); }
+.pill--muted::before { display: none; }
+
+.metric {
+    margin: 4px 0 2px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- prompt workbench ---------- */
+
+/*
+ * Catalog left, chosen recipe and its result right. The right column stays in
+ * view while the catalog scrolls, so picking, filling in and reading the
+ * prompt happen in one place instead of at opposite ends of a long page.
+ */
+.workbench {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 24px;
+    align-items: start;
+}
+.workbench__side {
+    position: sticky;
+    top: 84px;
+    margin-top: 38px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+.workbench__group {
+    margin: 18px 0 8px;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.recipe-list { display: grid; gap: 8px; }
+.recipe {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 11px 14px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--surface);
+    cursor: pointer;
+    transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.recipe:hover { border-color: var(--rule-strong); }
+/* The choice is visible the moment it is made, not after a reload. */
+.recipe:has(.recipe__radio:checked) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+.recipe__radio { margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+.recipe__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.recipe__title { font-size: 13.5px; }
+.recipe__description { font-size: 12.5px; color: var(--ink-soft); }
+.recipe__meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.recipe-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.recipe-fields__title { padding: 0; margin: 0 0 4px; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+.workbench__empty { margin: 0; color: var(--ink-faint); font-style: italic; }
+.workbench__actions { align-items: center; }
+.workbench__result { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.workbench__result:focus { outline: none; }
+.workbench__result[aria-busy="true"] { opacity: .55; transition: opacity .15s ease; }
+.workbench__prompt { max-height: 440px; overflow: auto; }
+.workbench__errors { margin: 0; padding-left: 18px; }
+
+@media (max-width: 900px) {
+    .workbench { grid-template-columns: minmax(0, 1fr); }
+    .workbench__side { position: static; margin-top: 0; max-height: none; overflow: visible; }
+}
+
 /* ---------- misc ---------- */
 
 details.raw { margin-top: 20px; }
@@ -915,6 +1038,10 @@ details.raw[open] > summary { margin-bottom: 10px; }
        the navigation. */
     .workspace-nav { gap: 10px; }
     .workspace-nav__label { display: none; }
+    /* The wrapped navigation is two rows on a phone; pinned, it would cover a
+       sixth of the screen on every scroll. */
+    .masthead { position: relative; }
+    .brand__tag { display: none; }
     .split > * + * { padding: 14px 0 2px; border-left: none; border-top: 1px solid var(--rule); margin-top: 12px; }
 }
 

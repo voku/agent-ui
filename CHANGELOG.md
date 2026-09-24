@@ -10,6 +10,16 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 - Rebrand the control plane with the agent-loop identity from `voku/agent_loop_demo`: the gradient infinity mark as logo and favicon, a deep-navy masthead banner with a brand-gradient hairline, the violet → blue → cyan palette (owner authority now reads in brand blue), Inter / JetBrains Mono type stacks, and a gradient primary action. Everything stays inlined — no asset route, no build step, no web-font fetch — and the semantic state colours (attention, blocked) are unchanged.
 
+### Fixed
+
+- Prompt Workbench no longer jumps: the recipe catalog and the chosen recipe's inputs plus result sit side by side, choosing a recipe applies immediately, and the result is previewed live from the same POST endpoint as a server-rendered fragment (`_fragment=result`), so the preview is byte-identical to Generate. Without JavaScript each submit targets `#recipe-fields` / `#prompt-result`, so the browser lands on what changed instead of the page top. An out-of-date prompt is removed rather than left copyable.
+- Knowledge no longer prints statistics frozen into the template from another corpus (`88.5% → 12.9%`, `80.7%`, `63.4%`, `117 / 145`, a hard-coded `0.0%` churn card) or internal issue numbers; every figure now comes from this repository's agent-learning analytics.
+- The Knowledge tab, finding/proposal filter and Map region filter now show which one is selected; `pill--selected`, `pill--accent`, `pill--muted`, `.metric` and `.board-switcher__count` had no styles, and two templates referenced undefined colour tokens.
+- The ~370 KB graph library is inlined only on the workflow progress page instead of every page (~470 KB → ~105 KB per page); the CSP names both scripts by hash.
+- The workflow graph reads its colours from the design tokens instead of hard-coded values from the previous palette.
+- The favicon is no longer blocked by the Content-Security-Policy (`img-src 'self' data:`).
+- Task views use a compact tab row and no longer repeat the task title as the page heading, so each view's own content starts above the fold; the pinned masthead no longer wraps into a double-height bar at mid widths or covers a sixth of a phone screen.
+
 ## [0.18.4] - 2026-09-23
 
 ### Changed

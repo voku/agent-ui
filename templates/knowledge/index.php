@@ -52,23 +52,23 @@ require __DIR__ . '/../layout/header.php';
     <p class="lede">What coding sessions taught this repository, what became durable in MEMORY.md and skills, what still needs judgment, and historical findings and proposals from agent-learning.</p>
 </div>
 
-<nav class="board-switcher" style="margin-bottom: 24px;">
-    <a class="board-switcher__tab<?= $currentTab === 'overview' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge">
+<nav class="board-switcher" aria-label="Knowledge views" style="margin-bottom: 24px;">
+    <a class="board-switcher__tab<?= $currentTab === 'overview' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'overview' ? ' aria-current="page"' : '' ?> href="/knowledge">
         Overview
     </a>
-    <a class="board-switcher__tab<?= $currentTab === 'rules' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=rules">
+    <a class="board-switcher__tab<?= $currentTab === 'rules' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'rules' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=rules">
         Durable Rules <span class="board-switcher__count"><?= count($memoryRules) ?></span>
     </a>
-    <a class="board-switcher__tab<?= $currentTab === 'findings' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=findings">
+    <a class="board-switcher__tab<?= $currentTab === 'findings' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'findings' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=findings">
         Findings <span class="board-switcher__count"><?= (int) $totalFindingCount ?></span>
     </a>
-    <a class="board-switcher__tab<?= $currentTab === 'proposals' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=proposals">
+    <a class="board-switcher__tab<?= $currentTab === 'proposals' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'proposals' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=proposals">
         Proposals <span class="board-switcher__count"><?= (int) $totalProposalCount ?></span>
     </a>
-    <a class="board-switcher__tab<?= $currentTab === 'archived' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=archived">
+    <a class="board-switcher__tab<?= $currentTab === 'archived' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'archived' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=archived">
         Archived Tasks <span class="board-switcher__count"><?= count($archivedTasks) ?></span>
     </a>
-    <a class="board-switcher__tab<?= $currentTab === 'analytics' ? ' board-switcher__tab--active' : '' ?>" href="/knowledge?tab=analytics">
+    <a class="board-switcher__tab<?= $currentTab === 'analytics' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'analytics' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=analytics">
         Analytics &amp; Evolution
     </a>
 </nav>
@@ -79,7 +79,7 @@ require __DIR__ . '/../layout/header.php';
         <p class="note" style="margin-bottom: 16px;">These <?= count($memoryRules) ?> rules guide coding agents across tasks and preserve durable engineering decisions.</p>
         <div class="stack">
             <?php foreach ($memoryRules as $rule): ?>
-                <article style="padding: 12px 0; border-bottom: 1px solid var(--border, #eee);">
+                <article style="padding: 12px 0; border-bottom: 1px solid var(--rule);">
                     <h3 style="margin: 0 0 6px; font-size: 15px; font-weight: 600;"><?= TemplateRenderer::escape($rule['subject']) ?></h3>
                     <p style="margin: 0 0 8px; line-height: 1.5;"><?= TemplateRenderer::escape($rule['rule']) ?></p>
                     <p class="note" style="margin: 0;"><strong>Canonical home:</strong> <code><?= TemplateRenderer::escape($rule['canonicalHome']) ?></code></p>
@@ -91,10 +91,10 @@ require __DIR__ . '/../layout/header.php';
 <?php elseif ($currentTab === 'findings'): ?>
     <p class="eyebrow">All Findings (agent-learning)</p>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-        <a class="pill<?= $currentStatus === null ? ' pill--selected' : '' ?>" href="/knowledge?tab=findings">All (<?= (int) $totalFindingCount ?>)</a>
+        <a class="pill<?= $currentStatus === null ? ' pill--selected' : '' ?>"<?= $currentStatus === null ? ' aria-current="page"' : '' ?> href="/knowledge?tab=findings">All (<?= (int) $totalFindingCount ?>)</a>
         <?php foreach ($overview->findingCounts as $statusName => $count): ?>
             <?php if ($count > 0): ?>
-                <a class="pill<?= $currentStatus === (string) $statusName ? ' pill--selected' : '' ?>" href="/knowledge?tab=findings&status=<?= TemplateRenderer::escape((string) $statusName) ?>">
+                <a class="pill<?= $currentStatus === (string) $statusName ? ' pill--selected' : '' ?>"<?= $currentStatus === (string) $statusName ? ' aria-current="page"' : '' ?> href="/knowledge?tab=findings&status=<?= TemplateRenderer::escape((string) $statusName) ?>">
                     <?= TemplateRenderer::escape((string) $statusName) ?> (<?= (int) $count ?>)
                 </a>
             <?php endif; ?>
@@ -106,7 +106,7 @@ require __DIR__ . '/../layout/header.php';
         <?php else: ?>
             <div class="stack">
                 <?php foreach ($allFindings as $finding): ?>
-                    <article style="padding: 12px 0; border-bottom: 1px solid var(--border, #eee);">
+                    <article style="padding: 12px 0; border-bottom: 1px solid var(--rule);">
                         <div class="action__head">
                             <a class="mono" href="/knowledge/findings/<?= TemplateRenderer::escape($finding->id) ?>"><?= TemplateRenderer::escape($finding->id) ?></a>
                             <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($finding->status)) ?>"><?= TemplateRenderer::escape(Presentation::label($finding->status)) ?></span>
@@ -122,10 +122,10 @@ require __DIR__ . '/../layout/header.php';
 <?php elseif ($currentTab === 'proposals'): ?>
     <p class="eyebrow">All Proposals (agent-learning)</p>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-        <a class="pill<?= $currentStatus === null ? ' pill--selected' : '' ?>" href="/knowledge?tab=proposals">All (<?= (int) $totalProposalCount ?>)</a>
+        <a class="pill<?= $currentStatus === null ? ' pill--selected' : '' ?>"<?= $currentStatus === null ? ' aria-current="page"' : '' ?> href="/knowledge?tab=proposals">All (<?= (int) $totalProposalCount ?>)</a>
         <?php foreach ($overview->proposalCounts as $statusName => $count): ?>
             <?php if ($count > 0): ?>
-                <a class="pill<?= $currentStatus === (string) $statusName ? ' pill--selected' : '' ?>" href="/knowledge?tab=proposals&status=<?= TemplateRenderer::escape((string) $statusName) ?>">
+                <a class="pill<?= $currentStatus === (string) $statusName ? ' pill--selected' : '' ?>"<?= $currentStatus === (string) $statusName ? ' aria-current="page"' : '' ?> href="/knowledge?tab=proposals&status=<?= TemplateRenderer::escape((string) $statusName) ?>">
                     <?= TemplateRenderer::escape((string) $statusName) ?> (<?= (int) $count ?>)
                 </a>
             <?php endif; ?>
@@ -137,7 +137,7 @@ require __DIR__ . '/../layout/header.php';
         <?php else: ?>
             <div class="stack">
                 <?php foreach ($allProposals as $proposal): ?>
-                    <article style="padding: 12px 0; border-bottom: 1px solid var(--border, #eee);">
+                    <article style="padding: 12px 0; border-bottom: 1px solid var(--rule);">
                         <div class="action__head">
                             <a class="mono" href="/knowledge/proposals/<?= TemplateRenderer::escape($proposal->id) ?>"><?= TemplateRenderer::escape($proposal->id) ?></a>
                             <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($proposal->status)) ?>"><?= TemplateRenderer::escape(Presentation::label($proposal->status)) ?></span>
@@ -156,7 +156,7 @@ require __DIR__ . '/../layout/header.php';
         <p class="note" style="margin-bottom: 16px;">Compact, commit-safe memories for <?= count($archivedTasks) ?> completed tasks pruned from active boards.</p>
         <div class="stack">
             <?php foreach ($archivedTasks as $task): ?>
-                <article style="padding: 12px 0; border-bottom: 1px solid var(--border, #eee);">
+                <article style="padding: 12px 0; border-bottom: 1px solid var(--rule);">
                     <div class="action__head">
                         <strong><?= TemplateRenderer::escape($task['task']) ?></strong>
                         <span class="note"><?= TemplateRenderer::escape($task['archivedOn']) ?></span>
@@ -208,10 +208,10 @@ require __DIR__ . '/../layout/header.php';
             </div>
         </section>
 
-        <p class="eyebrow">Issue #115 · Workflow Evolution across Monthly Cohorts</p>
+        <p class="eyebrow">Workflow evolution across monthly cohorts</p>
         <section class="panel" style="margin-bottom: 24px;">
             <p class="note" style="margin-bottom: 16px;">
-                Measuring real workflow epochs shows the canonical ladder in action: as the team introduced <strong>LearningNotes</strong> and deterministic compile-down, the finding-to-proposal rate collapsed from <strong>88.5%</strong> in July to <strong>12.9%</strong> in September, with <strong>100%</strong> proposal survival in September.
+                Each row is one monthly cohort as agent-learning measures it. A falling finding&rarr;proposal rate means more lessons stay LearningNotes or compile down instead of becoming guidance proposals.
             </p>
             <div class="table-scroll">
                 <table class="table">
@@ -251,10 +251,10 @@ require __DIR__ . '/../layout/header.php';
             </div>
         </section>
 
-        <p class="eyebrow">Issue #116 · Deconstructing the 80.7% Terminal Proposal Rate</p>
+        <p class="eyebrow">Terminal proposal breakdown</p>
         <section class="panel" style="margin-bottom: 24px;">
             <p class="note" style="margin-bottom: 16px;">
-                The historical &ldquo;80.7% terminal rate&rdquo; (117 / 145 proposals) was previously misunderstood as churn. Deconstruction reveals that <strong>63.4%</strong> of all proposals successfully achieved a <strong>durable handoff</strong> into canonical guidance or deterministic constraints, while <strong>14.5%</strong> was healthy human triage and <strong>0%</strong> was unexplained churn.
+                How the <?= (int) $summary['total_proposals'] ?> proposal(s) in this corpus ended, using agent-learning's own retirement buckets. A terminal proposal is not churn by itself: a durable handoff into guidance or a constraint is the intended outcome.
             </p>
             <div class="grid" style="margin-bottom: 20px;">
                 <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
@@ -271,11 +271,6 @@ require __DIR__ . '/../layout/header.php';
                     <p class="eyebrow" style="margin: 0 0 4px;">No-Durable-Learning</p>
                     <p class="metric"><?= number_format(($terminal['acknowledged_no_durable_learning'] / max(1, $summary['total_proposals'])) * 100, 1) ?>%</p>
                     <p class="small" style="margin: 0;"><?= (int) $terminal['acknowledged_no_durable_learning'] ?> proposals acknowledged without polluting guidance</p>
-                </div>
-                <div style="background: var(--surface-alt); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--rule);">
-                    <p class="eyebrow" style="margin: 0 0 4px;">Unexplained Churn</p>
-                    <p class="metric" style="color: var(--accent);">0.0%</p>
-                    <p class="small" style="margin: 0;">100% of retirements have verified audit attribution and reasons</p>
                 </div>
             </div>
 
@@ -298,7 +293,7 @@ require __DIR__ . '/../layout/header.php';
             </dl>
         </section>
 
-        <p class="eyebrow">Issue #117 · Consolidation &amp; Dream Diagnostics</p>
+        <p class="eyebrow">Consolidation &amp; dream diagnostics</p>
         <section class="panel">
             <div class="action__head" style="margin-bottom: 12px;">
                 <h2>Consolidation Distributions</h2>
@@ -380,8 +375,9 @@ require __DIR__ . '/../layout/header.php';
                 <a class="small" href="/knowledge?tab=analytics">Explore full analytics &rarr;</a>
             </div>
             <p class="note" style="margin-top: 4px;">
-                Finding &rarr; Proposal rate collapsed from <strong>88.5%</strong> in July to <strong>12.9%</strong> in September as LearningNotes took over.
-                The 80.7% terminal proposal rate represents <strong>63.4%</strong> permanent graduation into skills &amp; constraints.
+                <strong><?= (int) $analytics->summary['total_findings'] ?></strong> finding(s) and <strong><?= (int) $analytics->summary['total_proposals'] ?></strong> proposal(s) recorded;
+                <strong><?= number_format($analytics->summary['finding_to_proposal_rate'], 1) ?>%</strong> of findings became a proposal.
+                Monthly cohorts and terminal outcomes are on the analytics view.
             </p>
         </section>
     <?php endif; ?>

@@ -119,22 +119,32 @@ final readonly class PromptWorkbenchAction
             }
         }
 
+        $workbench = new PromptWorkbenchViewModel(
+            taskAware: $taskAware,
+            taskId: $taskId === '' ? null : $taskId,
+            taskTitle: $card?->title,
+            recipes: $recipes,
+            selectedRecipeId: $selectedRecipeId,
+            argumentValues: $argumentValues,
+            goal: $goal,
+            additionalInstruction: $additionalInstruction,
+            context: $context,
+            composition: $composition,
+            errors: array_values(array_unique($errors)),
+        );
+        $status = $errors === [] ? 200 : 400;
+
+        // The live preview asks for the result region only. It is the same
+        // POST, the same owner calls and the same partial the full page
+        // renders, so a preview can never disagree with Generate.
+        if ($request->method === 'POST' && ($request->body['_fragment'] ?? '') === 'result') {
+            return Response::html($this->templates->render('prompts/_result', ['workbench' => $workbench]), $status);
+        }
+
         return Response::html($this->templates->render('prompts/index', [
-            'workbench' => new PromptWorkbenchViewModel(
-                taskAware: $taskAware,
-                taskId: $taskId === '' ? null : $taskId,
-                taskTitle: $card?->title,
-                recipes: $recipes,
-                selectedRecipeId: $selectedRecipeId,
-                argumentValues: $argumentValues,
-                goal: $goal,
-                additionalInstruction: $additionalInstruction,
-                context: $context,
-                composition: $composition,
-                errors: array_values(array_unique($errors)),
-            ),
+            'workbench' => $workbench,
             'task_context' => $card === null ? null : $this->taskContext->forCard($card),
-        ]), $errors === [] ? 200 : 400);
+        ]), $status);
     }
 
     /**
