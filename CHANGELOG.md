@@ -4,6 +4,20 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.18.7] - 2026-09-24
+
+### Changed
+
+- Board cards show agent-loop's workflow projection next to agent-kanban's card facts, in labelled **Board** and **Workflow** rows: lifecycle state, mode (`governed`, `legacy_inferred`, …) and the next-action kind. A card whose next step is `decision_required` is highlighted, and a board/workflow disagreement is shown on the card with agent-loop's own message instead of staying invisible.
+- A summary strip above the lanes counts decisions waiting on a human, board/workflow disagreements and cards per next-action kind; each count links to the matching filter. A new Workflow filter selects by next-action kind or by disagreement.
+
+### Fixed
+
+- The Board status filter offered `open`, `in_progress`, `blocked` and `done` from a hard-coded list, so it could never select `todo` or `in_review` cards and its `open`/`done` options matched nothing. Its options now come from the statuses the board's cards actually carry.
+### Validation
+
+- Local checks passed (242 tests including the new `BoardPageTest`, PHPStan, template lint, cs-check, `composer validate --strict --no-check-lock`); exact-head PR CI is the release gate.
+
 ## [0.18.6] - 2026-09-24
 
 ### Fixed

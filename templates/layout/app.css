@@ -612,6 +612,51 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 .card__id { display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: .02em; }
 .card__title { display: block; font-size: 13px; margin-top: 3px; line-height: 1.4; }
 .card__meta { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.card--attention { border-left: 3px solid var(--attention); }
+.card--blocked { border-left: 3px solid var(--blocked); }
+/* Board facts and workflow facts come from different owners; label each row. */
+.card__owners {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    align-items: center;
+    margin: 8px 0 0;
+    font-size: 11px;
+}
+.card__owners dt:not(:first-child) { margin-top: 5px; }
+.card__owners dt { color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; font-size: 9.5px; font-weight: 650; }
+.card__owners dd { margin: 0; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.card__owners .pill { font-size: 10.5px; }
+.card__disagreement {
+    margin: 8px 0 0;
+    padding: 6px 8px;
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: var(--blocked);
+    background: var(--blocked-soft);
+    border-radius: var(--radius-sm);
+}
+
+.board-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.board-summary__item {
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+    padding: 6px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    text-decoration: none;
+}
+.board-summary__item strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.board-summary__item:hover { border-color: var(--accent); }
+.board-summary__item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.board-summary__item--attention { border-color: color-mix(in srgb, var(--attention) 45%, transparent); background: var(--attention-soft); }
+.board-summary__item--attention strong { color: var(--attention); }
+.board-summary__item--blocked { border-color: color-mix(in srgb, var(--blocked) 45%, transparent); background: var(--blocked-soft); }
+.board-summary__item--blocked strong { color: var(--blocked); }
 
 /* ---------- attention feed ---------- */
 
