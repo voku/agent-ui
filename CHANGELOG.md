@@ -4,7 +4,7 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
-## [Unreleased]
+## [0.18.5] - 2026-09-24
 
 ### Added
 
@@ -24,6 +24,11 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - The workflow graph reads its colours from the design tokens instead of hard-coded values from the previous palette.
 - The favicon is no longer blocked by the Content-Security-Policy (`img-src 'self' data:`).
 - Task views use a compact tab row and no longer repeat the task title as the page heading, so each view's own content starts above the fold; the pinned masthead no longer wraps into a double-height bar at mid widths or covers a sixth of a phone screen.
+- Map search readiness, its reason and the recovery command now come from agent-map's `SearchReadinessInspector` instead of a UI-side fingerprint comparison that ignored the chunk policy version, reported a fingerprintless map as ready, and hard-coded `search-index build|refresh --root=.` (#76).
+
+### Validation
+
+- Local `composer ci` checks passed (238 tests, PHPStan, template lint, cs-check) against `voku/agent-loop 0.20.44` and `voku/agent-learning 0.18.25`; exact-head PR CI is the release gate.
 
 ## [0.18.4] - 2026-09-23
 
