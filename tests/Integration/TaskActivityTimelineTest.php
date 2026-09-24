@@ -305,6 +305,61 @@ final class TaskActivityTimelineTest extends TestCase
         self::assertSame(303, $response->status);
     }
 
+    /**
+     * A proposal record in the shape agent-learning's own fixtures use.
+     *
+     * An applied memory/skill proposal must prove its target: a real file at
+     * target_source_ref whose sha256 matches. The fixture writes that file
+     * rather than dating the record before the proof policy began, which would
+     * be testing a legacy shape to avoid the check.
+     *
+     * @param array<string, mixed> $fields
+     */
+    private function writeProposal(string $id, string $status, string $findingId, array $fields = []): void
+    {
+        $directory = $this->root . '/.agent-loop/learning/proposals/' . $status;
+        if (!is_dir($directory) && !mkdir($directory, 0o775, true)) {
+            throw new RuntimeException('Unable to create the proposal fixture directory.');
+        }
+
+        $record = array_merge([
+            'id' => $id,
+            'created_at' => '2026-03-01T09:00:00+00:00',
+            'action' => 'REPLACE',
+            'target_type' => 'skill',
+            'target' => 'fixture-skill',
+            // Must stay within the source finding's evidence; the owner rejects
+            // a proposal broader than what its finding observed.
+            'scope' => ['src/Example.php'],
+            'source_findings' => [$findingId],
+            'old' => 'Before.',
+            'new' => 'After.',
+            'reason' => 'The fixture needs a proposal.',
+            'boundary' => 'Fixture only.',
+            'validation' => ['Run the suite.'],
+            'status' => $status,
+            'proposed_by' => 'agent_alpha',
+        ], $fields);
+
+        if ($status === 'applied' || $status === 'retired') {
+            $target = $this->root . '/skills/fixture-skill.md';
+            if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0o775, true)) {
+                throw new RuntimeException('Unable to create the target fixture directory.');
+            }
+            file_put_contents($target, 'After.');
+            $record['applied_validation'] = [
+                'tests_passed' => true,
+                'target_source_ref' => 'skills/fixture-skill.md',
+                'target_content_hash' => hash_file('sha256', $target),
+            ];
+        }
+
+        file_put_contents(
+            $directory . '/' . $id . '.json',
+            json_encode($record, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+        );
+    }
+
     private function writeFinding(string $id, string $createdAt): void
     {
         $directory = $this->root . '/.agent-loop/learning/findings/validated';
@@ -536,6 +591,121 @@ final class TaskActivityTimelineTest extends TestCase
         );
 
         self::assertSame(['aaa_first', 'zzz_last'], $kinds);
+    }
+
+    /**
+     * What happened to a proposal after approval is part of the story, dated by its owner.
+     *
+     * Until agent-learning 0.18.26 its projection stopped at approval, so a
+     * proposal's acknowledgement, application and retirement were known to the
+     * owner's record and invisible here.
+     */
+    public function testEveryLaterProposalTransitionIsPlacedAtTheOwnerMoment(): void
+    {
+        $this->applicationWithCard();
+        $this->writeFinding('finding.2026-03-01.001', '2026-03-01T08:00:00+00:00');
+        $this->writeProposal('proposal.2026-03-01.001', 'acknowledged', 'finding.2026-03-01.001', [
+            'action' => 'NO_DURABLE_LEARNING',
+            'target_type' => null,
+            'target' => null,
+            'acknowledged_by' => 'reviewer',
+            'acknowledged_at' => '2026-03-02T10:00:00+00:00',
+        ]);
+        $this->writeProposal('proposal.2026-03-01.002', 'retired', 'finding.2026-03-01.001', [
+            'approved_by' => 'maintainer',
+            'approved_at' => '2026-03-01T11:00:00+00:00',
+            'applied_by' => 'maintainer',
+            'applied_at' => '2026-03-03T10:00:00+00:00',
+            'retired_by' => 'curator',
+            'retired_at' => '2026-03-04T10:00:00+00:00',
+        ]);
+
+        $events = $this->activityFor('APP-1')->events;
+
+        $expected = [
+            'proposal_acknowledged' => ['2026-03-02T10:00:00+00:00', 'proposal.2026-03-01.001 by reviewer'],
+            'proposal_applied' => ['2026-03-03T10:00:00+00:00', 'proposal.2026-03-01.002 by maintainer'],
+            'proposal_retired' => ['2026-03-04T10:00:00+00:00', 'proposal.2026-03-01.002 by curator'],
+        ];
+        foreach ($expected as $kind => [$at, $detail]) {
+            $placed = $this->eventsOfKind($events, $kind);
+            self::assertCount(1, $placed, $kind . ' must be placed once');
+            self::assertSame($at, $placed[0]->at);
+            self::assertSame('agent-learning', $placed[0]->owner);
+            self::assertSame($detail, $placed[0]->detail);
+        }
+    }
+
+    /**
+     * Guidance is its proposal, promoted - one fact, placed once.
+     *
+     * The moment guidance became durable is its source proposal's applied
+     * moment. Emitting it as both a proposal event and a guidance event is the
+     * same mistake as reading contract_approved from two owners.
+     */
+    public function testAppliedGuidanceIsPlacedOnceAndNoLongerListedAsUntimed(): void
+    {
+        $this->applicationWithCard();
+        $this->writeFinding('finding.2026-03-01.001', '2026-03-01T08:00:00+00:00');
+        $this->writeProposal('proposal.2026-03-01.003', 'applied', 'finding.2026-03-01.001', [
+            'approved_by' => 'maintainer',
+            'approved_at' => '2026-03-01T11:00:00+00:00',
+            'applied_by' => 'maintainer',
+            'applied_at' => '2026-03-03T10:00:00+00:00',
+        ]);
+
+        $activity = $this->activityFor('APP-1');
+
+        $applied = $this->eventsOfKind($activity->events, 'proposal_applied');
+        self::assertCount(1, $applied);
+        self::assertSame('2026-03-03T10:00:00+00:00', $applied[0]->at);
+        self::assertSame(
+            [],
+            array_values(array_filter($activity->untimed, static fn(UntimedOwnerFact $f) => $f->kind === 'guidance')),
+            'agent-learning now dates this guidance, so it has no business in the untimed list',
+        );
+    }
+
+    /**
+     * Approved but not yet applied is a transition that has not happened, not a missing time.
+     */
+    public function testApprovedGuidanceNotYetAppliedIsNeitherPlacedNorListed(): void
+    {
+        $this->applicationWithCard();
+        $this->writeFinding('finding.2026-03-01.001', '2026-03-01T08:00:00+00:00');
+        $this->writeProposal('proposal.2026-03-01.004', 'approved', 'finding.2026-03-01.001', [
+            'approved_by' => 'maintainer',
+            'approved_at' => '2026-03-01T11:00:00+00:00',
+        ]);
+
+        $activity = $this->activityFor('APP-1');
+
+        self::assertCount(1, $this->eventsOfKind($activity->events, 'proposal_approved'));
+        self::assertSame([], $this->eventsOfKind($activity->events, 'proposal_applied'));
+        self::assertSame(
+            [],
+            array_values(array_filter($activity->untimed, static fn(UntimedOwnerFact $f) => $f->kind === 'guidance')),
+        );
+    }
+
+    /**
+     * Applied with no applied time is the one guidance fact the owner cannot date - so it is listed.
+     */
+    public function testAppliedGuidanceWithoutAnAppliedTimeIsListedRatherThanDropped(): void
+    {
+        $this->applicationWithCard();
+        $this->writeFinding('finding.2026-03-01.001', '2026-03-01T08:00:00+00:00');
+        $this->writeProposal('proposal.2026-03-01.005', 'applied', 'finding.2026-03-01.001', [
+            'approved_by' => 'maintainer',
+            'approved_at' => '2026-09-01T11:00:00+00:00',
+        ]);
+
+        $activity = $this->activityFor('APP-1');
+
+        self::assertSame([], $this->eventsOfKind($activity->events, 'proposal_applied'));
+        $guidance = array_values(array_filter($activity->untimed, static fn(UntimedOwnerFact $f) => $f->kind === 'guidance'));
+        self::assertCount(1, $guidance);
+        self::assertStringContainsString('no applied time', $guidance[0]->missing);
     }
 
     /**

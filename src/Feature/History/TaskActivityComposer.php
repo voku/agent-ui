@@ -276,32 +276,56 @@ final readonly class TaskActivityComposer
                 $proposal->id . ' · ' . $proposal->action,
             );
 
-            if ($proposal->approvedAt === null) {
-                continue;
+            if ($proposal->approvedAt !== null) {
+                $this->place(
+                    $events,
+                    $untimed,
+                    $proposal->approvedAt,
+                    'agent-learning',
+                    'proposal_approved',
+                    'Proposal approved',
+                    $this->byActor($proposal->id, $proposal->approvedBy),
+                );
             }
 
-            $this->place(
-                $events,
-                $untimed,
-                $proposal->approvedAt,
-                'agent-learning',
-                'proposal_approved',
-                'Proposal approved',
-                $proposal->id
-                    . ($proposal->approvedBy === null ? '' : ' by ' . $proposal->approvedBy),
-            );
+            // The transitions after approval, each dated by agent-learning since
+            // 0.18.26. A null moment means that transition has not happened -
+            // an absence, not a gap - so it contributes nothing, just as an
+            // unapproved Contract revision contributes no approval.
+            foreach ([
+                ['proposal_acknowledged', 'Proposal acknowledged', $proposal->acknowledgedAt, $proposal->acknowledgedBy],
+                ['proposal_applied', 'Proposal applied', $proposal->appliedAt, $proposal->appliedBy],
+                ['proposal_retired', 'Proposal retired', $proposal->retiredAt, $proposal->retiredBy],
+            ] as [$kind, $title, $at, $by]) {
+                if ($at !== null) {
+                    $this->place($events, $untimed, $at, 'agent-learning', $kind, $title, $this->byActor($proposal->id, $by));
+                }
+            }
         }
 
         foreach ($projection->guidance as $guidance) {
+            // Guidance is its source proposal, promoted: the moment it became
+            // durable is that proposal's applied moment, already placed above
+            // as proposal_applied. Placing it again would put one fact on the
+            // page twice. What is left is the one case the owner cannot date -
+            // guidance recorded as applied with no applied time - and that is
+            // listed rather than dropped. Guidance approved but not yet applied
+            // has not become durable, which is not a missing time.
+            if ($guidance->appliedAt !== null || $guidance->status !== 'applied') {
+                continue;
+            }
             $untimed[] = new UntimedOwnerFact(
                 'agent-learning',
                 'guidance',
                 'Durable guidance ' . $guidance->id,
                 $guidance->type->value . ' · ' . $guidance->status,
-                'GuidanceProjection publishes no timestamp for promotion. The'
-                    . ' proposal record behind it carries applied_at, which the'
-                    . ' projection does not expose; see voku/agent-learning.',
+                'agent-learning records this guidance as applied but publishes no applied time for it.',
             );
         }
+    }
+
+    private function byActor(string $id, ?string $actor): string
+    {
+        return $id . ($actor === null ? '' : ' by ' . $actor);
     }
 }
