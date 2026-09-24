@@ -8,17 +8,22 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\History\TaskActivity;
 use voku\AgentUi\Feature\History\TaskActivityComposer;
 use voku\AgentUi\Feature\History\TaskActivityEvent;
+use voku\AgentUi\Feature\History\UntimedOwnerFact;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
+use voku\AgentUi\Integration\AgentLoop\AuditTimelineEntry;
 use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskAuditSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
 
 /**
@@ -61,9 +66,7 @@ final class TaskActivityTimelineTest extends TestCase
      */
     public function testEveryPlacedEventCarriesAnOwnerPublishedTimestamp(): void
     {
-        $composer = $this->composerWithCardAndContract();
-
-        $activity = $composer->forTask('APP-1');
+        $activity = $this->activityWithCardAndContract();
 
         self::assertNotSame([], $activity->events);
         foreach ($activity->events as $event) {
@@ -75,7 +78,7 @@ final class TaskActivityTimelineTest extends TestCase
     /** The card's creation is agent-kanban's fact, and it reaches the story. */
     public function testTheBoardCardCreationIsPartOfTheStory(): void
     {
-        $activity = $this->composerWithCardAndContract()->forTask('APP-1');
+        $activity = $this->activityWithCardAndContract();
 
         $created = $this->eventsOfKind($activity->events, 'task_created');
 
@@ -97,7 +100,7 @@ final class TaskActivityTimelineTest extends TestCase
         $this->proposeContract($app, $csrf, 'First goal');
         $this->proposeContract($app, $csrf, 'Second goal', 'revise');
 
-        $activity = $this->composer()->forTask('APP-1');
+        $activity = $this->activityFor('APP-1');
 
         self::assertGreaterThanOrEqual(
             2,
@@ -120,7 +123,7 @@ final class TaskActivityTimelineTest extends TestCase
         $this->backdateCard('2020-01-01T00:00:00+00:00');
         $this->proposeContract($app, (new CsrfTokenManager())->token(), 'Fixture goal');
 
-        $timestamps = array_map(static fn($event): string => $event->at, $this->composer()->forTask('APP-1')->events);
+        $timestamps = array_map(static fn($event): string => $event->at, $this->activityFor('APP-1')->events);
 
         self::assertGreaterThan(
             1,
@@ -140,14 +143,18 @@ final class TaskActivityTimelineTest extends TestCase
      * rendering of null is absence from the timeline - not an entry with an empty
      * timestamp, which would sort to one end and read as a real position.
      */
-    public function testACardWithNoCreatedDateContributesNoEvent(): void
+    public function testACardWithNoCreatedDateIsReportedAsUntimedNotDropped(): void
     {
         $this->applicationWithCard();
         $this->stripCardCreatedDate();
 
-        $activity = $this->composer()->forTask('APP-1');
+        $activity = $this->activityFor('APP-1');
 
         self::assertSame([], $this->eventsOfKind($activity->events, 'task_created'));
+        $untimed = array_values(array_filter($activity->untimed, static fn(UntimedOwnerFact $f) => $f->kind === 'task_created'));
+        self::assertCount(1, $untimed, 'a card with no Created line still exists and the page has to say so');
+        self::assertSame('agent-kanban', $untimed[0]->owner);
+        self::assertStringContainsString('no time', $untimed[0]->missing);
     }
 
     /**
@@ -166,8 +173,12 @@ final class TaskActivityTimelineTest extends TestCase
         $this->approveContract($app, $csrf);
 
         $seen = [];
-        foreach ($this->composer()->forTask('APP-1')->events as $event) {
-            $key = $event->at . '|' . $event->kind;
+        foreach ($this->activityFor('APP-1')->events as $event) {
+            // The whole fact, not just when and what kind: two Contract
+            // revisions planned inside the same second are two facts that share
+            // a timestamp and a kind, and keying on those alone reported the
+            // second one as a duplicate of the first.
+            $key = implode('|', [$event->at, $event->owner, $event->kind, $event->title, $event->detail]);
             self::assertNotContains($key, $seen, $event->kind . ' was placed twice at ' . $event->at);
             $seen[] = $key;
         }
@@ -185,7 +196,7 @@ final class TaskActivityTimelineTest extends TestCase
         $this->applicationWithCard();
         $this->writeFinding('finding.2026-09-24.aaa001', '2026-02-02T09:00:00+00:00');
 
-        $created = $this->eventsOfKind($this->composer()->forTask('APP-1')->events, 'finding_created');
+        $created = $this->eventsOfKind($this->activityFor('APP-1')->events, 'finding_created');
 
         self::assertCount(1, $created);
         self::assertSame('2026-02-02T09:00:00+00:00', $created[0]->at);
@@ -212,7 +223,7 @@ final class TaskActivityTimelineTest extends TestCase
 
         $this->expectException(Throwable::class);
 
-        $this->composer()->forTask('APP-1');
+        $this->activityFor('APP-1');
     }
 
     /** A task no board holds still composes, from the owners that do hold it. */
@@ -221,7 +232,7 @@ final class TaskActivityTimelineTest extends TestCase
         $app = new Application($this->root, $this->templates);
         self::assertSame(404, $app->handle(new Request('GET', '/task/APP-404'))->status);
 
-        $activity = $this->composer()->forTask('APP-404');
+        $activity = $this->activityFor('APP-404');
 
         self::assertSame([], $this->eventsOfKind($activity->events, 'task_created'));
     }
@@ -255,7 +266,7 @@ final class TaskActivityTimelineTest extends TestCase
         );
 
         $this->backdateCard($cardCreated);
-        $events = $this->composer()->forTask('APP-1')->events;
+        $events = $this->activityFor('APP-1')->events;
 
         self::assertNotSame(
             'task_created',
@@ -335,6 +346,27 @@ final class TaskActivityTimelineTest extends TestCase
         file_put_contents($path, $rewritten);
     }
 
+    /**
+     * The same snapshot with a different timeline, so a raw owner string can be tested.
+     *
+     * Every owner in this repository parses its own timestamps before projecting
+     * them, so none of them can be made to hand the composer an unparsable one
+     * from a fixture. The audit report's timeline entries are the exception -
+     * they carry whatever string the report held - and forTask() taking the
+     * snapshot as an argument is what makes substituting one possible at all.
+     */
+    private function snapshotWithTimeline(TaskAuditSnapshot $snapshot, AuditTimelineEntry ...$timeline): TaskAuditSnapshot
+    {
+        $reflection = new \ReflectionClass(TaskAuditSnapshot::class);
+        $arguments = [];
+        foreach ($reflection->getConstructor()?->getParameters() ?? [] as $parameter) {
+            $name = $parameter->getName();
+            $arguments[$name] = $name === 'timeline' ? array_values($timeline) : $snapshot->{$name};
+        }
+
+        return $reflection->newInstanceArgs($arguments);
+    }
+
     private function stripCardCreatedDate(): void
     {
         $path = $this->root . '/.agent-loop/todo/cards/APP-1.md';
@@ -378,22 +410,159 @@ final class TaskActivityTimelineTest extends TestCase
         return array_values(array_filter($events, static fn($event): bool => $event->kind === $kind));
     }
 
-    private function composerWithCardAndContract(): TaskActivityComposer
+    /**
+     * A string that is not a moment is an absence, and absences are shown as absences.
+     *
+     * The comparator used to fall back to strcmp() when it could not parse a
+     * timestamp, which ordered a word against a moment by spelling. That is not
+     * just approximate: with one unparsable value among two real ones the
+     * relation stopped being transitive, so the rendered order depended on which
+     * owner the composer happened to read first. The value is still shown - it
+     * is a fact about the owner - just not on the timeline.
+     */
+    public function testAnOwnerStringThatNamesNoMomentIsListedRatherThanSorted(): void
+    {
+        $this->applicationWithCard();
+        $snapshot = $this->snapshotWithTimeline(
+            (new AuditTrailGateway($this->root))->task('APP-1'),
+            new AuditTimelineEntry('whenever', 'run_started', 'Run started', 'Reported without a time.'),
+        );
+
+        $activity = $this->composer()->forTask($snapshot);
+
+        self::assertSame([], $this->eventsOfKind($activity->events, 'run_started'));
+        $untimed = array_values(array_filter($activity->untimed, static fn(UntimedOwnerFact $f) => $f->kind === 'run_started'));
+        self::assertCount(1, $untimed, 'the fact is still the owner\'s; only its position was never the UI\'s to choose');
+        self::assertSame('agent-loop', $untimed[0]->owner);
+        self::assertStringContainsString('whenever', $untimed[0]->missing);
+    }
+
+    /**
+     * `now` and `tomorrow` parse into a DateTimeImmutable, against the clock.
+     *
+     * This is why the guard is not simply "does DateTimeImmutable accept it":
+     * that accepts relative words and resolves them to today, which would date a
+     * fact by when the page was rendered. Rollover is the other half - February
+     * 30th does not throw, it becomes March 2nd and says so only in
+     * getLastErrors().
+     *
+     * @return list<array{string}>
+     */
+    public static function stringsThatAreNotMoments(): array
+    {
+        return [
+            ['now'],
+            ['tomorrow'],
+            ['yesterday'],
+            ['unknown'],
+            ['2026-09-24'],
+            ['2026-13-45T00:00:00+00:00'],
+            // These two do not throw. PHP rolls them over - to 2026-03-02 and to
+            // 2025-11-30 - and reports it only through getLastErrors(), so a
+            // catch block alone would have placed both on the timeline, at a
+            // date no owner ever wrote.
+            ['2026-02-30T00:00:00+00:00'],
+            ['2026-00-00T00:00:00+00:00'],
+        ];
+    }
+
+    #[DataProvider('stringsThatAreNotMoments')]
+    public function testAnEventRefusesAStringThatNamesNoMoment(string $at): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new TaskActivityEvent($at, 'agent-loop', 'run_started', 'Run started', '');
+    }
+
+    /**
+     * The formats owners do publish all stay placeable.
+     *
+     * The guard has to be narrow enough to reject a word and wide enough that an
+     * owner writing `Z` instead of `+00:00`, or adding microseconds, does not
+     * silently empty the timeline into the untimed list.
+     *
+     * @return list<array{string}>
+     */
+    public static function momentsOwnersPublish(): array
+    {
+        return [
+            ['2026-09-24T08:00:00+00:00'],
+            ['2026-09-24T08:00:00Z'],
+            ['2026-09-24T08:00:00.123456+02:00'],
+            ['2026-09-24 08:00:00'],
+        ];
+    }
+
+    #[DataProvider('momentsOwnersPublish')]
+    public function testAnEventAcceptsTheFormatsOwnersPublish(string $at): void
+    {
+        self::assertSame($at, (new TaskActivityEvent($at, 'agent-loop', 'run_started', 'Run started', ''))->at);
+    }
+
+    /**
+     * Equal instants order by the facts, not by the order the composer reads owners.
+     *
+     * Two owners can publish the same second, and PHP's stable sort then left the
+     * rendered order equal to the order addBoard()/addContracts()/addLearning()
+     * happen to be called in - so reordering those three lines would have
+     * reordered a rendered page with nothing in the diff to say so.
+     */
+    public function testEqualInstantsOrderByTheFactsThemselves(): void
+    {
+        $this->applicationWithCard();
+        $at = '2026-03-03T10:00:00+00:00';
+        $snapshot = $this->snapshotWithTimeline(
+            (new AuditTrailGateway($this->root))->task('APP-1'),
+            new AuditTimelineEntry($at, 'zzz_last', 'Zeta', 'Same second.'),
+            new AuditTimelineEntry($at, 'aaa_first', 'Alpha', 'Same second.'),
+        );
+
+        $kinds = array_map(
+            static fn(TaskActivityEvent $e) => $e->kind,
+            array_values(array_filter(
+                $this->composer()->forTask($snapshot)->events,
+                static fn(TaskActivityEvent $e) => $e->at === $at,
+            )),
+        );
+
+        self::assertSame(['aaa_first', 'zzz_last'], $kinds);
+    }
+
+    /**
+     * The timeline composes from the snapshot the page already read.
+     *
+     * A structural assertion because the cost it guards is invisible in output:
+     * the page rendered identically whether the audit gateway was read once or
+     * twice, and twice meant a second set of owner store reads per request.
+     */
+    public function testTheComposerDoesNotReadTheAuditTrailItself(): void
+    {
+        $parameters = (new \ReflectionClass(TaskActivityComposer::class))->getConstructor()?->getParameters() ?? [];
+        $types = array_map(static fn(\ReflectionParameter $p) => (string) $p->getType(), $parameters);
+
+        self::assertNotContains(AuditTrailGateway::class, $types);
+    }
+
+    private function activityWithCardAndContract(): TaskActivity
     {
         $app = $this->applicationWithCard();
         $this->proposeContract($app, (new CsrfTokenManager())->token(), 'Fixture goal');
 
-        return $this->composer();
+        return $this->activityFor('APP-1');
     }
 
     private function composer(): TaskActivityComposer
     {
         return new TaskActivityComposer(
-            new AuditTrailGateway($this->root),
             new HumanDecisionGateway($this->root),
             new LearningCatalogGateway($this->root),
             new BoardProjectionGateway($this->root),
         );
+    }
+
+    private function activityFor(string $taskId): TaskActivity
+    {
+        return $this->composer()->forTask((new AuditTrailGateway($this->root))->task($taskId));
     }
 
     private function proposeContract(

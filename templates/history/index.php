@@ -14,7 +14,7 @@ require __DIR__ . '/../layout/header.php';
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($audit->taskId) ?>"><?= TemplateRenderer::escape($audit->taskId) ?></a><span>/</span>History</p>
 <?php $taskNavCurrent = '/history'; require __DIR__ . '/../layout/task-context.php'; ?>
 <div class="page-head">
-    <h1>Audit history</h1>
+    <h1>Task history</h1>
     <p class="lede">Newest first. Every entry is a timestamped fact read from an owner record — absence is left
         as absence rather than filled in with an inferred event.</p>
 </div>
@@ -40,10 +40,10 @@ require __DIR__ . '/../layout/header.php';
 <?php if ($activity->untimed !== []): ?>
     <p class="eyebrow">Known, but not placed in time</p>
     <section class="panel">
-        <p class="note" style="margin-top:0">These facts belong to this task and their owners publish no timestamp for
-            them. Putting them on the timeline would mean the UI deciding when they happened, so they are listed here
-            with the field that is missing instead.</p>
-        <div class="stack">
+        <p class="note" style="margin-top:0">These facts belong to this task, and their owners either publish no time
+            for them or publish something that does not name a moment. Putting them on the timeline would mean this page
+            deciding when they happened, so each one is listed with what its owner said instead.</p>
+        <div class="stack untimed">
             <?php foreach ($activity->untimed as $fact): ?>
                 <article>
                     <p class="provenance provenance--authority"><?= TemplateRenderer::escape($fact->owner) ?> · <?= TemplateRenderer::escape($fact->kind) ?></p>

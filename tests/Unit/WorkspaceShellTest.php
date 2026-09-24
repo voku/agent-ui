@@ -139,6 +139,27 @@ final class WorkspaceShellTest extends TestCase
     }
 
     /** Core navigation must not depend on JavaScript. */
+    /**
+     * Every custom property the stylesheet reads is one the stylesheet defines.
+     *
+     * A `var(--name)` that resolves to nothing does not fall back and does not
+     * warn: the browser drops the whole declaration, so the rule is simply
+     * absent from the rendered page. That is how a separator written as
+     * `var(--line)` - the palette calls it `--rule` - shipped looking exactly
+     * like a rule nobody had written yet.
+     */
+    public function testEveryCustomPropertyTheStylesheetReadsIsOneItDefines(): void
+    {
+        $css = $this->read('templates/layout/app.css');
+
+        preg_match_all('/--[A-Za-z0-9-]+(?=\s*:)/', $css, $defined);
+        preg_match_all('/var\(\s*(--[A-Za-z0-9-]+)/', $css, $used);
+
+        $undefined = array_values(array_unique(array_diff($used[1], $defined[0])));
+
+        self::assertSame([], $undefined, 'these custom properties are read but never defined: ' . implode(', ', $undefined));
+    }
+
     public function testTheShellUsesNoScript(): void
     {
         foreach (['templates/layout/header.php', 'templates/layout/task-nav.php'] as $file) {

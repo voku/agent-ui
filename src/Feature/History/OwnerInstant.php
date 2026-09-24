@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+namespace voku\AgentUi\Feature\History;
+
+use DateTimeImmutable;
+use Exception;
+
+/**
+ * The one rule this page uses to decide whether an owner string names a moment.
+ *
+ * It exists because the rule has to be the same in three places - the guard on
+ * TaskActivityEvent, the composer's choice between the timeline and the untimed
+ * list, and the sort - and because the obvious implementation is wrong in two
+ * ways. `new DateTimeImmutable($at)` accepts `now`, `tomorrow` and the empty
+ * string, all of which would be resolved against the clock and land on the
+ * timeline as today; and it throws only for input it cannot make any sense of,
+ * so `2026-02-30` comes back as March 2nd, reporting the rollover through
+ * getLastErrors() rather than by failing.
+ *
+ * So: the string must open with an absolute calendar date and time, it must
+ * parse, and the parse must be clean. Anything else is a string the owner
+ * published and this page cannot place, which is a fact about the owner and is
+ * shown as one rather than sorted into the story by its spelling.
+ */
+final readonly class OwnerInstant
+{
+    /**
+     * Deliberately wider than ATOM: `Z`, microseconds and a space separator are
+     * all unambiguous, and narrowing to one owner's current formatting would
+     * turn a harmless format change into facts vanishing off the timeline.
+     */
+    private const string ABSOLUTE = '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/';
+
+    public static function parse(string $at): ?DateTimeImmutable
+    {
+        if (preg_match(self::ABSOLUTE, $at) !== 1) {
+            return null;
+        }
+
+        try {
+            $instant = new DateTimeImmutable($at);
+        } catch (Exception) {
+            return null;
+        }
+
+        $errors = DateTimeImmutable::getLastErrors();
+        if ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) {
+            return null;
+        }
+
+        return $instant;
+    }
+}

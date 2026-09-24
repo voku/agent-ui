@@ -138,7 +138,7 @@ final readonly class Application
         $this->evidence = new EvidenceAction($workflow, $audit, $taskContext, $templates);
         $this->history = new HistoryAction(
             $audit,
-            new TaskActivityComposer($audit, $decisions, $learning, $board),
+            new TaskActivityComposer($decisions, $learning, $board),
             $taskContext,
             $templates,
         );

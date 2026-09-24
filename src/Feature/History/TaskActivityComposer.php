@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\History;
 
 use DateTimeImmutable;
-use Exception;
 use InvalidArgumentException;
+use LogicException;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
-use voku\AgentUi\Integration\AgentLoop\AuditTrailGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskAuditSnapshot;
 
 /**
  * Assembles one task story from the owners that each hold part of it.
@@ -43,41 +43,84 @@ final readonly class TaskActivityComposer
     private const array SOURCED_FROM_THE_CONTRACT_STORE = ['contract_approved'];
 
     public function __construct(
-        private AuditTrailGateway $audit,
         private HumanDecisionGateway $decisions,
         private LearningCatalogGateway $learning,
         private BoardProjectionGateway $board,
     ) {
     }
 
-    public function forTask(string $taskId): TaskActivity
+    /**
+     * Composes the story around an audit snapshot the caller has already read.
+     *
+     * The snapshot is a parameter rather than something this class fetches
+     * because the page needs it too, and reading it twice cost a second set of
+     * four owner store reads for one request - long enough to measure, and long
+     * enough for the two copies to disagree if a run wrote between them. Taking
+     * it as an argument makes the single read structural instead of a habit, and
+     * the snapshot's own task id is the owner-normalised one every other
+     * projection here is then asked for.
+     */
+    public function forTask(TaskAuditSnapshot $audit): TaskActivity
     {
+        $taskId = $audit->taskId;
         $events = [];
         $untimed = [];
 
-        foreach ($this->audit->task($taskId)->timeline as $entry) {
+        foreach ($audit->timeline as $entry) {
             if (in_array($entry->kind, self::SOURCED_FROM_THE_CONTRACT_STORE, true)) {
                 // The audit projection reports the approval of the revision in
                 // force; the Contract store reports every revision's, this one
                 // included. Taking both rendered the current approval twice.
                 continue;
             }
-            $events[] = new TaskActivityEvent(
-                $entry->at,
-                'agent-loop',
-                $entry->kind,
-                $entry->title,
-                $entry->detail,
-            );
+            $this->place($events, $untimed, $entry->at, 'agent-loop', $entry->kind, $entry->title, $entry->detail);
         }
 
-        $this->addBoard($taskId, $events);
-        $this->addContracts($taskId, $events);
+        $this->addBoard($taskId, $events, $untimed);
+        $this->addContracts($taskId, $events, $untimed);
         $this->addLearning($taskId, $events, $untimed);
 
         usort($events, $this->newestFirst(...));
 
         return new TaskActivity($events, $untimed);
+    }
+
+    /**
+     * Puts a fact on the timeline, or on the list of facts that have no place on it.
+     *
+     * Every owner field that feeds this page is nullable or free text somewhere
+     * in its own store, so the question "can this be placed" has to be asked of
+     * each value rather than assumed from the type. The two answers are a
+     * timeline entry and a named absence; there is no third answer where the UI
+     * picks a position, which is what a string sort was quietly doing.
+     *
+     * @param list<TaskActivityEvent> $events
+     * @param list<UntimedOwnerFact> $untimed
+     */
+    private function place(
+        array &$events,
+        array &$untimed,
+        ?string $at,
+        string $owner,
+        string $kind,
+        string $title,
+        string $detail,
+    ): void {
+        if ($at !== null && OwnerInstant::parse($at) !== null) {
+            $events[] = new TaskActivityEvent($at, $owner, $kind, $title, $detail);
+
+            return;
+        }
+
+        $untimed[] = new UntimedOwnerFact(
+            $owner,
+            $kind,
+            $title,
+            $detail,
+            $at === null || trim($at) === ''
+                ? $owner . ' publishes no time for this.'
+                : $owner . ' published "' . $at . '", which names no moment this page can place.',
+        );
     }
 
     /**
@@ -89,28 +132,32 @@ final readonly class TaskActivityComposer
      * string comparison would keep working until the day one of them did not.
      * The original strings are still what gets rendered; only the ordering reads
      * the instant.
+     *
+     * Two owners can publish the same instant, and then the page has nothing to
+     * order them by. It used to fall out of the order these methods happen to
+     * run in, so moving the addLearning() call above addBoard() would have
+     * reordered a rendered page with nothing in the diff to say so. Kind and
+     * title are at least properties of the facts themselves.
      */
     private function newestFirst(TaskActivityEvent $left, TaskActivityEvent $right): int
     {
-        $leftAt = $this->instant($left);
-        $rightAt = $this->instant($right);
-
-        if ($leftAt === null || $rightAt === null) {
-            // An owner timestamp this UI cannot parse is not a reason to invent an
-            // order for it: fall back to the text so the list stays stable.
-            return strcmp($right->at, $left->at);
+        $order = $this->instant($right) <=> $this->instant($left);
+        if ($order !== 0) {
+            return $order;
         }
 
-        return $rightAt <=> $leftAt;
+        return [$left->kind, $left->title, $left->detail, $left->owner]
+            <=> [$right->kind, $right->title, $right->detail, $right->owner];
     }
 
-    private function instant(TaskActivityEvent $event): ?DateTimeImmutable
+    private function instant(TaskActivityEvent $event): DateTimeImmutable
     {
-        try {
-            return new DateTimeImmutable($event->at);
-        } catch (Exception) {
-            return null;
-        }
+        // Unreachable: TaskActivityEvent refuses to exist with a timestamp this
+        // page cannot place, and place() routes those to the untimed list. If it
+        // ever fires, the guard has a hole and the page should say so rather than
+        // sort a word against a moment.
+        return OwnerInstant::parse($event->at)
+            ?? throw new LogicException('A placed event carries an unplaceable timestamp: ' . $event->at);
     }
 
     /**
@@ -118,10 +165,14 @@ final readonly class TaskActivityComposer
      *
      * A card whose file carries no parsable created date is exactly the case the
      * owner already represents as null; the UI does not fill it from the file.
+     * It does still say the card exists: a card with no Created line is a card,
+     * and leaving the row out entirely reads as "this task was never on a
+     * board", which is a different and untrue statement.
      *
      * @param list<TaskActivityEvent> $events
+     * @param list<UntimedOwnerFact> $untimed
      */
-    private function addBoard(string $taskId, array &$events): void
+    private function addBoard(string $taskId, array &$events, array &$untimed): void
     {
         try {
             $card = $this->board->card($taskId);
@@ -134,17 +185,7 @@ final readonly class TaskActivityComposer
             return;
         }
 
-        if ($card->createdAt === null) {
-            return;
-        }
-
-        $events[] = new TaskActivityEvent(
-            $card->createdAt,
-            'agent-kanban',
-            'task_created',
-            'Task created',
-            $card->title,
-        );
+        $this->place($events, $untimed, $card->createdAt, 'agent-kanban', 'task_created', 'Task created', $card->title);
     }
 
     /**
@@ -155,8 +196,9 @@ final readonly class TaskActivityComposer
      * rather than something the UI has to reconstruct from the current one.
      *
      * @param list<TaskActivityEvent> $events
+     * @param list<UntimedOwnerFact> $untimed
      */
-    private function addContracts(string $taskId, array &$events): void
+    private function addContracts(string $taskId, array &$events, array &$untimed): void
     {
         $revisions = $this->decisions->supersededRevisions($taskId);
         $current = $this->decisions->contract($taskId);
@@ -165,7 +207,9 @@ final readonly class TaskActivityComposer
         }
 
         foreach ($revisions as $contract) {
-            $events[] = new TaskActivityEvent(
+            $this->place(
+                $events,
+                $untimed,
                 $contract->createdAt,
                 'agent-loop',
                 'contract_proposed',
@@ -174,10 +218,14 @@ final readonly class TaskActivityComposer
             );
 
             if ($contract->approvedAt === null) {
+                // Not an absence to report: an unapproved revision has not been
+                // approved, and saying when it was not is not a missing field.
                 continue;
             }
 
-            $events[] = new TaskActivityEvent(
+            $this->place(
+                $events,
+                $untimed,
                 $contract->approvedAt,
                 'agent-loop',
                 'contract_approved',
@@ -206,7 +254,9 @@ final readonly class TaskActivityComposer
         $projection = $this->learning->task($taskId);
 
         foreach ($projection->findings as $finding) {
-            $events[] = new TaskActivityEvent(
+            $this->place(
+                $events,
+                $untimed,
                 $finding->createdAt,
                 'agent-learning',
                 'finding_created',
@@ -216,7 +266,9 @@ final readonly class TaskActivityComposer
         }
 
         foreach ($projection->proposals as $proposal) {
-            $events[] = new TaskActivityEvent(
+            $this->place(
+                $events,
+                $untimed,
                 $proposal->createdAt,
                 'agent-learning',
                 'proposal_created',
@@ -228,7 +280,9 @@ final readonly class TaskActivityComposer
                 continue;
             }
 
-            $events[] = new TaskActivityEvent(
+            $this->place(
+                $events,
+                $untimed,
                 $proposal->approvedAt,
                 'agent-learning',
                 'proposal_approved',
@@ -244,7 +298,9 @@ final readonly class TaskActivityComposer
                 'guidance',
                 'Durable guidance ' . $guidance->id,
                 $guidance->type->value . ' · ' . $guidance->status,
-                'GuidanceProjection publishes no timestamp for promotion.',
+                'GuidanceProjection publishes no timestamp for promotion. The'
+                    . ' proposal record behind it carries applied_at, which the'
+                    . ' projection does not expose; see voku/agent-learning.',
             );
         }
     }

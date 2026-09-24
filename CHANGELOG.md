@@ -14,11 +14,21 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Fixed
 
 - Render the current Contract revision's approval once. The audit report and the Contract store both publish it, and reading both put it on the page twice.
+- Never order a fact by the spelling of a string that names no moment. The sort fell back to `strcmp()` for anything it could not parse, which is not a weaker ordering but a different one: mixed with real timestamps it stopped being transitive, so the rendered order depended on which owner was read first. Such a value now goes to **Known, but not placed in time** with what its owner said, and the guard lives on `TaskActivityEvent` so a placed event cannot carry an unplaceable time. The check also rejects `now`/`tomorrow`, which `DateTimeImmutable` resolves against the clock, and rollovers like `2026-02-30`, which it silently turns into March 2nd.
+- Order facts that share an instant by the facts themselves rather than by the order the composer happens to read owners in, so reordering the read calls can no longer reorder a rendered page with nothing in the diff to say so.
+- List a board card that has no parsable Created line under **Known, but not placed in time** instead of dropping its row. A card with no Created line is still a card, and omitting it read as "this task was never on a board".
+- Read the audit snapshot once per request. The page head and the timeline each asked the gateway for it, which meant two sets of four owner store reads (~21 ms each here) and two chances to disagree if a run wrote in between. `TaskActivityComposer::forTask()` now takes the snapshot the action already read.
+- Restore the separator between entries in the untimed list, which was written as `var(--line)` where the palette defines `--rule`. An unresolvable custom property makes the browser drop the whole declaration silently, so the rule was simply absent; `WorkspaceShellTest` now asserts every property the stylesheet reads is one it defines.
+
+### Changed
+
+- Name the page **Task history** rather than **Audit history**. It has not been only the audit report's timeline since it started composing agent-kanban, agent-loop and agent-learning facts.
 
 ### Validation
 
-- `composer ci` passed with 252 tests, 1163 assertions, clean template linting, and 0 PHPStan errors.
+- `composer ci` passed with 272 tests, 1205 assertions, clean template linting, and 0 PHPStan errors.
 - Rendered against this repository's own `.agent-loop` state: `/task/UI-1/history` shows one `task_created` (agent-kanban), one `contract_proposed` and one `contract_approved` (agent-loop), `validation_passed`, `review_acknowledged` and `learning_decided`, newest first and with no repeated entry.
+- Rendered `/task/UI-21/history` in Chromium against a copy of this repository's state with the card's Created line removed, to see the untimed entry and its separator on the page rather than in a fixture.
 
 ## [0.18.7] - 2026-09-24
 

@@ -38,5 +38,15 @@ final readonly class TaskActivityEvent
         if (trim($owner) === '') {
             throw new InvalidArgumentException('A timeline event must name the owner that published it: ' . $kind . '.');
         }
+        // A string the page cannot resolve to a moment is not a weaker kind of
+        // timestamp, it is the same absence with different spelling. Letting one
+        // in would put the sort in the position of ordering a moment against a
+        // word, which it can only do by comparing their letters.
+        if (OwnerInstant::parse($at) === null) {
+            throw new InvalidArgumentException(
+                'A timeline event needs a timestamp this page can place; ' . $kind
+                    . ' carries "' . $at . '", which names no moment.',
+            );
+        }
     }
 }
