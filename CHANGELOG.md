@@ -4,6 +4,16 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.18.6] - 2026-09-24
+
+### Fixed
+
+- Map pages no longer report "no map" when a repository-local `.agent-map/` directory exists without an index: `MapArtifactLocator` prefers `.agent-map/` only when it holds `php-symbols.json` or `php-symbols.toon`, otherwise it reads the governed `.agent-loop/map/` index. Code Search, Search readiness and the Architecture graph share this resolution, so all three recover together.
+
+### Validation
+
+- Local `composer ci` checks passed (239 tests, PHPStan, template lint, cs-check); the new regression test fails without the fix. Exact-head PR CI is the release gate.
+
 ## [0.18.5] - 2026-09-24
 
 ### Added

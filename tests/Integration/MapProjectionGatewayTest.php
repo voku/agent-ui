@@ -193,6 +193,19 @@ final class MapProjectionGatewayTest extends TestCase
         self::assertFalse($readiness->hasUnreadIndexes());
     }
 
+    public function testARepositoryLocalMapDirectoryWithoutAnIndexDoesNotHideTheGovernedIndex(): void
+    {
+        // `.agent-map/` holding only scratch files made the UI report "no map"
+        // while `.agent-loop/map/` carried the index the project maintains.
+        file_put_contents($this->root . '/.agent-map/bench.php', '<?php');
+        $this->writeMap($this->root . '/.agent-loop/map/php-symbols.json');
+
+        $readiness = (new MapProjectionGateway($this->root))->readiness();
+
+        self::assertSame($this->root . '/.agent-loop/map/php-symbols.json', $readiness->readPath);
+        self::assertFalse($readiness->hasUnreadIndexes());
+    }
+
     public function testAnIndexThatCannotBeParsedIsNotReportedAsTheIndexThatWasRead(): void
     {
         file_put_contents($this->root . '/.agent-map/php-symbols.json', 'not an index');
