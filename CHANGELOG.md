@@ -4,7 +4,7 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
-## [Unreleased]
+## [0.18.7] - 2026-09-24
 
 ### Changed
 
@@ -14,6 +14,9 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Fixed
 
 - The Board status filter offered `open`, `in_progress`, `blocked` and `done` from a hard-coded list, so it could never select `todo` or `in_review` cards and its `open`/`done` options matched nothing. Its options now come from the statuses the board's cards actually carry.
+### Validation
+
+- Local checks passed (242 tests including the new `BoardPageTest`, PHPStan, template lint, cs-check, `composer validate --strict --no-check-lock`); exact-head PR CI is the release gate.
 
 ## [0.18.6] - 2026-09-24
 
