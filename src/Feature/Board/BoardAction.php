@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Board;
 
 use InvalidArgumentException;
+use Throwable;
 use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
+use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -18,11 +22,15 @@ final readonly class BoardAction
     public function __construct(
         private BoardProjectionGateway $board,
         private CardMutationGateway $mutation,
+        private WorkflowProjectionGateway $workflow,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
     ) {
     }
+
+    /** Filter value for cards whose board and workflow owners disagree. */
+    public const string FILTER_DISAGREEMENT = 'disagreement';
 
     public function __invoke(?Request $request = null): Response
     {
@@ -30,16 +38,89 @@ final readonly class BoardAction
         $filterQuery = trim($request?->query['q'] ?? '');
         $filterStatus = trim($request?->query['status'] ?? '');
         $filterPriority = trim($request?->query['priority'] ?? '');
-        $filterAssignee = trim($request?->query['assignee'] ?? '');
+        $filterWorkflow = trim($request?->query['workflow'] ?? '');
+
+        $board = $this->board->board($boardId);
+
+        // The card lane/status is agent-kanban's; lifecycle state and the next
+        // step are agent-loop's. Both are shown side by side, never merged. A
+        // card agent-loop cannot project keeps rendering from the board alone.
+        $workflow = [];
+        foreach ($board->cards as $card) {
+            try {
+                $workflow[$card->id] = $this->workflow->task($card->id);
+            } catch (Throwable) {
+                $workflow[$card->id] = null;
+            }
+        }
+
+        $statuses = [];
+        $kinds = [];
+        $disagreements = 0;
+        foreach ($board->cards as $card) {
+            $statuses[$card->status] = true;
+            $snapshot = $workflow[$card->id];
+            if ($snapshot === null) {
+                continue;
+            }
+            $kinds[$snapshot->nextActionKind] = ($kinds[$snapshot->nextActionKind] ?? 0) + 1;
+            if ($snapshot->disagreements !== []) {
+                ++$disagreements;
+            }
+        }
+        ksort($statuses);
+        ksort($kinds);
+
+        $cards = array_values(array_filter(
+            $board->cards,
+            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id], $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
+        ));
 
         return Response::html($this->templates->render('board/index', [
-            'board' => $this->board->board($boardId),
+            'board' => $board,
+            'cards' => $cards,
+            'workflow' => $workflow,
+            'statuses' => array_keys($statuses),
+            'kind_counts' => $kinds,
+            'disagreement_count' => $disagreements,
             'filter_query' => $filterQuery,
             'filter_status' => $filterStatus,
             'filter_priority' => $filterPriority,
-            'filter_assignee' => $filterAssignee,
+            'filter_workflow' => $filterWorkflow,
             'csrf_token' => $this->csrf->token(),
         ]));
+    }
+
+    private function matches(CardSnapshot $card, ?WorkflowSnapshot $workflow, string $query, string $status, string $priority, string $workflowFilter): bool
+    {
+        if ($status !== '' && $card->status !== $status) {
+            return false;
+        }
+        if ($priority !== '' && (string) $card->priority !== $priority) {
+            return false;
+        }
+        if ($workflowFilter !== '') {
+            if ($workflow === null) {
+                return false;
+            }
+            $hit = $workflowFilter === self::FILTER_DISAGREEMENT
+                ? $workflow->disagreements !== []
+                : $workflow->nextActionKind === $workflowFilter;
+            if (!$hit) {
+                return false;
+            }
+        }
+        if ($query === '') {
+            return true;
+        }
+        $needle = mb_strtolower($query);
+        foreach ([$card->id, $card->title, $card->summary, $card->taskBrief, $card->assignee ?? ''] as $haystack) {
+            if (str_contains(mb_strtolower($haystack), $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function newCard(Request $request): Response
