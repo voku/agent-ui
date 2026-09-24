@@ -6,6 +6,11 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Knowledge → Dream (`/knowledge/dream`) runs agent-loop's `WorkflowDreamService` preview and shows agent-learning's reviewable decisions, warnings and metrics as the owner reports them; viewing writes nothing. A CSRF-protected, explicitly confirmed POST re-runs Dream through the owner and writes candidate Proposals only, which still need review before becoming guidance.
+- Require `voku/agent-loop ^0.20.44` and `voku/agent-learning ^0.18.25` for the typed Dream API.
+
 ### Changed
 
 - Rebrand the control plane with the agent-loop identity from `voku/agent_loop_demo`: the gradient infinity mark as logo and favicon, a deep-navy masthead banner with a brand-gradient hairline, the violet → blue → cyan palette (owner authority now reads in brand blue), Inter / JetBrains Mono type stacks, and a gradient primary action. Everything stays inlined — no asset route, no build step, no web-font fetch — and the semantic state colours (attention, blocked) are unchanged.

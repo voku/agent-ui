@@ -71,6 +71,7 @@ require __DIR__ . '/../layout/header.php';
     <a class="board-switcher__tab<?= $currentTab === 'analytics' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'analytics' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=analytics">
         Analytics &amp; Evolution
     </a>
+    <a class="board-switcher__tab" href="/knowledge/dream">Dream</a>
 </nav>
 
 <?php if ($currentTab === 'rules'): ?>
