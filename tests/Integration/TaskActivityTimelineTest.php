@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Tests\Integration;
 
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\History\TaskActivityComposer;
 use voku\AgentUi\Feature\History\TaskActivityEvent;
@@ -186,6 +190,78 @@ final class TaskActivityTimelineTest extends TestCase
         self::assertCount(1, $created);
         self::assertSame('2026-02-02T09:00:00+00:00', $created[0]->at);
         self::assertSame('agent-learning', $created[0]->owner);
+    }
+
+    /**
+     * A board that cannot be read is not a board with no card.
+     *
+     * The first version caught every Throwable around the card read, so a
+     * malformed card or an unreadable board root silently dropped the creation
+     * event while the page still read as the complete story. Only the absence the
+     * gateway models - InvalidArgumentException for an id no board holds - counts
+     * as absence now.
+     */
+    public function testABoardFailureThatIsNotAMissingCardIsNotSwallowed(): void
+    {
+        $this->applicationWithCard();
+        file_put_contents(
+            $this->root . '/.agent-loop/todo/cards/APP-1.md',
+            "# APP-1: Build login system\n\n- **Ticket:** APP-1\n- **Lane:** BACKLOG\n"
+                . "- **Status:** todo\n- **Priority:** not-a-number\n- **Format version:** 1\n",
+        );
+
+        $this->expectException(Throwable::class);
+
+        $this->composer()->forTask('APP-1');
+    }
+
+    /** A task no board holds still composes, from the owners that do hold it. */
+    public function testATaskWithNoBoardCardStillComposes(): void
+    {
+        $app = new Application($this->root, $this->templates);
+        self::assertSame(404, $app->handle(new Request('GET', '/task/APP-404'))->status);
+
+        $activity = $this->composer()->forTask('APP-404');
+
+        self::assertSame([], $this->eventsOfKind($activity->events, 'task_created'));
+    }
+
+    /**
+     * Ordering reads the instant, because ATOM carries an offset.
+     *
+     * `2026-01-01T09:00:00+02:00` is 07:00 UTC and therefore earlier than
+     * `2026-01-01T08:00:00+00:00`, but sorts after it as text. Every owner in
+     * this repository writes `+00:00` today, which is exactly why comparing
+     * strings kept passing. The card is rewritten to an instant an hour before
+     * the Contract, expressed in +09:00 so that it sorts *later* as text, and
+     * the assertion below is only meaningful because that precondition holds.
+     */
+    public function testEventsWithDifferentOffsetsAreOrderedByInstant(): void
+    {
+        $app = $this->applicationWithCard();
+        $this->proposeContract($app, (new CsrfTokenManager())->token(), 'Fixture goal');
+
+        $contract = (new HumanDecisionGateway($this->root))->contract('APP-1');
+        self::assertNotNull($contract);
+        $cardCreated = (new DateTimeImmutable($contract->createdAt))
+            ->modify('-1 hour')
+            ->setTimezone(new DateTimeZone('+09:00'))
+            ->format(DateTimeInterface::ATOM);
+
+        self::assertGreaterThan(
+            0,
+            strcmp($cardCreated, $contract->createdAt),
+            'The card must sort later as text than the Contract, or this test cannot tell the two orderings apart',
+        );
+
+        $this->backdateCard($cardCreated);
+        $events = $this->composer()->forTask('APP-1')->events;
+
+        self::assertNotSame(
+            'task_created',
+            $events[0]->kind,
+            'Newest first must mean the later instant, not the larger string',
+        );
     }
 
     /**

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Feature\History;
 
-use Throwable;
+use DateTimeImmutable;
+use Exception;
+use InvalidArgumentException;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
@@ -73,12 +75,42 @@ final readonly class TaskActivityComposer
         $this->addContracts($taskId, $events);
         $this->addLearning($taskId, $events, $untimed);
 
-        usort(
-            $events,
-            static fn(TaskActivityEvent $left, TaskActivityEvent $right): int => strcmp($right->at, $left->at),
-        );
+        usort($events, $this->newestFirst(...));
 
         return new TaskActivity($events, $untimed);
+    }
+
+    /**
+     * Newest first by instant, not by the string an owner happened to format.
+     *
+     * Every timestamp here is ATOM, but ATOM carries an offset: `2026-01-01T09:00:00+02:00`
+     * is earlier than `2026-01-01T08:00:00+00:00` and sorts after it as text. The
+     * owners in this repository all write `+00:00` today, which is exactly why a
+     * string comparison would keep working until the day one of them did not.
+     * The original strings are still what gets rendered; only the ordering reads
+     * the instant.
+     */
+    private function newestFirst(TaskActivityEvent $left, TaskActivityEvent $right): int
+    {
+        $leftAt = $this->instant($left);
+        $rightAt = $this->instant($right);
+
+        if ($leftAt === null || $rightAt === null) {
+            // An owner timestamp this UI cannot parse is not a reason to invent an
+            // order for it: fall back to the text so the list stays stable.
+            return strcmp($right->at, $left->at);
+        }
+
+        return $rightAt <=> $leftAt;
+    }
+
+    private function instant(TaskActivityEvent $event): ?DateTimeImmutable
+    {
+        try {
+            return new DateTimeImmutable($event->at);
+        } catch (Exception) {
+            return null;
+        }
     }
 
     /**
@@ -93,8 +125,12 @@ final readonly class TaskActivityComposer
     {
         try {
             $card = $this->board->card($taskId);
-        } catch (Throwable) {
-            // A task agent-loop governs need not have a board card at all.
+        } catch (InvalidArgumentException) {
+            // The one absence the board models: a task agent-loop governs need
+            // not have a card at all. Every other failure - a malformed card, an
+            // unreadable board root - is a real failure, and swallowing it here
+            // would drop the creation event while the page still read as the
+            // complete story. Those surface instead.
             return;
         }
 
