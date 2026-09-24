@@ -4,6 +4,12 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Changed
+
+- Rebrand the control plane with the agent-loop identity from `voku/agent_loop_demo`: the gradient infinity mark as logo and favicon, a deep-navy masthead banner with a brand-gradient hairline, the violet → blue → cyan palette (owner authority now reads in brand blue), Inter / JetBrains Mono type stacks, and a gradient primary action. Everything stays inlined — no asset route, no build step, no web-font fetch — and the semantic state colours (attention, blocked) are unchanged.
+
 ## [0.18.4] - 2026-09-23
 
 ### Changed
