@@ -7,6 +7,7 @@ namespace voku\AgentUi\Feature\Home;
 use Throwable;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
