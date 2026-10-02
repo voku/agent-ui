@@ -6,6 +6,16 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.9] - 2026-10-02
+
+### Fixed
+
+- Keep batched workflow projection fail-closed for programming errors: invalid task ids still degrade per card, and runtime projection failures still fall back to individual projection, but `TypeError` and other programming errors are no longer swallowed as an apparently missing workflow snapshot. Home and Board batch callbacks also keep explicit `CardSnapshot` parameter types (#86).
+
+### Validation
+
+- PR #86 exact head `45936dd40bf67d23d41933c58fc3fe5e036a7d30` passed the PHP 8.3/8.4/8.5 `composer ci` matrix, the PHP 8.3 lowest-supported dependency graph, and the Runner optional matrix before merge.
+
 ## [0.18.8] - 2026-10-02
 
 ### Added
