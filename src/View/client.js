@@ -586,3 +586,29 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         cy.fit(null, 30);
     });
 }());
+
+/*
+ * Optional shortcut: "/" moves focus to the header search, as on most developer
+ * tools. The form is a plain GET form and works without this; the hint glyph
+ * ships hidden and is revealed here, so the page never advertises a key it
+ * cannot deliver. Typing a "/" into any field - including the search box itself
+ * - is left alone.
+ */
+(function enhanceSearchShortcut() {
+    var input = document.getElementById('global-search');
+    if (!input) { return; }
+    var hint = document.querySelector('.masthead-search__hint');
+    if (hint) { hint.hidden = false; }
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) { return; }
+        var target = event.target;
+        var tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || (target && target.isContentEditable)) { return; }
+        event.preventDefault();
+        input.focus();
+        input.select();
+    });
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { input.blur(); }
+    });
+})();

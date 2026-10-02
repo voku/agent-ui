@@ -45,6 +45,35 @@ final class ClientScriptTest extends TestCase
         self::assertStringContainsString('button.hidden = false', ClientScript::code());
     }
 
+    /**
+     * The `/` hint ships hidden and this script is what shows it, so the page
+     * cannot advertise a key that nothing is listening for.
+     */
+    public function testTheSearchShortcutHintIsRevealedByTheScriptThatOperatesIt(): void
+    {
+        self::assertStringContainsString("document.getElementById('global-search')", ClientScript::code());
+        self::assertStringContainsString('hint.hidden = false', ClientScript::code());
+    }
+
+    /**
+     * A shortcut that fires while someone is typing is worse than none.
+     *
+     * Read from the source because the behaviour was verified in a real browser
+     * and this keeps the guards from being deleted unnoticed: modified keys and
+     * form fields (including contenteditable) are left alone.
+     */
+    public function testTheSearchShortcutLeavesTypingAndModifiedKeysAlone(): void
+    {
+        $code = ClientScript::code();
+
+        self::assertStringContainsString("event.key !== '/'", $code);
+        self::assertStringContainsString('event.ctrlKey || event.metaKey || event.altKey', $code);
+        foreach (["'input'", "'textarea'", "'select'", 'isContentEditable'] as $guard) {
+            self::assertStringContainsString($guard, $code);
+        }
+        self::assertStringContainsString("event.key === 'Escape'", $code);
+    }
+
     public function testTheExplorerControlsAreRevealedByTheScriptThatOperatesThem(): void
     {
         // The graph toolbar can only do anything while this script runs, so it
