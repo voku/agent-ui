@@ -1197,3 +1197,98 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .impact__target { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
 .impact__label { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-faint); }
 .impact__label--target { fill: var(--accent); font-size: 12px; }
+
+/* ---------- global search ---------- */
+
+/* The header form is a plain GET form. Its `/` hint is revealed by the script
+   that makes the key work (see client.js), so it is never shown without it. */
+.masthead-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    min-width: 0;
+    flex: 0 1 240px;
+}
+.masthead-search__input {
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding: 0 64px 0 12px;
+    color: #ffffff;
+    font: inherit;
+    font-size: 13px;
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 8px;
+}
+.masthead-search__input::placeholder { color: rgba(231, 234, 243, .7); }
+.masthead-search__input:focus { background: rgba(255, 255, 255, .16); border-color: var(--brand-cyan); }
+.masthead-search__hint {
+    position: absolute;
+    right: 38px;
+    padding: 0 6px;
+    font: 600 11px/18px "JetBrains Mono", ui-monospace, monospace;
+    color: rgba(231, 234, 243, .85);
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 4px;
+    pointer-events: none;
+}
+.masthead-search__hint[hidden] { display: none; }
+.masthead-search__submit {
+    position: absolute;
+    right: 4px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: #e7eaf3;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.masthead-search__submit:hover { background: rgba(255, 255, 255, .14); color: #ffffff; }
+@media (max-width: 760px) { .masthead-search { flex: 1 1 100%; margin-left: 0; } }
+
+.search-form__label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.search-form__row { display: flex; gap: 8px; align-items: stretch; }
+.search-form__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 12px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    border-radius: 8px;
+}
+
+.search-group, .search-empty { margin-top: 14px; }
+.search-empty__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.search-empty__owner { color: var(--ink-faint); font-size: 12.5px; }
+.search-empty__caveat { font-size: 12.5px; }
+.search-group .provenance { margin: -6px 0 10px; }
+.search-group__state { margin: 0; }
+/* Unavailable carries a leading label and a rule, so it is not told apart from
+   "no matches" by colour alone. */
+.search-group__state--unavailable { padding-left: 10px; border-left: 3px solid var(--attention); }
+.search-group__caveat { margin: 0 0 8px; padding-left: 10px; border-left: 3px solid var(--attention); font-size: 12.5px; }
+.search-group__count { margin: 0 0 8px; }
+.search-hits { list-style: none; margin: 0; padding: 0; }
+.search-hit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+    min-width: 0;
+}
+.search-hit:first-child { border-top: 0; padding-top: 0; }
+.search-hit__id { font-weight: 600; overflow-wrap: anywhere; }
+.search-hit__title { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.search-hit__detail, .search-hit__why { color: var(--ink-faint); font-size: 12.5px; overflow-wrap: anywhere; }
+.search-hit__also { font-size: 12.5px; }
+@media (hover: none) { .masthead-search__hint { display: none; } }

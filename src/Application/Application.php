@@ -21,6 +21,8 @@ use voku\AgentUi\Feature\PromptWorkbench\PromptApplicabilityEvaluator;
 use voku\AgentUi\Feature\PromptWorkbench\PromptComposer;
 use voku\AgentUi\Feature\PromptWorkbench\PromptWorkbenchAction;
 use voku\AgentUi\Feature\Runner\RunnerAction;
+use voku\AgentUi\Feature\Search\GlobalSearch;
+use voku\AgentUi\Feature\Search\SearchAction;
 use voku\AgentUi\Feature\Setup\SetupAction;
 use voku\AgentUi\Feature\Task\TaskAction;
 use voku\AgentUi\Feature\Task\TaskContextComposer;
@@ -62,6 +64,7 @@ final readonly class Application
     private KnowledgeAction $knowledge;
     private DreamAction $dream;
     private MapAction $map;
+    private SearchAction $search;
     private TaskAction $task;
     private WorkflowProgressAction $progress;
     private PromptWorkbenchAction $prompts;
@@ -109,6 +112,10 @@ final readonly class Application
         $this->knowledge = new KnowledgeAction($learning, $taskContext, $templates);
         $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
+        $this->search = new SearchAction(
+            new GlobalSearch($board, $learning, $map, $codeSearch, $promptCatalog),
+            $templates,
+        );
         $this->task = new TaskAction(
             $board,
             $workflow,
@@ -166,6 +173,7 @@ final readonly class Application
                 'map_context' => $this->map->context($request),
                 'map_source' => $this->map->sourceView($request),
                 'map_impact' => $this->map->impact($request),
+                'search' => ($this->search)($request),
                 'knowledge' => $this->knowledge->overview($request),
                 'knowledge_dream' => $this->dream->preview(),
                 'knowledge_dream_write' => $this->dream->writeCandidates($request),

@@ -37,6 +37,19 @@ final readonly class LearningCatalogGateway
     }
 
     /**
+     * Whether this project has a Learning root at all.
+     *
+     * The catalog answers an absent root with empty lists, which is the same
+     * thing it says about a root that holds nothing. A reader that must tell
+     * "Learning is not set up" from "Learning has no such record" - search does -
+     * asks here first rather than guessing from an empty list.
+     */
+    public function isAvailable(): bool
+    {
+        return is_dir($this->learningRoot);
+    }
+
+    /**
      * Whether agent-learning would let this Finding become a LearningNote.
      *
      * The verdict is the owner's; a Finding it cannot see is reported as

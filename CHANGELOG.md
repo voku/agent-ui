@@ -6,6 +6,37 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- A global search at `/search` (#59 step 4), with a search form in the header of every page. It takes the command style the workbench epic sketches — `task UI-58`, `/proposal provenance`, `symbol WorkflowProgressProjector`, `/find memory` — and searches tasks (agent-kanban), Findings, Proposals and Guidance (agent-learning), symbols and code chunks (agent-map) and prompt recipes (agent-recall-compiler). Results stay grouped under the owner that published them, each hit links to its existing page, and the query is the URL, so it works with scripts off, bookmarks and the back button.
+- The `/` key focuses the header search, as optional enhancement only: modified keys and typing in any field, including the search box, are left alone, and the hint glyph ships hidden for the script to reveal so the page never advertises a key it cannot deliver.
+
+### Changed
+
+- The Finding page's "does not offer to promote" test now forbids a `method="post"` form instead of any `<form`. Every state-changing form in this UI is a POST; the old assertion stopped being a faithful proxy for "no write control" once every page carried the GET search form.
+
+### Search boundaries
+
+- **No index, no ranking, no second store.** Owners are asked through their typed gateways and answer in their own order. Where an owner has a search (agent-map) the term goes to it; where it publishes typed lists and none (tasks, Findings, Proposals, recipes) the match is a literal case-insensitive filter, every word of which must appear, over the fields named in each hit as "matched in …". If semantic text search over those records is wanted, that is an agent-kanban/agent-learning API to request, not a matching policy to grow here.
+- **An owner that could not be asked is never "no matches".** agent-learning answers an absent Learning root with the same empty list as an empty one, so the UI asks first (`LearningCatalogGateway::isAvailable()`) and says "Unavailable — not searched" with the reason. One owner failing is shown under its own name with its own message and the others still answer; only `Exception` is caught, so a programming `Error` still fails loudly.
+- **A stale index is searched but not trusted.** This repository's own agent-map index is `stale` (58 changed files), and the first version of this page reported "No matches" from it without a word. Results from an index that is not `ready`, or from a degraded search, now carry "Possibly incomplete" and the owner's reason.
+- **Every board is searched**, not only the default one: a task that exists on another board would otherwise read as "no such task". Each hit names its board when the project has several.
+- **Truncation reports the truth.** "Showing 8 of 10" for the lists this page filters; "Showing 8 of more than 8" for agent-map, which caps what it returns, so the page asks for one more than it shows and prints the count as a lower bound.
+- **Whether a Proposal is guidance is agent-learning's projection to answer** (`guidance($id)`), not a rule re-derived from its target type; a proposal with a target type that is not a guidance type is correctly not guidance.
+- **Code chunks are searched only when asked for** (`code <term>`). The combined view already shows agent-map's symbols, and chunk search returns the same records again with previews; running both would print one fact twice under two names.
+- **An unavailable Code panel leads with agent-map's readable sentence** and keeps its machine identifier beside it (`… (map_missing)`); a scoped list that is cut says to narrow the term instead of offering a "search only" link back to itself (both found by CodeRabbit on the first push).
+- **Recipes link to the Prompt Workbench, not to a recipe**, because recipes are chosen by POST and have no URL.
+
+### Not covered
+
+- The keyboard behaviour was verified in a real browser (focus, typing, modified keys, Escape, other fields, back button, JavaScript disabled) and is guarded in the unit suite only by assertions on the script's source; the repository has no browser tests.
+
+### Validation
+
+- `composer ci` passed with 328 tests, 1579 assertions, clean template linting and 0 PHPStan errors, against `voku/agent-loop` 0.20.52, `voku/agent-learning` 0.18.27, `voku/agent-map` 0.18.3 and `voku/agent-recall-compiler` 0.25.1.
+- Fifteen mutations of the search logic were run; the four that first survived (guidance decided by target type, every leading slash stripped, code chunks searched in the combined view, no overfetch for the symbol cap) each got a test and are now killed, as is skipping non-default boards.
+- Rendered in Chromium at 1280px and 390px with no horizontal overflow, against this repository's own state.
+
 ## [0.18.9] - 2026-10-02
 
 ### Fixed

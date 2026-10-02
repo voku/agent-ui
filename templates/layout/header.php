@@ -6,6 +6,7 @@ use voku\AgentUi\View\TemplateRenderer;
 /** @var string|null $projectLabel */
 $nav ??= null;
 $projectLabel ??= null;
+$searchQuery ??= '';
 ?>
 <!doctype html>
 <html lang="en">
@@ -90,6 +91,19 @@ $favicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><l
                 </div>
             <?php endforeach; ?>
         </nav>
+        <?php
+        /*
+         * A plain GET form: it works with scripts off and the query is the URL.
+         * The `/` hint is revealed by the same script that makes the key work, so
+         * the page never advertises a shortcut it cannot deliver.
+         */
+        ?>
+        <form class="masthead-search" role="search" action="/search" method="get">
+            <label class="visually-hidden" for="global-search">Search tasks, knowledge, code and prompts</label>
+            <input id="global-search" class="masthead-search__input" type="search" name="q" value="<?= TemplateRenderer::escape($searchQuery) ?>" placeholder="Search…" autocomplete="off" spellcheck="false">
+            <kbd class="masthead-search__hint" hidden aria-hidden="true">/</kbd>
+            <button class="masthead-search__submit" type="submit"><span class="visually-hidden">Search</span><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" width="16" height="16"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </form>
         <?php if ($projectLabel !== null): ?>
             <div class="masthead__meta"><span class="mono"><?= TemplateRenderer::escape($projectLabel) ?></span></div>
         <?php endif; ?>

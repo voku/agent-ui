@@ -76,7 +76,7 @@ composer install
 AGENT_UI_PROJECT_ROOT=/path/to/project php -S 127.0.0.1:8088 -t public
 ```
 
-Top-level navigation is `Overview | Setup | Prompts | Board | Knowledge`. Task routes are `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, and `/task/{id}/learning`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same navigation across all seven. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
+`/search` is a read-only global search over what the owners publish (tasks, Findings, Proposals and Guidance, symbols and code, prompt recipes), reachable from a form in every page's header; `/` focuses it when scripts are on. It keeps each owner's results apart, in the owner's order, with no score, and reports an owner it could not ask as unavailable rather than as "no matches". Top-level navigation is `Overview | Setup | Prompts | Board | Knowledge`. Task routes are `/task/{id}`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, and `/task/{id}/learning`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same navigation across all seven. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
 
 ## Setup
 
