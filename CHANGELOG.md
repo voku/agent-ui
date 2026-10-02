@@ -6,6 +6,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.8] - 2026-10-02
+
 ### Added
 
 - Compose the task history from every owner that holds part of the story, not only agent-loop: the board card's creation (agent-kanban), each Contract revision's proposal and approval including superseded ones (agent-loop), and Findings and Proposals produced by the work (agent-learning). Each entry names the owner that published its timestamp (#59 step 3).
@@ -28,6 +30,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Validation
 
+- `composer ci` passed with 285 tests, 0 PHPStan errors and clean cs-check on the batch-projection change. Measured against a real 85-card project: the per-card loop took 11.79 s, `tasks()` 0.24 s, the home page 0.44 s; all 85 batch snapshots equal the single `task()` snapshots.
 - `composer ci` passed with 280 tests, 1234 assertions, clean template linting, and 0 PHPStan errors, against the released `voku/agent-learning` 0.18.26.
 - The proposal fixtures are written in agent-learning's own record shape and pass its validators: owner-format ids, a scope no broader than the source finding, and — for applied guidance — a real target file whose sha256 matches, rather than a record dated before the proof policy to avoid the check. Eight mutations of the new placement logic are each killed.
 - Rendered against this repository's own `.agent-loop` state: `/task/UI-1/history` shows one `task_created` (agent-kanban), one `contract_proposed` and one `contract_approved` (agent-loop), `validation_passed`, `review_acknowledged` and `learning_decided`, newest first and with no repeated entry.
