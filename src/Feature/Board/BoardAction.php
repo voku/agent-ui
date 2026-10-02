@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Board;
 
 use InvalidArgumentException;
-use Throwable;
 use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
@@ -45,14 +44,7 @@ final readonly class BoardAction
         // The card lane/status is agent-kanban's; lifecycle state and the next
         // step are agent-loop's. Both are shown side by side, never merged. A
         // card agent-loop cannot project keeps rendering from the board alone.
-        $workflow = [];
-        foreach ($board->cards as $card) {
-            try {
-                $workflow[$card->id] = $this->workflow->task($card->id);
-            } catch (Throwable) {
-                $workflow[$card->id] = null;
-            }
-        }
+        $workflow = $this->workflow->tasks(array_map(static fn($card): string => $card->id, $board->cards));
 
         $statuses = [];
         $kinds = [];

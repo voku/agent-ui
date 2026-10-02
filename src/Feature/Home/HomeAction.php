@@ -33,10 +33,10 @@ final readonly class HomeAction
         $attention = [];
         $work = [];
 
+        $snapshots = $this->workflow->tasks(array_map(static fn($card): string => $card->id, $board->cards));
         foreach ($board->cards as $card) {
-            try {
-                $snapshot = $this->workflow->task($card->id);
-            } catch (Throwable) {
+            $snapshot = $snapshots[$card->id] ?? null;
+            if ($snapshot === null) {
                 continue;
             }
 
