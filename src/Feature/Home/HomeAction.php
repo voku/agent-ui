@@ -7,6 +7,7 @@ namespace voku\AgentUi\Feature\Home;
 use Throwable;
 use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\Integration\AgentLoop\RepositorySetupGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
@@ -33,7 +34,7 @@ final readonly class HomeAction
         $attention = [];
         $work = [];
 
-        $snapshots = $this->workflow->tasks(array_map(static fn($card): string => $card->id, $board->cards));
+        $snapshots = $this->workflow->tasks(array_map(static fn(CardSnapshot $card): string => $card->id, $board->cards));
         foreach ($board->cards as $card) {
             $snapshot = $snapshots[$card->id] ?? null;
             if ($snapshot === null) {
