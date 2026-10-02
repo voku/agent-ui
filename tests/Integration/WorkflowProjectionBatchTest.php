@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Tests\Integration;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use RuntimeException;
+use TypeError;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
@@ -60,8 +63,17 @@ final class WorkflowProjectionBatchTest extends TestCase
         self::assertEquals($gateway->task('APP-1'), $batch['APP-1']);
         self::assertEquals($gateway->task('APP-2'), $batch['APP-2']);
 
-        $this->expectException(\Throwable::class);
+        $this->expectException(InvalidArgumentException::class);
         $gateway->task('../escape');
+    }
+
+    public function testProgrammingTypeErrorsAreNotDowngradedToMissingSnapshots(): void
+    {
+        $gateway = new WorkflowProjectionGateway($this->root);
+        $tasks = new ReflectionMethod($gateway, 'tasks');
+
+        $this->expectException(TypeError::class);
+        $tasks->invoke($gateway, [123]);
     }
 
     public function testBatchHoldsNoStateAcrossCalls(): void

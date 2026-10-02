@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentLoop;
 
-use Throwable;
+use InvalidArgumentException;
+use RuntimeException;
 use voku\AgentLoop\Run\RunManifest;
 use voku\AgentLoop\Run\RunManifestProjector;
 use voku\AgentLoop\Workflow\WorkflowTaskId;
@@ -27,9 +28,9 @@ final readonly class WorkflowProjectionGateway
      *
      * agent-loop shares its expensive observations (artifact digests, session
      * scan, Map readiness) for the duration of one batch only, so a page that
-     * lists many cards no longer repeats them per card. A card agent-loop
-     * cannot project maps to null, exactly as a failing task() call would be
-     * skipped by the caller; one bad card never hides the others.
+     * lists many cards no longer repeats them per card. Invalid task ids and
+     * runtime projection failures map to null so one bad card never hides the
+     * others. Programming errors are deliberately not downgraded to absence.
      *
      * @param list<string> $taskIds
      * @return array<string, WorkflowSnapshot|null> keyed by task id, in input order
@@ -40,7 +41,7 @@ final readonly class WorkflowProjectionGateway
         foreach ($taskIds as $taskId) {
             try {
                 $valid[$taskId] = (new WorkflowTaskId($taskId))->value;
-            } catch (Throwable) {
+            } catch (InvalidArgumentException) {
                 // Rendered as unprojectable below.
             }
         }
@@ -51,13 +52,14 @@ final readonly class WorkflowProjectionGateway
             foreach ($projector->projectMany(array_values($valid)) as $manifest) {
                 $manifests[$manifest->taskId] = $manifest;
             }
-        } catch (Throwable) {
-            // A batch aborts on its first unprojectable card. Re-project one
-            // by one so only that card is lost.
+        } catch (RuntimeException) {
+            // A data/runtime projection failure may abort the batch. Re-project
+            // one by one so only the affected card is lost; programming errors
+            // such as TypeError remain visible to the caller.
             foreach ($valid as $value) {
                 try {
                     $manifests[$value] = $projector->project($value);
-                } catch (Throwable) {
+                } catch (RuntimeException) {
                     // Unprojectable card: stays null.
                 }
             }
