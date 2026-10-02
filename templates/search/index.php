@@ -76,7 +76,12 @@ $searchHref = static fn (string $text): string => '/search?q=' . rawurlencode($t
                 <p class="note search-group__count">
                     <?php if ($result->isTruncated()): ?>
                         Showing <?= count($result->hits) ?> of <?= $result->exact ? $result->matched : 'more than ' . ($result->matched - 1) ?>
-                        — <a href="<?= $escape($scoped) ?>">search only <?= $escape(strtolower($result->label)) ?></a> to see more.
+                        <?php if ($query->scope === null): ?>
+                            — <a href="<?= $escape($scoped) ?>">search only <?= $escape(strtolower($result->label)) ?></a> to see more.
+                        <?php else: ?>
+                            <?php /* Already scoped: the "scoped" link would be this very page. */ ?>
+                            — this is already a search of <?= $escape(strtolower($result->label)) ?> alone, so narrow the term to see the rest.
+                        <?php endif; ?>
                     <?php else: ?>
                         <?= $result->matched ?> <?= $result->matched === 1 ? 'match' : 'matches' ?>.
                     <?php endif; ?>

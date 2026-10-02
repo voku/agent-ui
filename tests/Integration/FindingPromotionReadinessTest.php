@@ -89,7 +89,7 @@ final class FindingPromotionReadinessTest extends TestCase
         // that is the thing to forbid: this used to forbid any `<form`, which
         // stopped being a faithful proxy once every page carried the GET search
         // form in its header - a form that cannot promote anything.
-        self::assertDoesNotMatchRegularExpression('/<form\b[^>]*\bmethod="post"/i', $body);
+        self::assertDoesNotMatchRegularExpression('/<form\b[^>]*\bmethod\s*=\s*(?:"post"|\'post\'|post(?=[\s>\/]))/i', $body);
     }
 
     public function testTheOverviewCountsTheOwnersVerdictsAndNamesAWriteOnlyStore(): void

@@ -9,6 +9,7 @@ use RuntimeException;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\Search\GlobalSearch;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentMap\CodeSearchGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 
 /**
@@ -183,6 +184,55 @@ final class GlobalSearchTest extends TestCase
         $scoped = $this->search($app, 'task shared theme');
         self::assertSame($total, substr_count($scoped, 'class="search-hit"'));
         self::assertStringContainsString($total . ' matches.', $scoped);
+    }
+
+    /**
+     * "Search only tasks" on a search that is already only tasks links to itself.
+     *
+     * The advice cannot work: the scoped query is the query the developer is
+     * already looking at, with the same limit. A scoped list that is cut says so
+     * and tells the developer the one thing that can help - narrow the term.
+     */
+    public function testAScopedTruncatedListDoesNotOfferALinkBackToItself(): void
+    {
+        $cards = [];
+        for ($index = 1; $index <= GlobalSearch::SCOPED_LIMIT + 3; $index++) {
+            $cards['APP-' . $index] = 'Shared theme item ' . $index;
+        }
+        $app = $this->applicationWithCards($cards);
+
+        $page = $this->search($app, 'task shared theme');
+
+        self::assertStringContainsString('Showing ' . GlobalSearch::SCOPED_LIMIT . ' of ' . (GlobalSearch::SCOPED_LIMIT + 3), $page);
+        self::assertStringNotContainsString('search only', $page);
+        self::assertStringNotContainsString('/search?q=task%20shared%20theme', $page);
+        self::assertStringContainsString('narrow the term', $page);
+    }
+
+    /**
+     * The Code panel names what agent-map said, not the identifier it filed it under.
+     *
+     * agent-map gives a machine reason (`map_missing`) and a readable failure
+     * beside it. Showing only the code leaves a developer to look up what it
+     * means; the readable sentence comes first and the code stays beside it as
+     * the owner's own identifier.
+     */
+    public function testAnUnavailableCodeIndexShowsTheOwnersReadableFailureAndKeepsItsCode(): void
+    {
+        $app = $this->applicationWithCards(['APP-1' => 'Build login system']);
+        $readiness = (new CodeSearchGateway($this->root))->readiness();
+        self::assertNotNull($readiness->failure, 'the fixture must leave agent-map with something to say');
+        self::assertNotNull($readiness->reason);
+
+        $section = $this->section($this->search($app, 'code login'), 'search-code');
+
+        self::assertStringContainsString(htmlspecialchars($readiness->failure, ENT_QUOTES), $section);
+        self::assertStringContainsString($readiness->reason, $section, 'the owner\'s identifier stays visible beside the sentence');
+        self::assertLessThan(
+            (int) strpos($section, $readiness->reason),
+            (int) strpos($section, htmlspecialchars($readiness->failure, ENT_QUOTES)),
+            'the readable sentence leads',
+        );
     }
 
     /**

@@ -24,6 +24,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - **Truncation reports the truth.** "Showing 8 of 10" for the lists this page filters; "Showing 8 of more than 8" for agent-map, which caps what it returns, so the page asks for one more than it shows and prints the count as a lower bound.
 - **Whether a Proposal is guidance is agent-learning's projection to answer** (`guidance($id)`), not a rule re-derived from its target type; a proposal with a target type that is not a guidance type is correctly not guidance.
 - **Code chunks are searched only when asked for** (`code <term>`). The combined view already shows agent-map's symbols, and chunk search returns the same records again with previews; running both would print one fact twice under two names.
+- **An unavailable Code panel leads with agent-map's readable sentence** and keeps its machine identifier beside it (`… (map_missing)`); a scoped list that is cut says to narrow the term instead of offering a "search only" link back to itself (both found by CodeRabbit on the first push).
 - **Recipes link to the Prompt Workbench, not to a recipe**, because recipes are chosen by POST and have no URL.
 
 ### Not covered
@@ -32,7 +33,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Validation
 
-- `composer ci` passed with 326 tests, 1534 assertions, clean template linting and 0 PHPStan errors, against `voku/agent-loop` 0.20.52, `voku/agent-learning` 0.18.27, `voku/agent-map` 0.18.3 and `voku/agent-recall-compiler` 0.25.1.
+- `composer ci` passed with 328 tests, 1579 assertions, clean template linting and 0 PHPStan errors, against `voku/agent-loop` 0.20.52, `voku/agent-learning` 0.18.27, `voku/agent-map` 0.18.3 and `voku/agent-recall-compiler` 0.25.1.
 - Fifteen mutations of the search logic were run; the four that first survived (guidance decided by target type, every leading slash stripped, code chunks searched in the combined view, no overfetch for the symbol cap) each got a test and are now killed, as is skipping non-default boards.
 - Rendered in Chromium at 1280px and 390px with no horizontal overflow, against this repository's own state.
 

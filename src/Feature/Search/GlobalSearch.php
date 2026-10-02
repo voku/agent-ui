@@ -301,11 +301,17 @@ final readonly class GlobalSearch
 
         $readiness = $this->code->readiness();
         if (!$readiness->isUsable()) {
+            // agent-map files a machine identifier (`map_missing`) under `reason`
+            // and the sentence that explains it under `failure`. The sentence
+            // leads; the identifier stays beside it, because it is the owner's
+            // own name for the condition and what its recovery docs search for.
+            $sentence = $readiness->failure ?? 'agent-map reports its search index as ' . $readiness->status . '.';
+
             return SourceResult::unavailable(
                 SearchQuery::SCOPE_CODE,
                 $owner,
                 $label,
-                $readiness->reason ?? $readiness->failure ?? 'agent-map reports its search index as ' . $readiness->status . '.',
+                $readiness->reason !== null && $readiness->reason !== '' ? $sentence . ' (' . $readiness->reason . ')' : $sentence,
             );
         }
 
