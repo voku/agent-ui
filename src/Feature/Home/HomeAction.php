@@ -33,10 +33,23 @@ final readonly class HomeAction
         $attention = [];
         $work = [];
 
+        $taskIds = array_map(static fn (CardSnapshot $card): string => $card->id, $board->cards);
+        try {
+            $workflow = $this->workflow->tasks($taskIds);
+        } catch (Throwable) {
+            $workflow = [];
+            foreach ($board->cards as $card) {
+                try {
+                    $workflow[$card->id] = $this->workflow->task($card->id);
+                } catch (Throwable) {
+                    // One unprojectable card must not hide the rest of the board.
+                }
+            }
+        }
+
         foreach ($board->cards as $card) {
-            try {
-                $snapshot = $this->workflow->task($card->id);
-            } catch (Throwable) {
+            $snapshot = $workflow[$card->id] ?? null;
+            if ($snapshot === null) {
                 continue;
             }
 

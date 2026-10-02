@@ -45,12 +45,17 @@ final readonly class BoardAction
         // The card lane/status is agent-kanban's; lifecycle state and the next
         // step are agent-loop's. Both are shown side by side, never merged. A
         // card agent-loop cannot project keeps rendering from the board alone.
-        $workflow = [];
-        foreach ($board->cards as $card) {
-            try {
-                $workflow[$card->id] = $this->workflow->task($card->id);
-            } catch (Throwable) {
-                $workflow[$card->id] = null;
+        $taskIds = array_map(static fn (CardSnapshot $card): string => $card->id, $board->cards);
+        try {
+            $workflow = $this->workflow->tasks($taskIds);
+        } catch (Throwable) {
+            $workflow = [];
+            foreach ($board->cards as $card) {
+                try {
+                    $workflow[$card->id] = $this->workflow->task($card->id);
+                } catch (Throwable) {
+                    $workflow[$card->id] = null;
+                }
             }
         }
 
@@ -59,7 +64,7 @@ final readonly class BoardAction
         $disagreements = 0;
         foreach ($board->cards as $card) {
             $statuses[$card->status] = true;
-            $snapshot = $workflow[$card->id];
+            $snapshot = $workflow[$card->id] ?? null;
             if ($snapshot === null) {
                 continue;
             }
@@ -73,7 +78,7 @@ final readonly class BoardAction
 
         $cards = array_values(array_filter(
             $board->cards,
-            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id], $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
+            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id] ?? null, $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
         ));
 
         return Response::html($this->templates->render('board/index', [
