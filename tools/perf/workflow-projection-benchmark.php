@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use PDO;
-use RuntimeException;
 use voku\AgentLoop\ProjectLayout;
 use voku\AgentMap\MapArtifactPaths;
 use voku\AgentSession\SessionStore;
