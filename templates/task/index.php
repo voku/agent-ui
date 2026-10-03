@@ -180,7 +180,7 @@ require __DIR__ . '/../layout/header.php';
 
 <?php if ($decisions->actions !== []): ?>
     <p class="eyebrow">Your decision</p>
-    <section class="panel panel--attention">
+    <section class="panel panel--attention" id="decision" aria-label="Your decision">
         <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
             corresponding human action as recordable.</p>
 
@@ -247,10 +247,14 @@ require __DIR__ . '/../layout/header.php';
                                 <p class="small" style="margin:6px 0 0">Goal was: <em><?= TemplateRenderer::escape($contractDelta->previousGoal) ?></em></p>
                             <?php endif; ?>
                             <?php foreach ($contractDelta->lists as $label => $change): ?>
-                                <p class="small" style="margin:6px 0 0"><span class="faint"><?= TemplateRenderer::escape((string) $label) ?>:</span>
-                                    <?php foreach ($change['added'] as $value): ?><code>+ <?= TemplateRenderer::escape($value) ?></code> <?php endforeach; ?>
-                                    <?php foreach ($change['removed'] as $value): ?><code>&minus; <?= TemplateRenderer::escape($value) ?></code> <?php endforeach; ?>
-                                </p>
+                                <?php // One entry per line: a reworded criterion is one removal and one
+                                      // addition, and on a single run the reader cannot see where each ends. ?>
+                                <div class="small" style="margin:6px 0 0"><span class="faint"><?= TemplateRenderer::escape((string) $label) ?>:</span>
+                                    <div class="stack" style="margin-top:4px">
+                                        <?php foreach ($change['added'] as $value): ?><code>+ <?= TemplateRenderer::escape($value) ?></code><?php endforeach; ?>
+                                        <?php foreach ($change['removed'] as $value): ?><code>&minus; <?= TemplateRenderer::escape($value) ?></code><?php endforeach; ?>
+                                    </div>
+                                </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
@@ -271,7 +275,7 @@ require __DIR__ . '/../layout/header.php';
                     <strong>Review findings (<?= count($transparency->review->findings) ?>):</strong>
                     <ul class="small" style="margin:4px 0 0;padding-left:16px">
                         <?php foreach ($transparency->review->findings as $f): ?>
-                            <li>[<?= TemplateRenderer::escape($f->severity->value) ?>] <?= TemplateRenderer::escape($f->message) ?></li>
+                            <li>[<?= TemplateRenderer::escape($f->severity) ?>] <?= TemplateRenderer::escape($f->message) ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </div>

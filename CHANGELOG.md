@@ -6,6 +6,26 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Every task view carries a "Go to the decision agent-loop is waiting for" link to `/task/{id}#decision` while agent-loop's human-decision projection lists a recordable action, and the decision panel is its target. The controls sit well below the header on the overview and the Contract, Work, Evidence and History views have none, so a returning reader saw "command template" in the header and had to know that the owner models "a human must acknowledge this report" as a command a human runs, and where the form lives. The link follows the owner's action list, not the next-action kind: the kind alone would miss the review acknowledgement and the Learning decision.
+
+### Fixed
+
+- The task overview returned a 500 whenever the review report being acknowledged had a finding. The panel read `->severity->value`, but agent-loop projects a finding's severity as a string, so the first review with one finding broke the page at the moment the human was asked to act (present since the panel was added; no earlier test ran a governed task far enough to have a review report). Findings now print with the owner's severity word.
+- Lists of paths, commands and ids ran together on one line. `.stack` separates its children with a top margin, which does nothing to inline elements, so a Contract scope of `src/Greeter.php` and `tests/GreeterTest.php` read as the single path `src/Greeter.phptests/GreeterTest.php` on the screen where a human approves it, and likewise on the Contract and Work pages and wherever the Knowledge pages list ids. Such entries are now block-level, as wide as their text, wrap when long, and leave buttons and pills alone.
+- The Contract delta in the decision panel puts each added or removed entry on its own line. A reworded criterion is one removal and one addition; on one run the reader had to find where each ended.
+
+### Validation
+
+- Dogfooded the four decision states against a real governed task in a scratch repository (a proposed Contract, a revised Contract after an approval, a finished run awaiting review acknowledgement, and the Learning decision after it), screenshotting each and reading it against the six questions the workbench epic (#59) asks of a decision. The 500, the concatenated paths and the unreachable panel were found that way.
+- `ReviewAcknowledgementDecisionTest` runs the real governed run (approved Contract, `enter`, work inside scope, `finish`) and reads the findings back from agent-loop's own projection; it fails against the previous template with the 500. Five mutants of the link (never shown, always shown, no anchor, derived from the next-action kind, wrong anchor) each fail it. `StackListLayoutTest` (four mutants killed) and `ContractDecisionDeltaPageTest` pin the other two fixes. The stylesheet rule was also checked in Chromium by walking every `.stack` on the Task, Contract, Work and History views and finding no remaining inline siblings.
+- Local `composer ci`: 343 tests, 1705 assertions, PHPStan and php-cs-fixer clean.
+
+### Known gap, not addressed here
+
+- agent-loop projects which human action is recordable (and the review digest) but not the decision's subject, why authority is required, the evidence that bears on it, or the consequence of each choice. The panel shows the owner facts it already has (the Contract, its delta, the findings, the digest); choosing which other facts are material to a decision would be a policy the UI does not own, so it is left for a typed owner projection.
+
 ## [0.18.11] - 2026-10-03
 
 ### Added

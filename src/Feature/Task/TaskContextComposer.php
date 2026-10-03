@@ -6,10 +6,11 @@ namespace voku\AgentUi\Feature\Task;
 
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 
 /**
- * Reads the two owners a persistent task header needs, and composes nothing else.
+ * Reads the owners a persistent task header needs, and composes nothing else.
  *
  * The composition is deliberately dull: take identity from the board, take state
  * and next action from Loop, copy both across. Both call sites exist because most
@@ -21,6 +22,7 @@ final readonly class TaskContextComposer
     public function __construct(
         private BoardProjectionGateway $board,
         private WorkflowProjectionGateway $workflow,
+        private HumanDecisionGateway $decisions,
     ) {
     }
 
@@ -40,6 +42,7 @@ final readonly class TaskContextComposer
             workflowState: $workflow->state,
             nextAction: $workflow->nextAction,
             nextActionKind: $workflow->nextActionKind,
+            awaitsHumanDecision: $this->decisions->available($card->id)->actions !== [],
         );
     }
 }

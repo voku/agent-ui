@@ -54,6 +54,12 @@ $taskNavId = $taskContext->taskId;
             <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->nextActionKind)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->nextActionKind)) ?></span>
         </p>
         <p class="task-context__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($taskContext->nextActionKind)) ?></p>
+        <?php if ($taskContext->awaitsHumanDecision): ?>
+            <?php // agent-loop's human-decision projection lists a recordable action for this
+                  // task. The controls live on the task overview; this is the way there from
+                  // any view, and it states a fact the owner projected, not a state name. ?>
+            <p class="task-context__decision"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($taskContext->taskId) ?>#decision">Go to the decision agent-loop is waiting for</a></p>
+        <?php endif; ?>
         <div class="codeblock">
             <pre id="task-context-next"><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
             <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button>
