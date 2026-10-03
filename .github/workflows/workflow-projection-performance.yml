@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'tools/perf/workflow-projection-benchmark.php'
+      - 'src/Feature/Task/TaskAction.php'
+      - 'src/Feature/Task/TaskContextComposer.php'
+      - 'src/Feature/Evidence/EvidenceAction.php'
       - '.github/workflows/workflow-projection-performance.yml'
   workflow_dispatch:
 
@@ -116,4 +119,40 @@ jobs:
             echo "| session.json | ${single_sessions} | ${batch_sessions} |"
             echo
             echo "The syscall ratios are the correctness signal; wall-clock timing is supporting evidence only."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Profile one real task-page request
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/agent-ui-projection-perf"
+          task_trace="${RUNNER_TEMP}/task-page.strace"
+
+          task_page="$(php tools/perf/workflow-projection-benchmark.php task-page "$root")"
+          echo "task_page=$task_page"
+
+          test "$(jq -r '.status' <<<"$task_page")" = "200"
+
+          strace -qq -f -e trace=openat -o "$task_trace" \
+            php tools/perf/workflow-projection-benchmark.php task-page "$root" >/dev/null
+
+          task_search="$(grep -c 'search.sqlite' "$task_trace" || true)"
+          task_sessions="$(grep -Ec '/sessions/[^/]+/session\.json' "$task_trace" || true)"
+          task_ms="$(jq -r '.elapsed_ms' <<<"$task_page")"
+
+          echo "task page search.sqlite opens: ${task_search}"
+          echo "task page session.json opens: ${task_sessions}"
+
+          test "$task_search" -gt 0
+          test "$task_sessions" -gt 0
+
+          {
+            echo
+            echo "### Real task-page request"
+            echo
+            echo "- Wall clock: **${task_ms} ms**"
+            echo "- search.sqlite openat(): **${task_search}**"
+            echo "- session.json openat(): **${task_sessions}**"
+            echo
+            echo "This step records the request baseline; issue #95 will tighten it after owner snapshot reuse is implemented."
           } >> "$GITHUB_STEP_SUMMARY"
