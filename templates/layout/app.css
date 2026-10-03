@@ -306,6 +306,16 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
 .stack > * + * { margin-top: 12px; }
+/*
+ * The separation above is a top margin, and a top margin does nothing to an inline
+ * element. A list of paths, commands or ids (`<code>`, `<a class="mono">`) is made of
+ * inline elements, so it used to lay out on one run with no gap and two scope entries
+ * read as one path. Make those entries blocks, only as wide as their text, and let a
+ * long one wrap instead of widening the page. Buttons and pills are deliberately left
+ * as they are: a row of them in a stack is meant to be a row.
+ */
+.stack > :is(code, a, span, kbd, samp):not(.btn, .pill) { display: block; width: fit-content; max-width: 100%; overflow-wrap: anywhere; }
+.stack > :is(code, a, span, kbd, samp):not(.btn, .pill) + * { margin-top: 6px; }
 
 /*
  * A fact with no place on the timeline is still one entry among others, so it
@@ -826,6 +836,7 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 .task-context__next { grid-column: 1 / -1; min-width: 0; }
 .task-context__next .provenance { flex-wrap: wrap; }
 .task-context__hint { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+.task-context__decision { margin: 10px 0 0; }
 .task-context__next .codeblock { margin-top: 8px; }
 
 .task-nav__group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }

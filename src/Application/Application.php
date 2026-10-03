@@ -98,7 +98,7 @@ final readonly class Application
         $map = new MapProjectionGateway($projectRoot, $mapArtifacts);
         $source = new SourceViewGateway($projectRoot, $mapArtifacts);
         $codeSearch = new CodeSearchGateway($projectRoot, $mapArtifacts, $map, $source);
-        $taskContext = new TaskContextComposer($board, $workflow);
+        $taskContext = new TaskContextComposer($board, $workflow, $decisions);
         $csrf = new CsrfTokenManager();
         $templates = new TemplateRenderer($templateRoot);
         $this->templates = $templates;

@@ -18,6 +18,11 @@ namespace voku\AgentUi\Feature\Task;
  * combined, ranked, or re-derived - `$nextAction` is the string Loop returned,
  * not a UI reading of it, and `$workflowState` is the state Loop projected, not
  * a conclusion drawn from the other fields.
+ *
+ * `$awaitsHumanDecision` is the same kind of copy: true exactly when agent-loop's
+ * human-decision projection lists at least one recordable action. It is not read
+ * from the next-action kind, because Loop models "a human must acknowledge this
+ * report" as a command a human runs, so the kind alone would miss it.
  */
 final readonly class TaskContext
 {
@@ -28,6 +33,7 @@ final readonly class TaskContext
         public string $workflowState,
         public string $nextAction,
         public string $nextActionKind,
+        public bool $awaitsHumanDecision = false,
     ) {
     }
 }
