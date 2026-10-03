@@ -12,6 +12,8 @@ use voku\AgentLearning\Catalog\ProposalProjection;
 use voku\AgentLearning\Catalog\TaskLearningProjection;
 use voku\AgentLearning\CorpusAnalysisResult;
 use voku\AgentLearning\LearningCatalog;
+use voku\AgentLearning\LearningLineageProjectionUnavailable;
+use voku\AgentLearning\LearningLineageService;
 use voku\AgentLearning\LearningNoteService;
 use voku\AgentLoop\ProjectLayout;
 
@@ -149,6 +151,38 @@ final readonly class LearningCatalogGateway
     public function task(string $taskId): TaskLearningProjection
     {
         return $this->catalog->forTask($taskId);
+    }
+
+    /**
+     * The notes this task's lineage taught, without ever repairing Learning's cache.
+     *
+     * A page view is a GET and changes nothing, so the lineage projection is read
+     * in Learning's observing mode: absent or stale is reported as such rather
+     * than rebuilt under the reader. Anything else Learning refuses is `invalid`,
+     * logged once for the operator and never echoed to the browser.
+     */
+    public function taskPrecedents(string $taskId): TaskPrecedentSnapshot
+    {
+        if (!is_dir($this->learningRoot)) {
+            return TaskPrecedentSnapshot::noLearning();
+        }
+
+        try {
+            return TaskPrecedentSnapshot::available(
+                (new LearningLineageService())->precedentsForTask(
+                    $this->learningRoot,
+                    $taskId,
+                    $this->projectRoot,
+                    repairProjection: false,
+                ),
+            );
+        } catch (LearningLineageProjectionUnavailable) {
+            return TaskPrecedentSnapshot::projectionUnavailable();
+        } catch (Throwable $exception) {
+            error_log('agent-ui task precedent read failed: ' . $exception->getMessage());
+
+            return TaskPrecedentSnapshot::invalid();
+        }
     }
 
     public function corpusAnalytics(): ?CorpusAnalysisResult

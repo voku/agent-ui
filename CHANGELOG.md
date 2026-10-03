@@ -6,6 +6,21 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- `/task/{id}/learning` shows the LearningNote a task taught, between its Findings and its Proposals, completing the Finding → LearningNote rung of the learning ladder on the page that lists the others. Each note carries its title, guidance, status, evidence state, pattern key and links to its source Findings, and is labelled as precedent rather than policy.
+- Only notes with an explicit note-derivation relation in the task's lineage are listed. agent-learning's precedent query also tops its result up with every other active note so Recall can match them by scope; listing those would claim lineage nobody recorded.
+- The page never repairs Learning's cache. The lineage projection is read in agent-learning's non-repairing mode, so an absent, empty or stale projection is reported on the page (announced as a status message) instead of being rebuilt by a GET or rendered as an empty list that reads as "this task taught nothing". A project with no Learning root and an unreadable answer each get their own message.
+
+### Changed
+
+- Requires `voku/agent-learning` `^0.18.28` for `LearningLineageService`'s `$repairProjection` option (voku/agent-learning#144, #145).
+
+### Validation
+
+- `TaskLearningNotesPageTest` (6 tests) builds a real Finding and published note through the owner APIs and renders the page through the router. It pins that the note and its source Finding link appear; that an active note outside the task's lineage does not; that a stale projection is reported, announced and left byte- and mtime-identical, and that `verifyCurrent()` still reports it stale afterwards; that an absent projection is not created; that Findings still render when the projection is behind; and that a project without Learning does not say "no notes". Four of five mutants fail (repair on read, listing all precedents, collapsing stale into empty, dropping the status announcement); the fifth, ignoring the relation kind, is equivalent against today's graph and is kept as a guard.
+- Local `composer ci` against the released 0.18.28 (334 tests, 1633 assertions, PHPStan and php-cs-fixer clean); page rendered and inspected in a browser for the normal and stale states.
+
 ## [0.18.10] - 2026-10-03
 
 ### Added
