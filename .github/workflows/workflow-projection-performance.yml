@@ -145,14 +145,16 @@ jobs:
 
           test "$task_search" -gt 0
           test "$task_sessions" -gt 0
+          (( task_search <= 6 ))
+          (( task_sessions <= 1395 ))
 
           {
             echo
             echo "### Real task-page request"
             echo
             echo "- Wall clock: **${task_ms} ms**"
-            echo "- search.sqlite openat(): **${task_search}**"
-            echo "- session.json openat(): **${task_sessions}**"
+            echo "- search.sqlite openat(): **${task_search}** (budget: ≤6)"
+            echo "- session.json openat(): **${task_sessions}** (budget: ≤1395)"
             echo
-            echo "This step records the request baseline; issue #95 will tighten it after owner snapshot reuse is implemented."
+            echo "The syscall budgets pin issue #95's request-local owner snapshot reuse. Wall-clock timing remains supporting evidence only."
           } >> "$GITHUB_STEP_SUMMARY"
