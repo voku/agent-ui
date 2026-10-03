@@ -9,6 +9,7 @@ use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
+use voku\AgentUi\Security\CsrfTokenManager;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -174,20 +175,27 @@ function setupFixture(string $root): void
         $boardRoot . '/board.md',
         "# Board Metadata\n\n- **Project prefix:** PERF\n",
     );
+    $repoRoot = dirname(__DIR__, 2);
+    $application = new Application($root, $repoRoot . '/templates');
+    $csrf = (new CsrfTokenManager())->token();
     for ($i = 1; $i <= CARD_COUNT; ++$i) {
         $id = 'PERF-' . $i;
-        file_put_contents(
-            $boardRoot . '/cards/' . $id . '.md',
-            "# {$id}: Performance fixture\n\n"
-            . "- **Ticket:** {$id}\n"
-            . "- **Lane:** BACKLOG\n"
-            . "- **Status:** todo\n\n"
-            . "## Agent Task Brief\n\nSynthetic workflow projection performance fixture.\n",
-        );
+        $response = $application->handle(new Request('POST', '/board/new', body: [
+            '_csrf' => $csrf,
+            'card_id' => $id,
+            'title' => 'Performance fixture ' . $id,
+            'lane' => 'BACKLOG',
+            'status' => 'todo',
+            'task_brief' => 'Synthetic workflow projection performance fixture.',
+        ]));
+        if ($response->status !== 303) {
+            throw new RuntimeException(
+                sprintf('Unable to create performance card %s: HTTP %d.', $id, $response->status),
+            );
+        }
     }
 
     $artifacts = MapArtifactPaths::forProject($root, $mapRoot);
-    $repoRoot = dirname(__DIR__, 2);
     $agentMap = $repoRoot . '/vendor/bin/agent-map';
     if (!is_file($agentMap)) {
         throw new RuntimeException('agent-map Composer binary is missing: ' . $agentMap);
