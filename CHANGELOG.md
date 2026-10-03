@@ -6,6 +6,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.12] - 2026-10-03
+
 ### Added
 
 - Every task view carries a "Go to the decision agent-loop is waiting for" link to `/task/{id}#decision` while agent-loop's human-decision projection lists a recordable action, and the decision panel is its target. The controls sit well below the header on the overview and the Contract, Work, Evidence and History views have none, so a returning reader saw "command template" in the header and had to know that the owner models "a human must acknowledge this report" as a command a human runs, and where the form lives. The link follows the owner's action list, not the next-action kind: the kind alone would miss the review acknowledgement and the Learning decision.
@@ -20,6 +22,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 - Dogfooded the four decision states against a real governed task in a scratch repository (a proposed Contract, a revised Contract after an approval, a finished run awaiting review acknowledgement, and the Learning decision after it), screenshotting each and reading it against the six questions the workbench epic (#59) asks of a decision. The 500, the concatenated paths and the unreachable panel were found that way.
 - `ReviewAcknowledgementDecisionTest` runs the real governed run (approved Contract, `enter`, work inside scope, `finish`) and reads the findings back from agent-loop's own projection; it fails against the previous template with the 500. Five mutants of the link (never shown, always shown, no anchor, derived from the next-action kind, wrong anchor) each fail it. `StackListLayoutTest` (four mutants killed) and `ContractDecisionDeltaPageTest` pin the other two fixes. The stylesheet rule was also checked in Chromium by walking every `.stack` on the Task, Contract, Work and History views and finding no remaining inline siblings.
+- PR #92 exact head `4266bc2858146a2c68f6ac86bbd8a6d97afe5515` passed the PHP 8.3/8.4/8.5 `composer ci` matrix, the PHP 8.3 lowest-supported dependency graph and the Runner optional matrix (12 check runs across the two workflows), and its merge commit `f90f585597d14ebd39f4c7257d768d77d8336593` passed the same six checks on `main`. The first run of that head had five jobs fail identically at `composer install` with `Could not authenticate against github.com`, before any test ran; they were re-run once and passed, and no code changed in between. CodeRabbit's review raised no blocking finding; its one nitpick (strip CSS comments before `StackListLayoutTest` matches a rule) is correct but trivial and was not applied.
 - Local `composer ci`: 343 tests, 1705 assertions, PHPStan and php-cs-fixer clean.
 
 ### Known gap, not addressed here
