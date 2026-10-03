@@ -1,0 +1,119 @@
+name: Workflow projection performance proof
+
+on:
+  pull_request:
+    paths:
+      - 'tools/perf/workflow-projection-benchmark.php'
+      - '.github/workflows/workflow-projection-performance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  projection-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install syscall tracer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v strace >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq strace
+          fi
+
+      - name: Build IT-Portal-shaped synthetic fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tools/perf/workflow-projection-benchmark.php setup "${RUNNER_TEMP}/agent-ui-projection-perf"
+
+      - name: Measure wall-clock speedup and semantic parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/agent-ui-projection-perf"
+
+          single="$(php tools/perf/workflow-projection-benchmark.php single "$root")"
+          batch="$(php tools/perf/workflow-projection-benchmark.php batch "$root")"
+
+          echo "single=$single"
+          echo "batch=$batch"
+
+          single_hash="$(jq -r '.sha256' <<<"$single")"
+          batch_hash="$(jq -r '.sha256' <<<"$batch")"
+          single_ms="$(jq -r '.elapsed_ms' <<<"$single")"
+          batch_ms="$(jq -r '.elapsed_ms' <<<"$batch")"
+          search_bytes="$(jq -r '.search_bytes' <<<"$batch")"
+
+          test "$single_hash" = "$batch_hash"
+
+          speedup="$(awk -v single="$single_ms" -v batch="$batch_ms" 'BEGIN { printf "%.2f", single / batch }')"
+          awk -v speedup="$speedup" 'BEGIN { exit !(speedup >= 5.0) }'
+
+          {
+            echo "## Workflow projection performance"
+            echo
+            echo "| Metric | Per-card task() loop | projectMany() batch |"
+            echo "| --- | ---: | ---: |"
+            echo "| 85-card projection | ${single_ms} ms | ${batch_ms} ms |"
+            echo
+            echo "- Speedup: **${speedup}x**"
+            echo "- Semantic payload SHA-256: \`${batch_hash}\` (identical)"
+            echo "- Search SQLite: $(( search_bytes / 1024 / 1024 )) MiB"
+            echo "- Sessions: 279"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prove repeated filesystem work with strace
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/agent-ui-projection-perf"
+          single_trace="${RUNNER_TEMP}/projection-single.strace"
+          batch_trace="${RUNNER_TEMP}/projection-batch.strace"
+
+          strace -qq -f -e trace=openat -o "$single_trace" \
+            php tools/perf/workflow-projection-benchmark.php single "$root" >/dev/null
+          strace -qq -f -e trace=openat -o "$batch_trace" \
+            php tools/perf/workflow-projection-benchmark.php batch "$root" >/dev/null
+
+          single_search="$(grep -c 'search.sqlite' "$single_trace" || true)"
+          batch_search="$(grep -c 'search.sqlite' "$batch_trace" || true)"
+          single_sessions="$(grep -Ec '/sessions/[^/]+/session\.json' "$single_trace" || true)"
+          batch_sessions="$(grep -Ec '/sessions/[^/]+/session\.json' "$batch_trace" || true)"
+
+          echo "search.sqlite opens: single=${single_search}, batch=${batch_search}"
+          echo "session.json opens: single=${single_sessions}, batch=${batch_sessions}"
+
+          test "$batch_search" -gt 0
+          test "$batch_sessions" -gt 0
+          (( single_search >= batch_search * 10 ))
+          (( single_sessions >= batch_sessions * 20 ))
+
+          {
+            echo
+            echo "### Structural syscall evidence"
+            echo
+            echo "| openat() target | Per-card task() loop | projectMany() batch |"
+            echo "| --- | ---: | ---: |"
+            echo "| search.sqlite | ${single_search} | ${batch_search} |"
+            echo "| session.json | ${single_sessions} | ${batch_sessions} |"
+            echo
+            echo "The syscall ratios are the correctness signal; wall-clock timing is supporting evidence only."
+          } >> "$GITHUB_STEP_SUMMARY"
