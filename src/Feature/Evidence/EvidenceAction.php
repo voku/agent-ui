@@ -22,10 +22,12 @@ final readonly class EvidenceAction
 
     public function __invoke(string $taskId): Response
     {
+        $workflow = $this->workflow->task($taskId);
+
         return Response::html($this->templates->render('evidence/index', [
-            'workflow' => $this->workflow->task($taskId),
+            'workflow' => $workflow,
             'audit' => $this->audit->task($taskId),
-            'task_context' => $this->taskContext->forTask($taskId),
+            'task_context' => $this->taskContext->forTaskWithWorkflow($taskId, $workflow),
         ]));
     }
 }
