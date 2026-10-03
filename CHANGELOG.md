@@ -6,6 +6,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.10] - 2026-10-03
+
 ### Added
 
 - A global search at `/search` (#59 step 4), with a search form in the header of every page. It takes the command style the workbench epic sketches — `task UI-58`, `/proposal provenance`, `symbol WorkflowProgressProjector`, `/find memory` — and searches tasks (agent-kanban), Findings, Proposals and Guidance (agent-learning), symbols and code chunks (agent-map) and prompt recipes (agent-recall-compiler). Results stay grouped under the owner that published them, each hit links to its existing page, and the query is the URL, so it works with scripts off, bookmarks and the back button.
@@ -33,6 +35,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Validation
 
+- PR #88 exact head `b4eaf3355bf42df03c54588d201425688ea3ba84` passed the PHP 8.3/8.4/8.5 `composer ci` matrix, the PHP 8.3 lowest-supported dependency graph and the Runner optional matrix (12 check runs), and its merge commit `3f016d037b5639896e70ded14ef8bb79dce9a842` passed the same six checks on `main`. CodeRabbit reviewed the first head and found three issues, all fixed and resolved; it did not re-review the final head because its hourly allowance was spent, so the fixes are covered by the tests written for them, not by a second bot pass.
 - `composer ci` passed with 328 tests, 1579 assertions, clean template linting and 0 PHPStan errors, against `voku/agent-loop` 0.20.52, `voku/agent-learning` 0.18.27, `voku/agent-map` 0.18.3 and `voku/agent-recall-compiler` 0.25.1.
 - Fifteen mutations of the search logic were run; the four that first survived (guidance decided by target type, every leading slash stripped, code chunks searched in the combined view, no overfetch for the symbol cap) each got a test and are now killed, as is skipping non-default boards.
 - Rendered in Chromium at 1280px and 390px with no horizontal overflow, against this repository's own state.
