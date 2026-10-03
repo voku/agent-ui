@@ -7,6 +7,8 @@ on:
       - 'src/Feature/Task/TaskAction.php'
       - 'src/Feature/Task/TaskContextComposer.php'
       - 'src/Feature/Evidence/EvidenceAction.php'
+      - 'src/Integration/AgentLoop/WorkflowProjectionGateway.php'
+      - 'src/Integration/AgentLoop/HumanDecisionGateway.php'
       - '.github/workflows/workflow-projection-performance.yml'
   workflow_dispatch:
 
