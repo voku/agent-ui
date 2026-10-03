@@ -6,6 +6,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.11] - 2026-10-03
+
 ### Added
 
 - `/task/{id}/learning` shows the LearningNote a task taught, between its Findings and its Proposals, completing the Finding → LearningNote rung of the learning ladder on the page that lists the others. Each note carries its title, guidance, status, evidence state, pattern key and links to its source Findings, and is labelled as precedent rather than policy.
@@ -19,6 +21,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Validation
 
 - `TaskLearningNotesPageTest` (6 tests) builds a real Finding and published note through the owner APIs and renders the page through the router. It pins that the note and its source Finding link appear; that an active note outside the task's lineage does not; that a stale projection is reported, announced and left byte- and mtime-identical, and that `verifyCurrent()` still reports it stale afterwards; that an absent projection is not created; that Findings still render when the projection is behind; and that a project without Learning does not say "no notes". Four of five mutants fail (repair on read, listing all precedents, collapsing stale into empty, dropping the status announcement); the fifth, ignoring the relation kind, is equivalent against today's graph and is kept as a guard.
+- PR #90 exact head `ce8a5ae697300fba13479be343cf6f740237c208` passed the PHP 8.3/8.4/8.5 `composer ci` matrix, the PHP 8.3 lowest-supported dependency graph and the Runner optional matrix (12 check runs across the two workflows), and its merge commit `e5b2e213c0d631ededacf4dd035454287cc8a211` passed the same six checks on `main`. CodeRabbit's review of that head was still in progress and had posted no findings when it was merged, so this change has no second bot pass; the tests above are its coverage.
 - Local `composer ci` against the released 0.18.28 (334 tests, 1633 assertions, PHPStan and php-cs-fixer clean); page rendered and inspected in a browser for the normal and stale states.
 
 ## [0.18.10] - 2026-10-03
