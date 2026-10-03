@@ -14,6 +14,7 @@ use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\History\TaskActivityComposer;
 use voku\AgentUi\Feature\Home\HomeAction;
 use voku\AgentUi\Feature\HumanDecision\HumanDecisionAction;
+use voku\AgentUi\Feature\Knowledge\DeliveredPrecedentComposer;
 use voku\AgentUi\Feature\Knowledge\DreamAction;
 use voku\AgentUi\Feature\Knowledge\KnowledgeAction;
 use voku\AgentUi\Feature\Map\MapAction;
@@ -109,7 +110,7 @@ final readonly class Application
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->commands = new CommandsAction($commandCatalog, $templates);
         $this->board = new BoardAction($board, $mutation, $workflow, $csrf, $templates);
-        $this->knowledge = new KnowledgeAction($learning, $taskContext, $templates);
+        $this->knowledge = new KnowledgeAction($learning, $taskContext, new DeliveredPrecedentComposer($context, $learning), $templates);
         $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
         $this->search = new SearchAction(
