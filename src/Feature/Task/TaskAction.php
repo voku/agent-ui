@@ -43,11 +43,13 @@ final readonly class TaskAction
         $transparency = $this->transparency->task($taskId);
         $card = $this->board->card($taskId);
         $contract = $this->decisions->contract($taskId);
+        $workflow = $this->workflow->task($taskId);
+        $humanDecisions = $this->decisions->available($taskId);
 
         return Response::html($this->templates->render('task/index', [
             'card' => $card,
-            'workflow' => $this->workflow->task($taskId),
-            'human_decisions' => $this->decisions->available($taskId),
+            'workflow' => $workflow,
+            'human_decisions' => $humanDecisions,
             'contract' => $contract,
             'contract_delta' => $this->contractDelta($taskId, $contract),
             'runner' => $this->runner->status($taskId),
@@ -55,7 +57,7 @@ final readonly class TaskAction
             'context_coverage' => $transparency->context,
             'task_transparency' => $transparency,
             'csrf_token' => $this->csrf->token(),
-            'task_context' => $this->taskContext->forCard($card),
+            'task_context' => $this->taskContext->fromOwnerSnapshots($card, $workflow, $humanDecisions),
         ]));
     }
 
