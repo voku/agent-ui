@@ -18,6 +18,7 @@ final readonly class KnowledgeAction
     public function __construct(
         private LearningCatalogGateway $learning,
         private TaskContextComposer $taskContext,
+        private DeliveredPrecedentComposer $delivered,
         private TemplateRenderer $templates,
     ) {
     }
@@ -105,6 +106,7 @@ final readonly class KnowledgeAction
         return Response::html($this->templates->render('knowledge/task', [
             'learning' => $this->learning->task($taskId),
             'precedents' => $this->learning->taskPrecedents($taskId),
+            'delivered' => $this->delivered->forTask($taskId),
             'task_context' => $this->taskContext->forTask($taskId),
         ]));
     }

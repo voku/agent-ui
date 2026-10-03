@@ -6,6 +6,25 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- `/task/{id}/learning` has a "Precedents Recall delivered" panel: the LearningNote precedents Recall's persisted context for that task reports, each as delivered or not delivered with Recall's own reason, with the evidence state and, where agent-learning's own chain can be followed (note → source Finding → task), a link to the task that taught it. Together with the "Learning notes" panel this closes the Finding → LearningNote → delivered-to-a-later-task rung of the learning ladder on one page, from owner facts only (#59).
+- Delivery is the only claim made. The panel says so ("Delivery is shown, not effect") and says nothing about use, application or outcome, because no owner records any.
+- Unknown stays unknown: a task whose Recall context was never compiled, one that could not be verified, and one that was read and holds no precedent are three different messages; an item Recall recorded without a note id, or naming a note Learning does not return, shows why its origin cannot be followed instead of an empty "taught by".
+
+### Changed
+
+- The page lede no longer claims that only agent-learning lineage appears: delivery facts come from agent-recall-compiler and are labelled as such.
+- `KnowledgeAction` takes a `DeliveredPrecedentComposer`; the four test constructions were updated.
+- Requires `voku/agent-recall-compiler` `^0.25.2` for the typed `CompiledContextExplainItem::$subjectId` (voku/agent-recall-compiler#220, #221), so the note is joined by a field, not by taking apart Recall's `learning-precedent:<id>` format.
+
+### Validation
+
+- `LearningReturnLoopPageTest` runs the whole ladder through agent-loop's real front door: APP-1 is entered and finished, a Finding is recorded and a note published from it, then APP-2 is entered and Recall compiles the note. It reads `/task/APP-2/learning` and asserts the note, "delivered", the link back to APP-1, the caveat and the absence of any claim of effect; that a never-compiled task says so rather than "no precedents"; and that the teaching task is not handed its own note. `DeliveredPrecedentComposerTest` covers a precedent held back by active guidance (Recall's reason verbatim), an item with no note id, a note Learning does not return, non-precedent items, and missing context. Six mutants (delivery always true, reason dropped, no kind filter, unresolved origin shown as empty, caveat removed, wrong origin link) each fail the suite.
+- Rendered the ladder in Chromium and read it: APP-2 has no Findings or notes of its own, and its page shows the note, "delivered", "evidence verified" and "Taught by APP-1". That reading found the stale lede above.
+- Not provided: the reverse direction (from a note, every later task it was delivered to). It would mean reading every task's persisted Recall context per page view, which is a UI-side index; it needs an owner projection first.
+- Local `composer ci`: 352 tests, PHPStan and php-cs-fixer clean, against a local copy of the unreleased Recall change; re-run against the released package before merging.
+
 ## [0.18.12] - 2026-10-03
 
 ### Added
