@@ -104,6 +104,7 @@ final readonly class KnowledgeAction
     {
         return Response::html($this->templates->render('knowledge/task', [
             'learning' => $this->learning->task($taskId),
+            'precedents' => $this->learning->taskPrecedents($taskId),
             'task_context' => $this->taskContext->forTask($taskId),
         ]));
     }
