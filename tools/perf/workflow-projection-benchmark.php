@@ -5,6 +5,8 @@ declare(strict_types=1);
 use voku\AgentLoop\ProjectLayout;
 use voku\AgentMap\MapArtifactPaths;
 use voku\AgentSession\SessionStore;
+use voku\AgentUi\Application\Application;
+use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 
@@ -22,18 +24,20 @@ if ($mode === 'setup') {
     exit(0);
 }
 
-if (!in_array($mode, ['single', 'batch'], true)) {
-    fwrite(STDERR, "Usage: php tools/perf/workflow-projection-benchmark.php setup|single|batch [fixture-root]\n");
+if (!in_array($mode, ['single', 'batch', 'task-page'], true)) {
+    fwrite(STDERR, "Usage: php tools/perf/workflow-projection-benchmark.php setup|single|batch|task-page [fixture-root]\n");
     exit(2);
 }
 
-$result = measure($root, $mode);
+$result = $mode === 'task-page'
+    ? measureTaskPage($root)
+    : measureWorkflowProjection($root, $mode);
 echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
 
 /**
  * @return array{mode: string, cards: int, sessions: int, search_bytes: int, elapsed_ms: float, sha256: string, peak_memory_bytes: int}
  */
-function measure(string $root, string $mode): array
+function measureWorkflowProjection(string $root, string $mode): array
 {
     $ids = [];
     for ($i = 1; $i <= CARD_COUNT; ++$i) {
@@ -62,20 +66,46 @@ function measure(string $root, string $mode): array
     }
 
     $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-    $layout = new ProjectLayout($root);
-    $searchDatabase = MapArtifactPaths::forProject($root, $layout->mapRoot())->searchDatabase();
-    $searchBytes = filesize($searchDatabase);
-    if (!is_int($searchBytes)) {
-        throw new RuntimeException('Unable to measure Search database size: ' . $searchDatabase);
-    }
 
     return [
         'mode' => $mode,
         'cards' => CARD_COUNT,
         'sessions' => SESSION_COUNT,
-        'search_bytes' => $searchBytes,
+        'search_bytes' => searchDatabaseSize($root),
         'elapsed_ms' => round($elapsedMs, 3),
         'sha256' => hash('sha256', $encoded),
+        'peak_memory_bytes' => memory_get_peak_usage(true),
+    ];
+}
+
+/**
+ * @return array{mode: string, status: int, sessions: int, search_bytes: int, elapsed_ms: float, body_sha256: string, peak_memory_bytes: int}
+ */
+function measureTaskPage(string $root): array
+{
+    $application = new Application($root, dirname(__DIR__, 2) . '/templates');
+
+    $started = hrtime(true);
+    $response = $application->handle(new Request('GET', '/task/PERF-1'));
+    $elapsedMs = (hrtime(true) - $started) / 1_000_000;
+
+    if ($response->status !== 200) {
+        throw new RuntimeException(
+            sprintf(
+                'Task page performance fixture returned HTTP %d instead of 200. Body: %s',
+                $response->status,
+                substr($response->body, 0, 500),
+            ),
+        );
+    }
+
+    return [
+        'mode' => 'task-page',
+        'status' => $response->status,
+        'sessions' => SESSION_COUNT,
+        'search_bytes' => searchDatabaseSize($root),
+        'elapsed_ms' => round($elapsedMs, 3),
+        'body_sha256' => hash('sha256', $response->body),
         'peak_memory_bytes' => memory_get_peak_usage(true),
     ];
 }
@@ -95,6 +125,18 @@ function snapshotPayload(WorkflowSnapshot $snapshot): array
         'next_action' => $snapshot->nextAction,
         'next_action_kind' => $snapshot->nextActionKind,
     ];
+}
+
+function searchDatabaseSize(string $root): int
+{
+    $layout = new ProjectLayout($root);
+    $searchDatabase = MapArtifactPaths::forProject($root, $layout->mapRoot())->searchDatabase();
+    $searchBytes = filesize($searchDatabase);
+    if (!is_int($searchBytes)) {
+        throw new RuntimeException('Unable to measure Search database size: ' . $searchDatabase);
+    }
+
+    return $searchBytes;
 }
 
 function setupFixture(string $root): void
@@ -178,8 +220,8 @@ function setupFixture(string $root): void
         $store->create($sessionsRoot, 'NOISE-' . $i, 'perf-' . $i, 'benchmark');
     }
 
-    $searchBytes = filesize($artifacts->searchDatabase());
-    if (!is_int($searchBytes) || $searchBytes < 150 * 1024 * 1024) {
+    $searchBytes = searchDatabaseSize($root);
+    if ($searchBytes < 150 * 1024 * 1024) {
         throw new RuntimeException('Search database fixture is unexpectedly small.');
     }
 
