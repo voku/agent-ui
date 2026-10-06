@@ -14,6 +14,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Changed
 
+- Requires `voku/agent-map` `^0.20.0`, matching the Map dependency of `voku/agent-loop` `0.20.57` and allowing both packages to resolve in consuming projects.
 - The page lede no longer claims that only agent-learning lineage appears: delivery facts come from agent-recall-compiler and are labelled as such.
 - `KnowledgeAction` takes a `DeliveredPrecedentComposer`; the four test constructions were updated.
 - Requires `voku/agent-recall-compiler` `^0.25.2` for the typed `CompiledContextExplainItem::$subjectId` (voku/agent-recall-compiler#220, #221), so the note is joined by a field, not by taking apart Recall's `learning-precedent:<id>` format.
