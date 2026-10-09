@@ -6,6 +6,12 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.14] - 2026-10-09
+
+### Changed
+
+- Require `voku/agent-map` `^0.22.0` with the releases that resolve together with it: `voku/agent-loop` `^0.20.64`, `voku/agent-learning` `^0.18.32` and `voku/agent-recall-compiler` `^0.25.8`. No UI behavior change; the suite and PHPStan pass against this release set.
+
 ## [0.18.13] - 2026-10-08
 
 ### Added
