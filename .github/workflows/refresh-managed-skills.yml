@@ -1,0 +1,53 @@
+name: One-shot managed skill projection refresh
+
+on:
+  push:
+    branches:
+      - fix/consumer-skill-projection-drift
+    paths:
+      - .github/workflows/refresh-managed-skills.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - name: Install declared package owners
+        run: composer install --no-interaction --prefer-dist
+      - name: Inspect desired skill changes
+        run: |
+          vendor/bin/agent-loop init sync-skills --agent=claude --dry-run
+      - name: Prune no-longer-desired managed skills
+        run: vendor/bin/agent-loop init sync-skills --agent=claude
+      - name: Inspect first-party projections
+        run: vendor/bin/agent-loop init install-assets --agent=claude --dry-run
+      - name: Regenerate first-party projections
+        run: vendor/bin/agent-loop init install-assets --agent=claude
+      - name: Verify critical owner contracts
+        run: |
+          test ! -e .claude/skills/agent-guidance-maintenance/SKILL.md
+          test ! -e .claude/skills/agent-recall-compiler-maintainer/SKILL.md
+          test -f .claude/skills/agent-recall-consumer/SKILL.md
+          grep -Fq 'BundledOperatingPromptManifest::consumer()' .claude/skills/agent-recall-consumer/SKILL.md
+          grep -Fq 'Human authority exists only for lifecycle' .claude/skills/agent-loop-discipline/SKILL.md
+          vendor/bin/agent-loop init host-status --agent=claude --format=json > /tmp/agent-loop-host-status.json
+      - name: Commit the installer output and remove this one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -- .github/workflows/refresh-managed-skills.yml
+          git add -A -- .claude/skills .claude/agents AGENTS.md CLAUDE.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "chore(skills): refresh owner-managed Claude projections"
+          git push origin HEAD:fix/consumer-skill-projection-drift
