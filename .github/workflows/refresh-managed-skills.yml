@@ -46,7 +46,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm -- .github/workflows/refresh-managed-skills.yml
-          git add -A -- .claude/skills .claude/agents AGENTS.md CLAUDE.md
+          # Do not mix generated subagent formatting changes into this skill-only repair.
+          git restore -- .claude/agents
+          git add -A -- .claude/skills AGENTS.md
           git diff --cached --check
           git diff --cached --stat
           git commit -m "chore(skills): refresh owner-managed Claude projections"
