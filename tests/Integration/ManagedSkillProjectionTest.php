@@ -16,7 +16,7 @@ final class ManagedSkillProjectionTest extends TestCase
         $root = dirname(__DIR__, 2);
         $skillProjections = array_values(array_filter(
             (new RepositorySetupService($root))->managedAssetDrift(),
-            static fn (ManagedAssetDriftProjection $projection): bool => $projection->target->host === 'claude'
+            static fn(ManagedAssetDriftProjection $projection): bool => $projection->target->host === 'claude'
                 && $projection->target->kind === ManagedAssetKind::SKILLS,
         ));
 
