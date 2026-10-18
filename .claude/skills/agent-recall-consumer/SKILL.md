@@ -11,17 +11,13 @@ Use this skill when a coding agent needs task-scoped Recall guidance from the cu
 
 This directory is the canonical home for instructions and reusable recipe assets that directly exercise `agent-recall-compiler`. Recall owns its commands, public compile contract, output contract, review primitives, L2 construction semantics, and bundled operating-prompt catalog.
 
-The bundled manifest is:
+The standalone CLI resolves the shipped consumer catalog through Recall owner truth:
 
 ```text
-skills/agent-recall-consumer/operating-prompts.json
+--operating-prompt-source bundled
 ```
 
-From an installed Composer dependency:
-
-```text
-vendor/voku/agent-recall-compiler/skills/agent-recall-consumer/operating-prompts.json
-```
+PHP hosts that need the manifest path use `BundledOperatingPromptManifest::consumer()` instead of reconstructing package layout.
 
 Callers still select every recipe and provide every required argument explicitly. Bundling the catalog does not create hidden defaults.
 
@@ -86,7 +82,7 @@ vendor/bin/agent-recall-compiler compile \
   --task PROJECT-123 \
   --description "Review the current implementation as a first draft" \
   --file src/Navigation/Menu.php \
-  --operating-prompt-manifest vendor/voku/agent-recall-compiler/skills/agent-recall-consumer/operating-prompts.json \
+  --operating-prompt-source bundled \
   --operating-prompt '{"id":"adversarial-review","arguments":{"minimum_failure_modes":3}}'
 ```
 
@@ -124,7 +120,7 @@ vendor/bin/agent-recall-compiler compile \
   --task PROJECT-123 \
   --description "Prepare self-contained follow-up TODO cards for the next coding agent" \
   --file src/Navigation/Menu.php \
-  --operating-prompt-manifest vendor/voku/agent-recall-compiler/skills/agent-recall-consumer/operating-prompts.json \
+  --operating-prompt-source bundled \
   --operating-prompt '{"id":"todo-card-handoff","arguments":{}}'
 ```
 
@@ -141,7 +137,7 @@ vendor/bin/agent-recall-compiler compile \
   --task PROJECT-123 \
   --description "Dispatch the current authorized slice from the durable work package" \
   --file src/Navigation/Menu.php \
-  --operating-prompt-manifest vendor/voku/agent-recall-compiler/skills/agent-recall-consumer/operating-prompts.json \
+  --operating-prompt-source bundled \
   --operating-prompt '{"id":"execution-dispatch","arguments":{}}'
 ```
 
@@ -187,9 +183,9 @@ vendor/bin/agent-loop recall log-outcome \
 
 Treat `selected` as exposure only. Set `applied=true` only when guidance affected the work, and classify outcomes from evidence as `helpful`, `irrelevant`, `harmful`, `not_used`, or `unknown`.
 
-An untouched compiler draft is not feedback: its pre-filled `outcome: unknown`, `applied: false`, `comment: null` rows are placeholders for the later session to complete. An explicit `unknown` outcome requires a non-empty comment explaining why the selected guidance cannot be judged.
+A `helpful` row also needs `attribution`: `seen_before_decision` (did you read this guidance before the decision it helped?) and `also_prescribed_by` (which of `task_prompt`, `contract`, `skill`, `template`, `constraint`, `repository_docs` already prescribed that decision; `[]` if nothing else did). Answer from what actually happened in the session, not from what would look best: guidance first opened while filling this draft is `seen_before_decision: false`.
 
-When the caller has no evidence to judge selected guidance, do not manufacture `not_used` or `irrelevant` merely to satisfy completeness. Remove the placeholder outcome rows and set `guidance_outcomes_withheld_reason` to a bounded reason. Silent omission without that declared withholding fails. The resulting selection events retain `outcome_withheld_reason`, so downstream Learning can distinguish deliberate absence from dropped feedback.
+The compiled draft starts with an empty `guidance_outcomes` list. Add a row only for selected guidance that actually changed, confirmed, or misled your work, and leave the list empty when nothing notable happened: unjudged selections are neutral and are still recorded as selection events. Do not write prose explaining that nothing happened. An added `unknown` row needs a comment explaining why it cannot be judged. `guidance_outcomes_withheld_reason` is optional; when given it is kept on the unjudged selection events as `outcome_withheld_reason`. Never manufacture `not_used` or `irrelevant` to fill the list.
 
 `not_used` and `irrelevant` are real negative signals used by staleness/retirement policy. A harness that did not read or apply the guidance must not emit either as a convenient empty bucket.
 
