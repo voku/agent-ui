@@ -121,7 +121,9 @@ final class KnowledgeNavigationTest extends TestCase
 
     private function navigation(string $page): string
     {
-        self::assertSame(1, preg_match('/<nav class="knowledge-nav".*?<\/nav>/s', $page, $matches), 'Knowledge navigation not found.');
+        if (preg_match('/<nav class="knowledge-nav".*?<\/nav>/s', $page, $matches) !== 1) {
+            throw new \LogicException('Knowledge navigation not found in the rendered page.');
+        }
 
         return $matches[0];
     }
