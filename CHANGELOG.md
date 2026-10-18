@@ -6,6 +6,10 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+
+### Changed
+
+- Knowledge navigation is grouped by learning lifecycle instead of seven equal peer tabs: Overview, then a labelled "Learning flow" list (Findings → Proposals → Durable Rules), then a labelled "History & analysis" list (Archived Tasks, Analytics & Evolution, Dream). Presentation only (agent-ui#58 Slice D): every route and query parameter, every agent-learning projection and the `aria-current` marker on the active destination are unchanged, and no JavaScript is involved.
 ## [0.18.14] - 2026-10-09
 
 ### Changed

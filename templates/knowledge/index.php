@@ -52,26 +52,39 @@ require __DIR__ . '/../layout/header.php';
     <p class="lede">What coding sessions taught this repository, what became durable in MEMORY.md and skills, what still needs judgment, and historical findings and proposals from agent-learning.</p>
 </div>
 
-<nav class="board-switcher" aria-label="Knowledge views" style="margin-bottom: 24px;">
-    <a class="board-switcher__tab<?= $currentTab === 'overview' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'overview' ? ' aria-current="page"' : '' ?> href="/knowledge">
-        Overview
-    </a>
-    <a class="board-switcher__tab<?= $currentTab === 'rules' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'rules' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=rules">
-        Durable Rules <span class="board-switcher__count"><?= count($memoryRules) ?></span>
-    </a>
-    <a class="board-switcher__tab<?= $currentTab === 'findings' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'findings' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=findings">
-        Findings <span class="board-switcher__count"><?= (int) $totalFindingCount ?></span>
-    </a>
-    <a class="board-switcher__tab<?= $currentTab === 'proposals' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'proposals' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=proposals">
-        Proposals <span class="board-switcher__count"><?= (int) $totalProposalCount ?></span>
-    </a>
-    <a class="board-switcher__tab<?= $currentTab === 'archived' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'archived' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=archived">
-        Archived Tasks <span class="board-switcher__count"><?= count($archivedTasks) ?></span>
-    </a>
-    <a class="board-switcher__tab<?= $currentTab === 'analytics' ? ' board-switcher__tab--active' : '' ?>"<?= $currentTab === 'analytics' ? ' aria-current="page"' : '' ?> href="/knowledge?tab=analytics">
-        Analytics &amp; Evolution
-    </a>
-    <a class="board-switcher__tab" href="/knowledge/dream">Dream</a>
+<?php
+$knowledgeTab = static function (string $tab, string $label, string $href, ?int $count = null) use ($currentTab): string {
+    $current = $currentTab === $tab;
+
+    return '<a class="board-switcher__tab' . ($current ? ' board-switcher__tab--active' : '') . '"'
+        . ($current ? ' aria-current="page"' : '') . ' href="' . $href . '">' . $label
+        . ($count !== null ? ' <span class="board-switcher__count">' . $count . '</span>' : '') . '</a>';
+};
+?>
+<nav class="knowledge-nav" aria-label="Knowledge views">
+    <div class="knowledge-nav__group">
+        <ul class="board-switcher knowledge-nav__list" aria-label="Start">
+            <li><?= $knowledgeTab('overview', 'Overview', '/knowledge') ?></li>
+        </ul>
+    </div>
+    <div class="knowledge-nav__group">
+        <p class="knowledge-nav__label" id="knowledge-nav-flow">Learning flow</p>
+        <ul class="board-switcher knowledge-nav__list" aria-labelledby="knowledge-nav-flow">
+            <li><?= $knowledgeTab('findings', 'Findings', '/knowledge?tab=findings', (int) $totalFindingCount) ?></li>
+            <li class="knowledge-nav__step" aria-hidden="true">&rarr;</li>
+            <li><?= $knowledgeTab('proposals', 'Proposals', '/knowledge?tab=proposals', (int) $totalProposalCount) ?></li>
+            <li class="knowledge-nav__step" aria-hidden="true">&rarr;</li>
+            <li><?= $knowledgeTab('rules', 'Durable Rules', '/knowledge?tab=rules', count($memoryRules)) ?></li>
+        </ul>
+    </div>
+    <div class="knowledge-nav__group">
+        <p class="knowledge-nav__label" id="knowledge-nav-history">History &amp; analysis</p>
+        <ul class="board-switcher knowledge-nav__list" aria-labelledby="knowledge-nav-history">
+            <li><?= $knowledgeTab('archived', 'Archived Tasks', '/knowledge?tab=archived', count($archivedTasks)) ?></li>
+            <li><?= $knowledgeTab('analytics', 'Analytics &amp; Evolution', '/knowledge?tab=analytics') ?></li>
+            <li><a class="board-switcher__tab" href="/knowledge/dream">Dream</a></li>
+        </ul>
+    </div>
 </nav>
 
 <?php if ($currentTab === 'rules'): ?>
