@@ -48,12 +48,13 @@ final class RunnerSnapshotTest extends TestCase
             process: ['pid' => 4242, 'process_fingerprint' => 'sha256:process'],
         );
 
-        $snapshot = RunnerSnapshot::fromStatus(new RunnerStatus($authority, $observation));
+        $status = new RunnerStatus($authority, $observation);
+        $snapshot = RunnerSnapshot::fromStatus($status);
 
         self::assertTrue($snapshot->complete);
         self::assertFalse($snapshot->allowRun);
         self::assertFalse($snapshot->allowResume);
-        self::assertTrue($snapshot->allowCancel, 'Cancel remains Runner observation control, not workflow authority.');
+        self::assertSame($status->allows(RunnerStatus::CANCEL), $snapshot->allowCancel, 'Cancel mirrors Runner capability without granting workflow authority.');
     }
 
     public function testNotInstalledProjectsNoManagedControls(): void

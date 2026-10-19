@@ -5,7 +5,17 @@ declare(strict_types=1);
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+$autoload = getenv('AGENT_UI_COMPOSER_AUTOLOAD');
+if (!is_string($autoload) || !is_file($autoload)) {
+    $autoload = dirname(__DIR__) . '/vendor/autoload.php';
+}
+if (!is_file($autoload)) {
+    http_response_code(500);
+    echo 'Composer autoloader was not found for agent-ui.';
+    exit(1);
+}
+
+require $autoload;
 
 ini_set('session.use_strict_mode', '1');
 session_name('agent_ui');
