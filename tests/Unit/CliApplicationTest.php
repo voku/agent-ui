@@ -19,6 +19,19 @@ final class CliApplicationTest extends TestCase
         self::assertStringContainsString('--port=PORT', $output);
     }
 
+    public function testBinPassesComposerAutoloaderToRouter(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $bin = file_get_contents($root . '/bin/agent-ui');
+        $router = file_get_contents($root . '/public/index.php');
+
+        self::assertIsString($bin);
+        self::assertIsString($router);
+        self::assertStringContainsString("putenv('AGENT_UI_COMPOSER_AUTOLOAD=' . \$autoload);", $bin);
+        self::assertStringContainsString("getenv('AGENT_UI_COMPOSER_AUTOLOAD')", $router);
+        self::assertStringContainsString('require $autoload;', $router);
+    }
+
     public function testBinRejectsNonExistentRootDirectory(): void
     {
         $bin = dirname(__DIR__, 2) . '/bin/agent-ui';
