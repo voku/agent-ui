@@ -138,6 +138,17 @@ final class WorkspaceShellTest extends TestCase
         );
     }
 
+    /** Owner history details may contain unbroken hashes; they must wrap on a phone instead of widening the page. */
+    public function testTimelineDetailsWrapLongOwnerDigests(): void
+    {
+        $css = $this->read('templates/layout/app.css');
+
+        self::assertMatchesRegularExpression(
+            '/\.timeline__detail\s*\{[^}]*overflow-wrap:\s*anywhere/s',
+            $css,
+        );
+    }
+
     /** Core navigation must not depend on JavaScript. */
     /**
      * Every custom property the stylesheet reads is one the stylesheet defines.
