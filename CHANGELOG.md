@@ -6,6 +6,18 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.15] - 2026-10-19
+
+### Fixed
+
+- The `agent-ui` launcher now passes the consuming Composer autoloader to the built-in server router, so installed packages can serve UI routes without depending on a checkout-local `vendor/` directory.
+
+### Changed
+
+- Update the minimum released `agent-learning` and `agent-loop` versions to match the managed skill sources, and align the optional Runner test with Runner-owned cancel capability.
+- Remove the SSH-only Runner VCS override now that `voku/agent-loop-runner` is available from Packagist; raise the PHPStan floor to a release that supports the repository's repeatable PHPUnit coverage attributes.
+- Refresh the checked-in Claude skills from the current released owner sources.
+
 
 ### Changed
 
