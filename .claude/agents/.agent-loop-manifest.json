@@ -7,12 +7,22 @@
     ],
     "entries": [
         {
+            "target": "agent-loop-blindspot-reviewer.md",
+            "source_id": "voku/agent-loop:subagent:agent-loop-blindspot-reviewer",
+            "semantic_owner": "voku/agent-loop",
+            "source_path": null,
+            "source_reference": "resources/subagents/agent-loop-blindspot-reviewer.md",
+            "source_sha256": "sha256:d50798d1ea93ca3d30a092565d8f0fbe251e158e9e2d6866d2c4f3b3d323d30e",
+            "representation_sha256": "sha256:6ee649aeea84b4d1e1f03448f91695b8acf0977af3e3686c9035ff78cb7f51ba",
+            "adopted": false
+        },
+        {
             "target": "agent-loop-code-reviewer.md",
             "source_id": "voku/agent-loop:subagent:agent-loop-code-reviewer",
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
-            "source_reference": "docs/agents/subagents/agent-loop-code-reviewer.md",
-            "source_sha256": "sha256:2aaba81ad7a58f459c13d3244d6d951c3f1b66ef516501facf1a75691b51ae39",
+            "source_reference": "resources/subagents/agent-loop-code-reviewer.md",
+            "source_sha256": "sha256:ac991191fc5dea4d04b94934d8300b9c079f2f73525d4689d2c4511b2a2e5031",
             "representation_sha256": "sha256:fa37ec6d0b2aea9287a07ed94862f0b436a554810253cc00fdb416adb0378299",
             "adopted": false
         },
@@ -21,9 +31,19 @@
             "source_id": "voku/agent-loop:subagent:agent-loop-investigator",
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
-            "source_reference": "docs/agents/subagents/agent-loop-investigator.md",
-            "source_sha256": "sha256:758cb2a5d411943acd0dc5aaeae6632007542d15791257b3fcecd77331707059",
+            "source_reference": "resources/subagents/agent-loop-investigator.md",
+            "source_sha256": "sha256:86e069bbaf2a8e1c257f5c91ff1dc3379e8c8c921edd0eae4aa71e8ed12e9cb7",
             "representation_sha256": "sha256:9a728f9d8c627efa61dd661b41ab75532f613cc35ab5eafb78f64afd31024b42",
+            "adopted": false
+        },
+        {
+            "target": "agent-loop-solution-triager.md",
+            "source_id": "voku/agent-loop:subagent:agent-loop-solution-triager",
+            "semantic_owner": "voku/agent-loop",
+            "source_path": null,
+            "source_reference": "resources/subagents/agent-loop-solution-triager.md",
+            "source_sha256": "sha256:f8cf89810b2e25356ecda922cd034fc5718ba43831f7eed5e3045b75b12db618",
+            "representation_sha256": "sha256:dc668f5e5ff8dc6c9a79dc2848d9b0b822224a22aaf506a912f03791a5aa9429",
             "adopted": false
         },
         {
@@ -31,8 +51,8 @@
             "source_id": "voku/agent-loop:subagent:agent-loop-surgical-builder",
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
-            "source_reference": "docs/agents/subagents/agent-loop-surgical-builder.md",
-            "source_sha256": "sha256:1425a0eef344c2fbc03659f79d9ceb33fc05379c5b41d6686f4e762150223bf3",
+            "source_reference": "resources/subagents/agent-loop-surgical-builder.md",
+            "source_sha256": "sha256:60120476166e2e34c050792b622c30d7b34a84fd629fe37da982a1f60e4597f3",
             "representation_sha256": "sha256:c2b68acc7987d68f689d9afedc8e187468810498bc18f3e74d85ca86c6a29c87",
             "adopted": false
         }
