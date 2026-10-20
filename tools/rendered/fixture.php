@@ -17,6 +17,9 @@ use voku\AgentLoop\ProjectLayout;
 $root = $argv[1] ?? throw new RuntimeException('project root required');
 mkdir($root . '/.agent-loop/todo/cards', 0o775, true);
 file_put_contents($root . '/.agent-loop/todo/board.md', "# Board Metadata\n\n- **Project prefix:** APP\n");
+foreach (['APP-1', 'APP-2'] as $card) {
+    file_put_contents($root . '/.agent-loop/todo/cards/' . $card . '.md', "# {$card}: Card {$card}\n\n- **Lane:** BACKLOG\n- **Status:** todo\n- **Created:** 2026-10-01\n\n## Summary\nA card for the rendered audit.\n\n## Task Brief\nBrief.\n\n## Validation\ncomposer test\n");
+}
 $learning = (new ProjectLayout($root))->learningRoot();
 
 $first = null;
