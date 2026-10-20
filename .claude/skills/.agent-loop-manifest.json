@@ -22,8 +22,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-learning-consumer",
-            "source_sha256": "sha256:91e9dec5eb14a08debf21d312606bccd1c928e2d8ea3443b344109e63040d0ac",
-            "representation_sha256": "sha256:91e9dec5eb14a08debf21d312606bccd1c928e2d8ea3443b344109e63040d0ac",
+            "source_sha256": "sha256:26cd25c379d6e1a6404fe73f41f19bbda9f9996acbb19ce254dccea768a89e76",
+            "representation_sha256": "sha256:26cd25c379d6e1a6404fe73f41f19bbda9f9996acbb19ce254dccea768a89e76",
             "adopted": false
         },
         {
