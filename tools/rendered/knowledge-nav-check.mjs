@@ -53,19 +53,25 @@ for (const scheme of ['light', 'dark']) {
     record(`${tag} text contrast >= 4.5:1`, worst.r >= 4.5, `lowest=${worst.r.toFixed(2)} on "${worst.label}"`);
 
     // Keyboard: tab until we leave the navigation, recording order and whether each stop shows a focus indicator.
+    // Identify each stop by its index among the navigation's links, count a link once, and stop when focus
+    // wraps back to a link already seen - so a wrapped tab cycle or a non-link focusable cannot make up the count.
     const order = [];
+    const seen = new Set();
     await page.locator('body').click({ position: { x: 1, y: 1 } });
     for (let i = 0; i < 60; i++) {
       await page.keyboard.press('Tab');
       const stop = await page.evaluate(() => {
         const el = document.activeElement; if (!el) return null;
-        const inNav = !!el.closest('.knowledge-nav');
+        const index = [...document.querySelectorAll('.knowledge-nav a')].indexOf(el);
         const s = getComputedStyle(el);
         const outline = s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0;
         const shadow = s.boxShadow && s.boxShadow !== 'none';
-        return { inNav, label: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 30), indicator: outline || shadow, outlineColor: s.outlineColor, outlineWidth: s.outlineWidth };
+        return { index, label: (el.textContent || el.getAttribute('aria-label') || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 30), indicator: outline || shadow };
       });
-      if (stop?.inNav) order.push(stop);
+      if (!stop || stop.index < 0) continue;
+      if (seen.has(stop.index)) break;
+      seen.add(stop.index);
+      order.push(stop);
       if (order.length >= probe.linkCount) break;
     }
     record(`${tag} keyboard reaches every navigation link`, order.length === probe.linkCount, `reached=${order.length}/${probe.linkCount}: ${order.map((o) => o.label).join(' > ')}`);

@@ -5,6 +5,9 @@ on:
   push:
     branches: ['ci/**']
   workflow_dispatch:
+permissions:
+  contents: read
+
 jobs:
   knowledge-nav:
     runs-on: ubuntu-latest

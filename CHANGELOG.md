@@ -12,7 +12,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Fixed
 
-- The Knowledge navigation group labels ("Learning flow", "History & analysis") were 3.49:1 against the light background, below the 4.5:1 small text needs; the rendered check measured it and they now use `--ink-soft`. The same audit then measured every main page and found 917 low-contrast text elements in 10 colour pairs, nearly all `--ink-faint` (3.49:1 light, 4.12-4.41:1 dark), the half-transparent Copy button (2.36:1) and the breadcrumb separators (1.98:1). `--ink-faint` is now `#5f6880` / `#868fa6`, the Copy button is no longer hover-faded, and the audit runs `--strict` so a regression fails CI. Text on gradients or images (about 800 elements) is not judged.
+- The Knowledge navigation group labels ("Learning flow", "History & analysis") were 3.49:1 against the light background, below the 4.5:1 minimum for small text; the rendered check measured this, and the labels now use `--ink-soft`. The same audit then measured every main page and found 917 low-contrast text elements in 10 colour pairs, nearly all `--ink-faint` (3.49:1 light, 4.12-4.41:1 dark), the half-transparent Copy button (2.36:1) and the breadcrumb separators (1.98:1). `--ink-faint` is now `#5f6880` / `#868fa6`, the Copy button is no longer hover-faded, and the audit runs `--strict` so a regression fails CI. Text on gradients or images (about 800 elements) is not judged.
 
 ## [0.18.16] - 2026-10-20
 
