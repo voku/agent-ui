@@ -6,6 +6,18 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.16] - 2026-10-20
+
+### Fixed
+
+- Long, unbroken owner-provided history details now wrap within their container on narrow screens instead of overflowing.
+
+### Changed
+
+- The README describes the current Work, Knowledge, Code and Tools navigation and every task route, including progress, contract, edit and the handoff redirect.
+- Regenerate the managed Claude skills and subagents from their first-party sources; executable hooks remain unregistered.
+- Raise the `voku/agent-learning` floor to `^0.18.34`, the first release containing the committed managed Claude projection.
+
 ## [0.18.15] - 2026-10-19
 
 ### Fixed
