@@ -43,7 +43,7 @@ jobs:
       - name: Contrast audit (all main pages, light and dark)
         working-directory: tools/rendered
         run: node contrast-audit.mjs http://127.0.0.1:8080 --strict
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: knowledge-nav-screenshots
