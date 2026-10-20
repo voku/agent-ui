@@ -976,7 +976,7 @@ table.table td.num { font-variant-numeric: tabular-nums; }
     font-size: 11.5px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
 }
 .knowledge-nav__list {
     list-style: none;
