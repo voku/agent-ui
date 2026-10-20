@@ -37,7 +37,7 @@
     --surface-alt: #f3f5fb;
     --ink: #0b0f19;
     --ink-soft: #4a5268;
-    --ink-faint: #7c8499;
+    --ink-faint: #5f6880;
     --rule: #e2e6f0;
     --rule-strong: #cdd3e1;
 
@@ -66,7 +66,7 @@
         --surface-alt: #161b29;
         --ink: #e7eaf3;
         --ink-soft: #a3abc0;
-        --ink-faint: #737c93;
+        --ink-faint: #868fa6;
         --rule: #232a3b;
         --rule-strong: #2f374b;
 
@@ -273,7 +273,7 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
 .crumbs { font-size: 12.5px; color: var(--ink-faint); margin: 0 0 10px; }
 .crumbs a { color: var(--ink-soft); text-decoration: none; }
 .crumbs a:hover { color: var(--ink); text-decoration: underline; }
-.crumbs span { margin: 0 6px; opacity: .6; }
+.crumbs span { margin: 0 6px; }
 
 .eyebrow {
     display: flex;
@@ -499,7 +499,6 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
     background: var(--surface);
     color: var(--ink-soft);
     cursor: pointer;
-    opacity: .5;
     transition: opacity .12s ease, color .12s ease, border-color .12s ease;
 }
 .codeblock:hover .copy, .copy:focus-visible { opacity: 1; }
@@ -976,7 +975,7 @@ table.table td.num { font-variant-numeric: tabular-nums; }
     font-size: 11.5px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
 }
 .knowledge-nav__list {
     list-style: none;

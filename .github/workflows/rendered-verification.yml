@@ -1,0 +1,54 @@
+name: Rendered verification
+# Measures what a DOM-only check cannot (focus indicators, numeric contrast, zero-JS navigation, narrow-viewport
+# overflow) in a real browser against a live server with a realistic Learning fixture. Evidence, not a conformance claim.
+on:
+  push:
+    branches: ['ci/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  knowledge-nav:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - name: Build the fixture and start the app
+        run: |
+          mkdir -p "$RUNNER_TEMP/project"
+          php tools/rendered/fixture.php "$RUNNER_TEMP/project"
+          AGENT_UI_PROJECT_ROOT="$RUNNER_TEMP/project" php -S 127.0.0.1:8080 -t public public/index.php > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/knowledge >/dev/null && break; sleep 1; done
+          curl -s -o /dev/null -w "knowledge: %{http_code}\n" http://127.0.0.1:8080/knowledge
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        working-directory: tools/rendered
+        run: |
+          npm init -y >/dev/null
+          npm install playwright >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Knowledge navigation checks
+        working-directory: tools/rendered
+        run: node knowledge-nav-check.mjs http://127.0.0.1:8080 "$RUNNER_TEMP/shots"
+      - name: Contrast audit (all main pages, light and dark)
+        working-directory: tools/rendered
+        run: node contrast-audit.mjs http://127.0.0.1:8080 --strict
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowledge-nav-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
+      - name: Server log
+        if: always()
+        run: tail -20 "$RUNNER_TEMP/server.log" || true
