@@ -6,6 +6,14 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- A `Rendered verification` workflow (`.github/workflows/rendered-verification.yml`, runs on `ci/**` branches and on demand) that builds a realistic Learning fixture, starts the app and measures the Knowledge navigation in Chromium at 320, 375 and 1280px in light and dark: horizontal overflow, `aria-current` count, numeric text contrast, keyboard reachability with a visible focus indicator on every link, and zero-JS destinations. It is evidence for agent-ui#58 Slice E, not a conformance claim; the screenshots are uploaded as an artifact.
+
+### Fixed
+
+- The Knowledge navigation group labels ("Learning flow", "History & analysis") were 3.49:1 against the light background, below the 4.5:1 small text needs; the rendered check measured it and they now use `--ink-soft`. `--ink-faint` is used in 38 other places and was not audited.
+
 ## [0.18.16] - 2026-10-20
 
 ### Fixed
