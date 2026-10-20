@@ -16,7 +16,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 - The README describes the current Work, Knowledge, Code and Tools navigation and every task route, including progress, contract, edit and the handoff redirect.
 - Regenerate the managed Claude skills and subagents from their first-party sources; executable hooks remain unregistered.
-- Raise the `voku/agent-learning` floor to `^0.18.34`, the first release containing the committed managed Claude projection.
+- Require released `voku/agent-learning` `^0.18.35` and synchronize the managed Claude consumer skill projection to its approved-before-supersession guidance.
 
 ## [0.18.15] - 2026-10-19
 
