@@ -30,7 +30,7 @@ jobs:
           curl -s -o /dev/null -w "knowledge: %{http_code}\n" http://127.0.0.1:8080/knowledge
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install Playwright
         working-directory: tools/rendered
         run: |
