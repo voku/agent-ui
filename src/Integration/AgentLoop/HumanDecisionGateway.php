@@ -101,7 +101,21 @@ final readonly class HumanDecisionGateway
             throw new \InvalidArgumentException('A positive expected Contract revision is required.');
         }
 
-        $this->service->approveContract($taskId, $actor, $expectedRevision);
+        $contract = $this->contractStore->find($taskId);
+        if ($contract === null || $contract->revision !== $expectedRevision) {
+            throw new \InvalidArgumentException('Contract revision changed; reload the page before approving.');
+        }
+
+        $approveContract = new \ReflectionMethod($this->service, 'approveContract');
+        $arguments = [$taskId, $actor];
+        if ($approveContract->getNumberOfParameters() >= 3) {
+            $arguments[] = $expectedRevision;
+        }
+
+        // Older installed agent-loop releases accept only task and actor. The
+        // check above keeps those releases safe for stale form submissions;
+        // newer releases receive the revision for the owner's atomic check.
+        $approveContract->invokeArgs($this->service, $arguments);
     }
 
     public function acknowledgeReview(string $taskId, string $reportSha256, string $actor): void

@@ -134,7 +134,8 @@ final class WorkflowProgressTest extends TestCase
             ],
         ));
 
-        self::assertNotSame(303, $response->status);
+        self::assertSame(400, $response->status);
+        self::assertStringContainsString('Contract revision changed; reload the page before approving.', $response->body);
         $contract = $contracts->find('UI-36');
         self::assertNotNull($contract);
         self::assertSame(2, $contract->revision);
