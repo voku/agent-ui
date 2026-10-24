@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Composer\InstalledVersions;
 use voku\AgentLoop\Workflow\HostFrontDoorCommand;
+use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentLoop\Workflow\WorkflowApproveCommand;
 use voku\AgentLoop\Workflow\WorkflowExecutionProfileCommand;
 use voku\AgentLoop\Workflow\WorkflowPlanCommand;
@@ -56,7 +57,12 @@ try {
         '--validation', 'composer ci',
         '--base-commit', $baseCommit,
     ]));
-    silent(static fn (): int => (new WorkflowApproveCommand($root))->run([$taskId, '--by', 'agent-ui-matrix']));
+    $contractRevision = (new TaskContractStore($root))->load($taskId)->revision;
+    silent(static fn (): int => (new WorkflowApproveCommand($root))->run([
+        $taskId,
+        '--by', 'agent-ui-matrix',
+        '--revision', (string) $contractRevision,
+    ]));
     silent(static fn (): int => (new WorkflowExecutionProfileCommand($root))->run([
         $taskId,
         '--profile', 'surgical',
