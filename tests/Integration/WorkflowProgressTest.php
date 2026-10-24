@@ -50,6 +50,7 @@ final class WorkflowProgressTest extends TestCase
         self::assertSame(200, $before->status);
         self::assertStringContainsString('Human decision required', $before->body);
         self::assertStringContainsString('Approve revision 1', $before->body);
+        self::assertStringContainsString('name="revision" value="1"', $before->body);
         self::assertStringContainsString('Show governed workflow progress without moving authority into agent-ui.', $before->body);
         self::assertStringContainsString('src/Feature/Task', $before->body);
         self::assertStringContainsString('composer ci', $before->body);
@@ -69,6 +70,7 @@ final class WorkflowProgressTest extends TestCase
                 '_csrf' => $csrf,
                 'actor' => 'human-reviewer',
                 'return_to' => 'progress',
+                'revision' => '1',
             ],
         ));
 
@@ -111,6 +113,88 @@ final class WorkflowProgressTest extends TestCase
         self::assertNull($contract->approvedBy);
     }
 
+    public function testApprovalRejectsAStaleRevisionSubmittedByTheForm(): void
+    {
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-36', 'Original goal.', ['src'], [], ['composer ci'], 'planner');
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $app->handle(new Request('GET', '/task/UI-36/progress'));
+        $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
+        self::assertIsString($csrf);
+
+        $contracts->revise('UI-36', 'Updated goal.', ['src'], [], ['composer ci'], 'planner');
+        $response = $app->handle(new Request(
+            'POST',
+            '/task/UI-36/approve',
+            body: [
+                '_csrf' => $csrf,
+                'actor' => 'human-reviewer',
+                'return_to' => 'progress',
+                'revision' => '1',
+            ],
+        ));
+
+        self::assertSame(400, $response->status);
+        self::assertStringContainsString('Contract revision changed; reload the page before approving.', $response->body);
+        $contract = $contracts->find('UI-36');
+        self::assertNotNull($contract);
+        self::assertSame(2, $contract->revision);
+        self::assertSame(TaskContract::CANDIDATE, $contract->status);
+        self::assertNull($contract->approvedBy);
+    }
+
+    public function testApprovalRequiresRevisionBeforeCallingTheOwner(): void
+    {
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-36', 'Original goal.', ['src'], [], ['composer ci'], 'planner');
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $app->handle(new Request('GET', '/task/UI-36/progress'));
+        $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
+        self::assertIsString($csrf);
+
+        foreach ([null, '', '0', '-1', 'not-a-revision', str_repeat('9', 40)] as $revision) {
+            $body = [
+                '_csrf' => $csrf,
+                'actor' => 'human-reviewer',
+                'return_to' => 'progress',
+            ];
+            if ($revision !== null) {
+                $body['revision'] = $revision;
+            }
+
+            $response = $app->handle(new Request('POST', '/task/UI-36/approve', body: $body));
+            self::assertSame(400, $response->status);
+            self::assertStringContainsString('A positive Contract revision is required', $response->body);
+        }
+
+        $contract = $contracts->find('UI-36');
+        self::assertNotNull($contract);
+        self::assertSame(1, $contract->revision);
+        self::assertSame(TaskContract::CANDIDATE, $contract->status);
+        self::assertNull($contract->approvedBy);
+    }
+
+    public function testMoveRedirectRefusesProtocolRelativeReturnTarget(): void
+    {
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $app->handle(new Request('GET', '/task/UI-36/progress'));
+        $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
+        self::assertIsString($csrf);
+
+        $response = $app->handle(new Request(
+            'POST',
+            '/task/UI-36/move',
+            body: [
+                '_csrf' => $csrf,
+                'target_lane' => 'READY',
+                'return_to' => '//attacker.example/path',
+            ],
+        ));
+
+        self::assertSame(303, $response->status);
+        self::assertSame('/task/UI-36', $response->headers['Location'] ?? null);
+    }
+
     private function writeCard(string $id, string $title): void
     {
         file_put_contents(
@@ -118,7 +202,8 @@ final class WorkflowProgressTest extends TestCase
             '# ' . $id . ': ' . $title . "\n\n"
             . "- **Lane:** BACKLOG\n"
             . "- **Status:** todo\n\n"
-            . "## Summary\n\n" . $title . "\n",
+            . "## Summary\n\n" . $title . "\n\n"
+            . "## Agent Task Brief\n\nA brief required for the READY lane.\n",
         );
     }
 
