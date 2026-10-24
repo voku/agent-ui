@@ -28,7 +28,7 @@ jobs:
           AGENT_UI_PROJECT_ROOT="$RUNNER_TEMP/project" php -S 127.0.0.1:8080 -t public public/index.php > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/knowledge >/dev/null && break; sleep 1; done
           curl -s -o /dev/null -w "knowledge: %{http_code}\n" http://127.0.0.1:8080/knowledge
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install Playwright
