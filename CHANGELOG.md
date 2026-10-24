@@ -6,12 +6,20 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.18.17] - 2026-10-24
+
+### Changed
+
+- Require the security-fixed Loop, Runner, Kanban, Learning, Map, and Recall release floors, and exercise the released owner stack in cross-use tests.
+- Align cross-owner tests with revision-bound approvals and Map's explicit `outside-root` stale diagnosis; refresh the installed Claude and Codex assets from the released owners.
+
 ### Added
 
 - A `Rendered verification` workflow (`.github/workflows/rendered-verification.yml`, runs on `ci/**` branches and on demand) that builds a realistic Learning fixture, starts the app and measures the Knowledge navigation in Chromium at 320, 375 and 1280px in light and dark: horizontal overflow, `aria-current` count, numeric text contrast, keyboard reachability with a visible focus indicator on every link, and zero-JS destinations. It is evidence for agent-ui#58 Slice E, not a conformance claim; the screenshots are uploaded as an artifact.
 
 ### Fixed
 
+- The Host/Origin guard now compares the complete normalized origin (scheme, host, and effective port) and rejects malformed Origin values instead of accepting any Origin with the same hostname.
 - The Knowledge navigation group labels ("Learning flow", "History & analysis") were 3.49:1 against the light background, below the 4.5:1 minimum for small text; the rendered check measured this, and the labels now use `--ink-soft`. The same audit then measured every main page and found 917 low-contrast text elements in 10 colour pairs, nearly all `--ink-faint` (3.49:1 light, 4.12-4.41:1 dark), the half-transparent Copy button (2.36:1) and the breadcrumb separators (1.98:1). `--ink-faint` is now `#5f6880` / `#868fa6`, the Copy button is no longer hover-faded, and the audit runs `--strict` so a regression fails CI. Text on gradients or images (about 800 elements) is not judged. `DesignTokenContrastTest` also pins the token contrast in `composer test` without a browser: `--ink`, `--ink-soft` and `--ink-faint` against every surface token in light and dark must stay at least 4.5:1, and the Copy button and breadcrumb separators must not be faded at rest (a regression of each fails it).
 
 ## [0.18.16] - 2026-10-20

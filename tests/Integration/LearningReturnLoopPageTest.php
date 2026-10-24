@@ -42,6 +42,7 @@ final class LearningReturnLoopPageTest extends TestCase
     private const TITLE = 'Release semantic owners before downstream integration';
 
     private string $root;
+    private string $baseCommit;
 
     protected function setUp(): void
     {
@@ -51,6 +52,12 @@ final class LearningReturnLoopPageTest extends TestCase
         }
         copy(dirname(__DIR__, 2) . '/composer.json', $this->root . '/composer.json');
         file_put_contents($this->root . '/.agent-loop/todo/board.md', "# Board Metadata\n\n- **Project prefix:** APP\n");
+        $this->git(['init', '-q']);
+        $this->git(['config', 'user.email', 'agent-ui-test@example.invalid']);
+        $this->git(['config', 'user.name', 'Agent UI Test']);
+        $this->git(['add', '-A']);
+        $this->git(['commit', '-qm', 'fixture base']);
+        $this->baseCommit = $this->git(['rev-parse', 'HEAD']);
     }
 
     protected function tearDown(): void
@@ -110,8 +117,8 @@ final class LearningReturnLoopPageTest extends TestCase
 
         $layout = new ProjectLayout($this->root);
         $contracts = new TaskContractStore($this->root);
-        $contracts->create(taskId: 'APP-1', goal: 'Build the deterministic Prompt Workbench.', scope: ['composer.json'], nonGoals: [], validation: ['composer validate --strict'], plannedBy: 'planner', tags: ['dependencies', 'release', 'owner-api']);
-        $contracts->approve('APP-1', 'maintainer');
+        $contracts->create(taskId: 'APP-1', goal: 'Build the deterministic Prompt Workbench.', scope: ['composer.json'], nonGoals: [], validation: ['composer validate --strict'], plannedBy: 'planner', baseCommit: $this->baseCommit, tags: ['dependencies', 'release', 'owner-api']);
+        $contracts->approve('APP-1', 'maintainer', $contracts->load('APP-1')->revision);
         self::assertSame(0, $this->frontDoor('enter', 'APP-1'));
         $finish = $this->frontDoorPayload('finish', 'APP-1', []);
         self::assertSame(1, $finish['exit']);
@@ -160,8 +167,8 @@ final class LearningReturnLoopPageTest extends TestCase
             $this->root,
         );
 
-        $contracts->create(taskId: 'APP-2', goal: 'Consume the first tagged runner release.', scope: ['composer.json'], nonGoals: [], validation: ['composer validate --strict'], plannedBy: 'planner', tags: ['dependencies', 'release', 'runner']);
-        $contracts->approve('APP-2', 'maintainer');
+        $contracts->create(taskId: 'APP-2', goal: 'Consume the first tagged runner release.', scope: ['composer.json'], nonGoals: [], validation: ['composer validate --strict'], plannedBy: 'planner', baseCommit: $this->baseCommit, tags: ['dependencies', 'release', 'runner']);
+        $contracts->approve('APP-2', 'maintainer', $contracts->load('APP-2')->revision);
         self::assertSame(0, $this->frontDoor('enter', 'APP-2'));
 
         return new Application($this->root, dirname(__DIR__, 2) . '/templates');
@@ -241,5 +248,29 @@ final class LearningReturnLoopPageTest extends TestCase
             $item->isDir() && !$item->isLink() ? $this->removeDirectory($item->getPathname()) : unlink($item->getPathname());
         }
         rmdir($path);
+    }
+
+    /** @param list<string> $arguments */
+    private function git(array $arguments): string
+    {
+        $process = proc_open(
+            ['git', '-C', $this->root, ...$arguments],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('Unable to start Git for the learning ladder fixture.');
+        }
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+        if ($exitCode !== 0) {
+            throw new RuntimeException('Git fixture command failed: ' . implode(' ', $arguments) . ': ' . trim((string) $stderr));
+        }
+
+        return trim((string) $stdout);
     }
 }

@@ -85,12 +85,11 @@ final class SourceViewGatewayTest extends TestCase
         self::assertSame('hash', $view->staleReason);
     }
 
-    public function testAFailureAgentMapDoesNotCallStaleStaysDistinguishable(): void
+    public function testOutsideRootSymlinkIsReportedAccordingToMapAsStale(): void
     {
-        // A symlink whose target lives outside the repository: its hash matches the
-        // map, so agent-map does not call it stale, but materializing it really does
-        // hit the escapes-the-root refusal. Folding every Throwable into "stale"
-        // would report this as a map that needs refreshing, which it is not.
+        // The released owner classifies a symlink whose target escapes the
+        // repository as stale with reason outside-root. The source view must
+        // preserve that owner diagnosis and never render the target contents.
         $outside = sys_get_temp_dir() . '/agent_ui_outside_' . bin2hex(random_bytes(6)) . '.php';
         $contents = "<?php\n// outside the repository root\n";
         file_put_contents($outside, $contents);
@@ -111,8 +110,8 @@ final class SourceViewGatewayTest extends TestCase
 
             $view = (new SourceViewGateway($this->fixture->root))->file('src/Placeholder.php');
 
-            self::assertSame('unavailable', $view->status);
-            self::assertNull($view->staleReason);
+            self::assertSame('stale', $view->status);
+            self::assertSame('outside-root', $view->staleReason);
             self::assertStringContainsString('escapes repository root', (string) $view->failure);
             self::assertFalse($view->isRendered());
         } finally {

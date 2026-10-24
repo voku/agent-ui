@@ -89,7 +89,7 @@ final class ContractDecisionDeltaPageTest extends TestCase
             plannedBy: 'planner-agent',
             acceptanceCriteria: ['hi() returns a greeting containing the word hello'],
         );
-        $contracts->approve('APP-1', 'maintainer');
+        $contracts->approve('APP-1', 'maintainer', $contracts->load('APP-1')->revision);
         $contracts->revise(
             taskId: 'APP-1',
             goal: 'Make the greeter friendlier without changing its public API.',

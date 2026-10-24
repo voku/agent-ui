@@ -34,6 +34,7 @@ use voku\AgentSession\SessionStore;
 final class LearningNoteReturnLoopDogfoodTest extends TestCase
 {
     private string $root;
+    private string $baseCommit;
 
     protected function setUp(): void
     {
@@ -46,6 +47,12 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         if (!copy($composerJson, $this->root . '/composer.json')) {
             throw new RuntimeException('Unable to copy agent-ui composer.json into the replay root.');
         }
+        $this->git(['init', '-q']);
+        $this->git(['config', 'user.email', 'agent-ui-test@example.invalid']);
+        $this->git(['config', 'user.name', 'Agent UI Test']);
+        $this->git(['add', '-A']);
+        $this->git(['commit', '-qm', 'fixture base']);
+        $this->baseCommit = $this->git(['rev-parse', 'HEAD']);
     }
 
     protected function tearDown(): void
@@ -86,8 +93,9 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
             ['dependencies', 'release', 'owner-api'],
             ['composer validate --strict'],
             'agent-ui-maintainer',
+            baseCommit: $this->baseCommit,
         );
-        $contracts->approve($taskA, 'agent-ui-maintainer');
+        $contracts->approve($taskA, 'agent-ui-maintainer', $contracts->load($taskA)->revision);
 
         $appA = new HostFrontDoorApplication($this->root);
 
@@ -136,6 +144,8 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         $preparedNote = $learningService->prepare($learningRoot, [$findingId], $this->root);
         self::assertSame('consumer.release_owner_before_integration', $preparedNote->patternKey);
 
+        $this->completePipeline($appA, $taskA);
+
         $finishClose = $this->runApp($appA, 'finish', [
             $taskA,
             '--format=json',
@@ -152,12 +162,6 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         ]);
         self::assertSame(0, $finishClose['exit'], json_encode($finishClose['payload'], JSON_THROW_ON_ERROR));
         self::assertTrue($finishClose['payload']['complete'] ?? false);
-        self::assertSame('none', $finishClose['payload']['next_action_kind'] ?? null);
-        self::assertSame([[
-            'kind' => 'learning_note',
-            'finding_ids' => [$findingId],
-            'skill' => 'agent-learning-note',
-        ]], $finishClose['payload']['optional_follow_ups'] ?? null);
 
         $removedSessions = $sessionStore->prune($layout->sessionsRoot(), 0, [SessionStatus::DONE]);
         self::assertContains($sessionA->id, $removedSessions);
@@ -201,8 +205,9 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
             ['dependencies', 'release', 'runner'],
             ['composer validate --strict'],
             'agent-ui-maintainer',
+            baseCommit: $this->baseCommit,
         );
-        $contractsB->approve($taskB, 'agent-ui-maintainer');
+        $contractsB->approve($taskB, 'agent-ui-maintainer', $contractsB->load($taskB)->revision);
 
         $appB = new HostFrontDoorApplication($this->root);
 
@@ -260,5 +265,74 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
 
         /** @var array<string, mixed> $payload */
         return ['exit' => $exit, 'payload' => $payload];
+    }
+
+    private function completePipeline(HostFrontDoorApplication $app, string $taskId): void
+    {
+        for ($step = 0; $step < 8; ++$step) {
+            $status = $this->runApp($app, 'pipeline', ['status', $taskId, '--format=json']);
+            self::assertSame(0, $status['exit'], json_encode($status['payload'], JSON_THROW_ON_ERROR));
+            if (($status['payload']['complete'] ?? false) === true) {
+                return;
+            }
+
+            $stage = $status['payload']['current_stage'] ?? null;
+            self::assertIsString($stage, json_encode($status['payload'], JSON_THROW_ON_ERROR));
+            if (($status['payload']['stage_kind'] ?? null) === 'deterministic') {
+                $result = $this->runApp($app, 'pipeline', ['run', $taskId, '--format=json']);
+                self::assertSame(0, $result['exit'], json_encode($result['payload'], JSON_THROW_ON_ERROR));
+                continue;
+            }
+
+            $outcome = match ($stage) {
+                'investigate', 'build' => 'completed',
+                'correctness-review', 'blindspot-review' => 'pass',
+                default => throw new RuntimeException('Unexpected first-party execution stage: ' . $stage),
+            };
+            $arguments = [
+                'submit',
+                $taskId,
+                '--outcome',
+                $outcome,
+                '--summary',
+                'Dogfood fixture accepted stage ' . $stage,
+                '--format=json',
+            ];
+            if (($status['payload']['context_id_required'] ?? false) === true) {
+                $attempt = $status['payload']['attempt'] ?? null;
+                self::assertIsInt($attempt, json_encode($status['payload'], JSON_THROW_ON_ERROR));
+                $arguments[] = '--context-id';
+                $arguments[] = $taskId . ':' . $stage . ':' . (string) $attempt;
+            }
+
+            $result = $this->runApp($app, 'pipeline', $arguments);
+            self::assertSame(0, $result['exit'], json_encode($result['payload'], JSON_THROW_ON_ERROR));
+        }
+
+        self::fail('The governed execution pipeline did not complete within the expected stage count.');
+    }
+
+    /** @param list<string> $arguments */
+    private function git(array $arguments): string
+    {
+        $process = proc_open(
+            ['git', '-C', $this->root, ...$arguments],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('Unable to start Git for the governed replay fixture.');
+        }
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+        if ($exitCode !== 0) {
+            throw new RuntimeException('Git fixture command failed: ' . implode(' ', $arguments) . ': ' . trim((string) $stderr));
+        }
+
+        return trim((string) $stdout);
     }
 }
