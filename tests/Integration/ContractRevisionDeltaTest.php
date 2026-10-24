@@ -33,7 +33,7 @@ final class ContractRevisionDeltaTest extends TestCase
     {
         $contracts = new TaskContractStore($this->root);
         $contracts->create('UI-1', 'Original goal.', ['src/A.php', 'src/B.php'], ['no rewrite'], ['composer ci'], 'planner');
-        $contracts->approve('UI-1', 'approver-one');
+        $contracts->approve('UI-1', 'approver-one', $contracts->load('UI-1')->revision);
         $contracts->revise('UI-1', 'Wider goal.', ['src/A.php', 'src/C.php'], [], ['composer ci', 'composer lint'], 'planner');
 
         $gateway = new HumanDecisionGateway($this->root);
@@ -101,7 +101,7 @@ final class ContractRevisionDeltaTest extends TestCase
         $contracts = new TaskContractStore($this->root);
         $contracts->create('UI-5', 'Goal one.', ['src/A.php'], [], ['composer ci'], 'planner');
         $contracts->revise('UI-5', 'Goal two.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
-        $contracts->approve('UI-5', 'approver-two');
+        $contracts->approve('UI-5', 'approver-two', $contracts->load('UI-5')->revision);
         $contracts->revise('UI-5', 'Goal three.', ['src/A.php', 'src/B.php', 'src/C.php'], [], ['composer ci'], 'planner');
 
         $gateway = new HumanDecisionGateway($this->root);
@@ -124,7 +124,7 @@ final class ContractRevisionDeltaTest extends TestCase
         $this->writeCard('UI-6', 'Revision delta fixture');
         $contracts = new TaskContractStore($this->root);
         $contracts->create('UI-6', 'Original goal.', ['src/A.php'], [], ['composer ci'], 'planner');
-        $contracts->approve('UI-6', 'approver-one');
+        $contracts->approve('UI-6', 'approver-one', $contracts->load('UI-6')->revision);
         $contracts->revise('UI-6', 'Wider goal.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
 
         $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
@@ -159,7 +159,7 @@ final class ContractRevisionDeltaTest extends TestCase
         $contracts = new TaskContractStore($this->root);
         $contracts->create('UI-8', 'Goal one.', ['src/A.php'], [], ['composer ci'], 'planner');
         $contracts->revise('UI-8', 'Goal two.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
-        $contracts->approve('UI-8', 'approver-two');
+        $contracts->approve('UI-8', 'approver-two', $contracts->load('UI-8')->revision);
         $contracts->revise('UI-8', 'Goal three.', ['src/A.php', 'src/B.php', 'src/C.php'], [], ['composer ci'], 'planner');
 
         $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))

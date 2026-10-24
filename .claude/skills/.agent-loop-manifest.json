@@ -202,8 +202,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/skills/agent-loop-workflow",
-            "source_sha256": "sha256:8cc5b877a8b16cf4ddfaa7fa5892bd180814eb4d1fc2a920ce8aaf286df16a3f",
-            "representation_sha256": "sha256:8cc5b877a8b16cf4ddfaa7fa5892bd180814eb4d1fc2a920ce8aaf286df16a3f",
+            "source_sha256": "sha256:85c97d4e00c6f1b510d6b2c89dbf3d8d21e70934d9e71d1f7e2560b142c195c6",
+            "representation_sha256": "sha256:85c97d4e00c6f1b510d6b2c89dbf3d8d21e70934d9e71d1f7e2560b142c195c6",
             "adopted": false
         },
         {
@@ -212,8 +212,8 @@
             "semantic_owner": "voku/agent-recall-compiler",
             "source_path": null,
             "source_reference": "resources/skills/agent-recall-consumer",
-            "source_sha256": "sha256:e93b1199d2fb2f8adc78ff62c61de04f37f8297aff28d77413f900e47ba66eee",
-            "representation_sha256": "sha256:e93b1199d2fb2f8adc78ff62c61de04f37f8297aff28d77413f900e47ba66eee",
+            "source_sha256": "sha256:b3bd6baa9d3b56061653885331a7a85249b7b6bbc6d452ea6c0cdad197915644",
+            "representation_sha256": "sha256:b3bd6baa9d3b56061653885331a7a85249b7b6bbc6d452ea6c0cdad197915644",
             "adopted": false
         },
         {

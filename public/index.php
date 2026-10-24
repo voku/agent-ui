@@ -34,12 +34,46 @@ if (!in_array($hostName, $allowedHosts, true)) {
     echo 'Unexpected Host header for agent-ui.';
     exit(1);
 }
+// Use trusted server context; do not infer the external scheme from forwarded request headers.
+$httpsSetting = $_SERVER['HTTPS'] ?? null;
+$requestScheme = is_string($httpsSetting) && $httpsSetting !== '' && strtolower($httpsSetting) !== 'off'
+    ? 'https'
+    : 'http';
+$normalizeAuthority = static function (array $parts, string $scheme): ?array {
+    if (!in_array($scheme, ['http', 'https'], true)
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || isset($parts['path'])
+        || isset($parts['query'])
+        || isset($parts['fragment'])) {
+        return null;
+    }
+
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    if ($host === '') {
+        return null;
+    }
+
+    $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+    if (!is_int($port) || $port < 1 || $port > 65_535) {
+        return null;
+    }
+
+    return ['scheme' => $scheme, 'host' => $host, 'port' => $port];
+};
+$requestAuthority = parse_url($requestScheme . '://' . $hostHeader);
+$requestOrigin = is_array($requestAuthority) ? $normalizeAuthority($requestAuthority, $requestScheme) : null;
 $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
-if (is_string($origin) && $origin !== '' && strtolower((string) parse_url($origin, PHP_URL_HOST)) !== $hostName
-    && strtolower('[' . trim((string) parse_url($origin, PHP_URL_HOST), '[]') . ']') !== $hostName) {
-    http_response_code(403);
-    echo 'Cross-origin request refused by agent-ui.';
-    exit(1);
+if (array_key_exists('HTTP_ORIGIN', $_SERVER)) {
+    $originParts = is_string($origin) ? parse_url($origin) : false;
+    $originScheme = is_array($originParts) ? strtolower((string) ($originParts['scheme'] ?? '')) : '';
+    $originTuple = is_array($originParts) ? $normalizeAuthority($originParts, $originScheme) : null;
+
+    if ($requestOrigin === null || $originTuple === null || $originTuple !== $requestOrigin) {
+        http_response_code(403);
+        echo 'Cross-origin request refused by agent-ui.';
+        exit(1);
+    }
 }
 
 ini_set('session.use_strict_mode', '1');

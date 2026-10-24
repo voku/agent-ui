@@ -155,7 +155,7 @@ final class ReviewAcknowledgementDecisionTest extends TestCase
             baseCommit: trim($this->git('rev-parse HEAD')),
             acceptanceCriteria: ['hi() returns a greeting containing the word hello'],
         );
-        $contracts->approve('APP-1', 'maintainer');
+        $contracts->approve('APP-1', 'maintainer', $contracts->load('APP-1')->revision);
 
         self::assertSame(0, $this->frontDoor('enter'));
         file_put_contents($this->root . '/src/Greeter.php', "<?php\nfinal class Greeter { public function hi(): string { return 'hello there'; } }\n");

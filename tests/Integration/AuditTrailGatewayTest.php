@@ -48,7 +48,7 @@ final class AuditTrailGatewayTest extends TestCase
             ['php -l src/Foo.php'],
             'planner',
         );
-        $contracts->approve('TASK-1', 'approver');
+        $contracts->approve('TASK-1', 'approver', $contracts->load('TASK-1')->revision);
 
         $audit = (new AuditTrailGateway($this->root))->task('TASK-1');
 

@@ -76,6 +76,8 @@ composer install
 AGENT_UI_PROJECT_ROOT=/path/to/project php -S 127.0.0.1:8088 -t public
 ```
 
+The Host/Origin guard uses PHP's server-provided request scheme. If TLS terminates before PHP, configure the trusted web server to set `HTTPS=on` for secure requests; agent-ui does not infer the scheme from `X-Forwarded-Proto`.
+
 `/search` is a read-only global search over what the owners publish (tasks, Findings, Proposals and Guidance, symbols and code, prompt recipes), reachable from a form in every page's header; `/` focuses it when scripts are on. It keeps each owner's results apart, in the owner's order, with no score, and reports an owner it could not ask as unavailable rather than as "no matches". The primary navigation groups existing destinations by developer intent: **Work** (Overview and Tasks), **Knowledge**, **Code** (Map), and **Tools** (Prompts, Commands, and Setup). The current page is marked in the navigation, and all links work without JavaScript. Task views are `/task/{id}`, `/task/{id}/progress`, `/task/{id}/contract`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, `/task/{id}/learning`, and `/task/{id}/edit`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same grouped navigation. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
 
 ## Setup

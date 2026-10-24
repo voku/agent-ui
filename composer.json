@@ -34,17 +34,17 @@
   ],
   "require": {
     "php": "^8.3",
-    "voku/agent-kanban": "^0.4.0",
-    "voku/agent-learning": "^0.18.35",
-    "voku/agent-loop": "^0.20.65",
-    "voku/agent-map": "^0.22.0",
-    "voku/agent-recall-compiler": "^0.25.8"
+    "voku/agent-kanban": "^0.4.6",
+    "voku/agent-learning": "^0.18.36",
+    "voku/agent-loop": "^0.20.68",
+    "voku/agent-map": "^0.22.3",
+    "voku/agent-recall-compiler": "^0.25.9"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
     "phpstan/phpstan": "^2.1.56",
     "phpunit/phpunit": "^12.0",
-    "voku/agent-loop-runner": "^0.1.1"
+    "voku/agent-loop-runner": "^0.1.8"
   },
   "autoload": {
     "psr-4": {
