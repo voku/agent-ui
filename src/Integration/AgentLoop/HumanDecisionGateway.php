@@ -95,9 +95,9 @@ final readonly class HumanDecisionGateway
         return $this->service->availableActions($taskId);
     }
 
-    public function approve(string $taskId, string $actor): void
+    public function approve(string $taskId, string $actor, ?int $expectedRevision = null): void
     {
-        $this->service->approveContract($taskId, $actor);
+        $this->service->approveContract($taskId, $actor, $expectedRevision);
     }
 
     public function acknowledgeReview(string $taskId, string $reportSha256, string $actor): void

@@ -28,7 +28,7 @@ final readonly class HumanDecisionAction
         $actor = $this->required($request, 'actor', 200);
 
         $recorded = match ($route) {
-            'approve' => $this->approve($taskId, $actor),
+            'approve' => $this->approve($taskId, $actor, $request),
             'review_ack' => $this->acknowledgeReview($taskId, $actor, $request),
             'learning' => $this->learning($taskId, $actor, $request),
         };
@@ -38,9 +38,11 @@ final readonly class HumanDecisionAction
         return Response::redirect($returnPath);
     }
 
-    private function approve(string $taskId, string $actor): string
+    private function approve(string $taskId, string $actor, Request $request): string
     {
-        $this->decisions->approve($taskId, $actor);
+        $reviewed = $request->body['revision'] ?? null;
+        $revision = is_string($reviewed) && preg_match('/^[1-9][0-9]*$/', $reviewed) === 1 ? (int) $reviewed : null;
+        $this->decisions->approve($taskId, $actor, $revision);
 
         return sprintf('agent-loop recorded the Contract approval for %s by %s.', $taskId, $actor);
     }
