@@ -155,7 +155,7 @@ final readonly class TaskAction
         $this->notice->record(sprintf('Card %s moved to %s.', $taskId, $targetLane));
 
         $returnTo = $this->optionalString($request, 'return_to');
-        $redirectTarget = ($returnTo !== null && str_starts_with($returnTo, '/'))
+        $redirectTarget = ($returnTo !== null && str_starts_with($returnTo, '/') && !str_starts_with($returnTo, '//') && !str_contains($returnTo, '\\') && preg_match('/[\x00-\x1F\x7F]/', $returnTo) !== 1)
             ? $returnTo
             : '/task/' . rawurlencode($taskId);
 
