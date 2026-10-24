@@ -151,6 +151,7 @@ final class ApplicationWorkflowTest extends TestCase
         $approveResponse = $app->handle(new Request('POST', '/task/APP-1/approve', body: [
             '_csrf' => $csrf,
             'actor' => 'lead-engineer',
+            'revision' => '1',
         ]));
         self::assertSame(303, $approveResponse->status);
         self::assertSame('/task/APP-1', $approveResponse->headers['Location']);

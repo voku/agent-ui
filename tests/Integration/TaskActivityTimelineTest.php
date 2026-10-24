@@ -298,9 +298,12 @@ final class TaskActivityTimelineTest extends TestCase
 
     private function approveContract(Application $app, string $csrf): void
     {
+        $contract = (new HumanDecisionGateway($this->root))->contract('APP-1');
+        self::assertNotNull($contract);
         $response = $app->handle(new Request('POST', '/task/APP-1/approve', body: [
             '_csrf' => $csrf,
             'actor' => 'claude',
+            'revision' => (string) $contract->revision,
         ]));
         self::assertSame(303, $response->status);
     }

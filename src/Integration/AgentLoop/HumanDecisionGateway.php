@@ -95,8 +95,12 @@ final readonly class HumanDecisionGateway
         return $this->service->availableActions($taskId);
     }
 
-    public function approve(string $taskId, string $actor, ?int $expectedRevision = null): void
+    public function approve(string $taskId, string $actor, int $expectedRevision): void
     {
+        if ($expectedRevision < 1) {
+            throw new \InvalidArgumentException('A positive expected Contract revision is required.');
+        }
+
         $this->service->approveContract($taskId, $actor, $expectedRevision);
     }
 

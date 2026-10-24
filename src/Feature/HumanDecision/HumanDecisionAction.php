@@ -41,7 +41,15 @@ final readonly class HumanDecisionAction
     private function approve(string $taskId, string $actor, Request $request): string
     {
         $reviewed = $request->body['revision'] ?? null;
-        $revision = is_string($reviewed) && preg_match('/^[1-9][0-9]*$/', $reviewed) === 1 ? (int) $reviewed : null;
+        if (!is_string($reviewed) || preg_match('/^[1-9][0-9]*$/D', $reviewed) !== 1) {
+            throw new InvalidArgumentException('A positive Contract revision is required to approve this task.');
+        }
+
+        $revision = filter_var($reviewed, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!is_int($revision)) {
+            throw new InvalidArgumentException('A positive Contract revision is required to approve this task.');
+        }
+
         $this->decisions->approve($taskId, $actor, $revision);
 
         return sprintf('agent-loop recorded the Contract approval for %s by %s.', $taskId, $actor);
