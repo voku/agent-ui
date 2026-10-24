@@ -17,6 +17,31 @@ if (!is_file($autoload)) {
 
 require $autoload;
 
+// DNS-rebinding guard: the control plane only answers for loopback host names
+// (plus AGENT_UI_ALLOWED_HOSTS, a comma-separated operator allowlist), and a
+// cross-origin browser POST is refused.
+$hostHeader = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$hostName = preg_replace('/:\d+$/', '', $hostHeader) ?? '';
+$allowedHosts = ['localhost', '127.0.0.1', '[::1]'];
+$extraHosts = getenv('AGENT_UI_ALLOWED_HOSTS');
+if (is_string($extraHosts) && $extraHosts !== '') {
+    foreach (explode(',', strtolower($extraHosts)) as $extraHost) {
+        $allowedHosts[] = trim($extraHost);
+    }
+}
+if (!in_array($hostName, $allowedHosts, true)) {
+    http_response_code(421);
+    echo 'Unexpected Host header for agent-ui.';
+    exit(1);
+}
+$origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+if (is_string($origin) && $origin !== '' && strtolower((string) parse_url($origin, PHP_URL_HOST)) !== $hostName
+    && strtolower('[' . trim((string) parse_url($origin, PHP_URL_HOST), '[]') . ']') !== $hostName) {
+    http_response_code(403);
+    echo 'Cross-origin request refused by agent-ui.';
+    exit(1);
+}
+
 ini_set('session.use_strict_mode', '1');
 session_name('agent_ui');
 $https = $_SERVER['HTTPS'] ?? null;
