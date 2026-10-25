@@ -102,6 +102,8 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         $enterA = $this->runApp($appA, 'enter', [$taskA, '--format=json']);
         self::assertSame(0, $enterA['exit'], json_encode($enterA['payload'], JSON_THROW_ON_ERROR));
 
+        $this->completePipeline($appA, $taskA);
+
         $finishPrep = $this->runApp($appA, 'finish', [$taskA, '--format=json']);
         self::assertSame(1, $finishPrep['exit']);
         $reviewReport = (new WorkflowReviewReportReader($this->root))->read($taskA);
@@ -143,8 +145,6 @@ final class LearningNoteReturnLoopDogfoodTest extends TestCase
         $learningService = new LearningNoteService();
         $preparedNote = $learningService->prepare($learningRoot, [$findingId], $this->root);
         self::assertSame('consumer.release_owner_before_integration', $preparedNote->patternKey);
-
-        $this->completePipeline($appA, $taskA);
 
         $finishClose = $this->runApp($appA, 'finish', [
             $taskA,
