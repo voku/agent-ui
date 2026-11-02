@@ -131,7 +131,7 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-6'))
             ->body;
 
-        self::assertStringContainsString('Revision 2 replaces revision 1', $body);
+        self::assertStringContainsString('Revision 2 compared with approved revision 1', $body);
         self::assertStringContainsString('approved by approver-one', $body);
         self::assertStringContainsString('Original goal.', $body);
         self::assertStringContainsString('src/B.php', $body);
@@ -147,10 +147,10 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-7'))
             ->body;
 
-        self::assertStringNotContainsString('replaces revision', $body);
+        self::assertStringNotContainsString('compared with', $body);
     }
 
-    public function testThePageComparesAgainstTheReplacedRevisionNotTheOriginal(): void
+    public function testThePageComparesAgainstTheLatestApprovedRevision(): void
     {
         // Three revisions. The reader approved revision 2, so the page must
         // describe 3 against 2. Comparing against revision 1 would report a
@@ -166,7 +166,7 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-8'))
             ->body;
 
-        self::assertStringContainsString('Revision 3 replaces revision 2', $body);
+        self::assertStringContainsString('Revision 3 compared with approved revision 2', $body);
         self::assertStringContainsString('approved by approver-two', $body);
         self::assertStringContainsString('Goal two.', $body);
         self::assertStringNotContainsString('Goal one.', $body);
@@ -187,7 +187,7 @@ final class ContractRevisionDeltaTest extends TestCase
         $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
             ->handle(new Request('GET', '/task/UI-9'))
             ->body;
-        self::assertStringContainsString('Revision 3 replaces revision 1', $body);
+        self::assertStringContainsString('Revision 3 compared with approved revision 1', $body);
         self::assertStringContainsString('approved by human-one', $body);
         self::assertStringContainsString('+ src/B.php', $body);
         self::assertStringContainsString('+ src/C.php', $body);
