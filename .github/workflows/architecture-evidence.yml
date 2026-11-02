@@ -1,0 +1,56 @@
+name: Architecture evidence dogfood
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/architecture-evidence.yml'
+      - 'templates/map/graph.php'
+      - 'tests/Integration/MapGraphEvidenceGuideTest.php'
+      - 'tools/architecture-evidence-dogfood.php'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    name: Real-repository map and UI smoke (PHP 8.3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Install declared dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Verify focused regressions
+        run: vendor/bin/phpunit --filter MapGraphEvidenceGuideTest
+      - name: Run PHPStan and code-style gates
+        run: |
+          composer phpstan
+          composer cs-check
+      - name: Build a real PHP source map
+        run: vendor/bin/agent-map build --root=. --paths=src,tests --out=.agent-map/php-symbols.json
+      - name: Render and verify graph evidence from the real map
+        run: php tools/architecture-evidence-dogfood.php var/architecture-evidence
+      - name: Capture source-map digest
+        if: always()
+        run: |
+          mkdir -p var/architecture-evidence
+          if [ -f .agent-map/php-symbols.json ]; then
+            cp .agent-map/php-symbols.json var/architecture-evidence/php-symbols.json
+            sha256sum var/architecture-evidence/php-symbols.json > var/architecture-evidence/source-map.sha256
+          fi
+      - name: Upload reproducible experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: architecture-evidence-php83
+          path: var/architecture-evidence/
+          if-no-files-found: warn
+          retention-days: 7
