@@ -81,7 +81,8 @@ final class MapGraphEvidenceGuideTest extends TestCase
         );
 
         self::assertSame(1, preg_match('/<section class="panel" aria-label="Map orientation">(.*?)<\/section>/s', $body, $matches));
-        $orientation = $matches[1];
+        $orientation = $matches[1] ?? '';
+        self::assertNotSame('', $orientation);
 
         self::assertSame(3, substr_count($orientation, '<li>'));
         self::assertStringContainsString('reading order, not an application execution flow', $orientation);
