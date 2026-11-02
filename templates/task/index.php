@@ -221,6 +221,24 @@ require __DIR__ . '/../layout/header.php';
                             </ul>
                         </div>
                     <?php endif; ?>
+                    <?php if ($contract->behaviorAnchors !== []): ?>
+                        <p class="small"><span class="faint">Behavior anchors:</span>
+                            <?= TemplateRenderer::escape(implode(', ', $contract->behaviorAnchors)) ?></p>
+                    <?php endif; ?>
+                    <?php if ($contract->operatingPromptManifest !== null): ?>
+                        <p class="small"><span class="faint">Operating prompt manifest:</span>
+                            <code><?= TemplateRenderer::escape($contract->operatingPromptManifest) ?></code></p>
+                    <?php endif; ?>
+                    <?php if ($contract->operatingPrompts !== []): ?>
+                        <div class="small"><span class="faint">Operating prompts:</span>
+                            <div class="stack">
+                                <?php foreach ($contract->operatingPrompts as $prompt): ?>
+                                    <code><?= TemplateRenderer::escape($prompt['id']) ?>
+                                        <?= TemplateRenderer::escape(json_encode($prompt['arguments'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) ?></code>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -228,11 +246,10 @@ require __DIR__ . '/../layout/header.php';
                 <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                 <h3>Approve the current Contract</h3>
                 <?php if ($contractDelta !== null): ?>
-                    <?php // agent-loop kept the revision this one replaced; the
-                          // comparison below is set difference over its two
-                          // Contracts and judges nothing about the change. ?>
+                    <?php // Loop selects the real approval baseline and computes
+                          // the delta; UI only renders this owner-backed result. ?>
                     <div style="margin:0 0 12px;padding:10px;background:var(--accent-soft);border-radius:6px">
-                        <strong class="small">Revision <?= (int) $contractDelta->toRevision ?> replaces revision <?= (int) $contractDelta->fromRevision ?><?php
+                        <strong class="small">Revision <?= (int) $contractDelta->toRevision ?> compared with <?= $contractDelta->previousWasApproved() ? 'approved' : 'draft' ?> revision <?= (int) $contractDelta->fromRevision ?><?php
                             if ($contractDelta->previousWasApproved()) {
                                 echo ', approved by ' . TemplateRenderer::escape((string) $contractDelta->previousApprovedBy);
                                 if ($contractDelta->previousApprovedAt !== null) {
@@ -241,7 +258,7 @@ require __DIR__ . '/../layout/header.php';
                             }
                         ?>.</strong>
                         <?php if ($contractDelta->isEmpty()): ?>
-                            <p class="small faint" style="margin:6px 0 0">Goal, scope, validation, non-goals and acceptance criteria are unchanged between the two revisions.</p>
+                            <p class="small faint" style="margin:6px 0 0">Goal, scope, validation, non-goals, acceptance criteria, behavior anchors and operating prompts are unchanged between these revisions.</p>
                         <?php else: ?>
                             <?php if ($contractDelta->previousGoal !== null): ?>
                                 <p class="small" style="margin:6px 0 0">Goal was: <em><?= TemplateRenderer::escape($contractDelta->previousGoal) ?></em></p>
