@@ -198,6 +198,45 @@ final class ContractRevisionDeltaTest extends TestCase
         self::assertStringContainsString('+ src/C.php', $body);
     }
 
+    public function testBrowserShowsOperatingPromptOrderChanges(): void
+    {
+        $this->writeCard('UI-10', 'Prompt sequence decision');
+        $store = new TaskContractStore($this->root);
+        $prompts = [
+            ['id' => 'lint', 'arguments' => []],
+            ['id' => 'audit', 'arguments' => []],
+        ];
+        $store->create(
+            'UI-10',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: $prompts,
+        );
+        $store->approve('UI-10', 'original-human', 1);
+        $store->revise(
+            'UI-10',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: [$prompts[1], $prompts[0]],
+        );
+
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-10'))
+            ->body;
+
+        self::assertStringContainsString('Operating prompt order', $body);
+        self::assertStringContainsString('+ audit -&gt; lint', $body);
+        self::assertStringContainsString('lint -&gt; audit', $body);
+    }
+
     private function writeCard(string $id, string $title): void
     {
         file_put_contents(
