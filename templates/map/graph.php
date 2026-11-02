@@ -155,6 +155,44 @@ foreach ($graph?->nodes ?? [] as $node) {
         <?php endif; ?>
     </section>
 
+    <p class="eyebrow">Evidence boundaries</p>
+    <section class="panel" aria-label="Map evidence coverage">
+        <p class="note">This view is a bounded coupling projection, not a runtime trace, dependency-completeness proof or security audit. An absent edge does not establish that two components are independent.</p>
+        <dl class="kv">
+            <dt>Analysis backend</dt><dd><code><?= TemplateRenderer::escape($readiness->backend) ?></code></dd>
+            <dt>Indexed files</dt><dd><?= $readiness->fileCount ?></dd>
+            <dt>Indexed source relations</dt><dd><?= $readiness->relationCount ?></dd>
+            <dt>Index diagnostics</dt><dd><?= $readiness->diagnosticCount ?></dd>
+            <dt>Displayed graph</dt><dd><?= count($graph->nodes) ?> / <?= $graph->totalNodeCount ?> nodes; <?= count($graph->edges) ?> / <?= $graph->totalEdgeCount ?> edges</dd>
+        </dl>
+        <?php if (str_contains($readiness->backend, 'structural-only')): ?>
+            <p class="note">Structural-only analysis does not resolve semantic call targets. Missing calls are unavailable evidence, not proof that calls do not exist.</p>
+        <?php endif; ?>
+        <?php if ($readiness->relationCount === 0): ?>
+            <p class="note">The index reports zero source relations. Check the indexed scope and backend capabilities before treating an empty graph as meaningful.</p>
+        <?php elseif ($graph->edges === []): ?>
+            <p class="note">The index contains source relations, but no coupling edges connect the displayed nodes. Region filtering, graph bounds or relation coverage can explain this result.</p>
+        <?php endif; ?>
+        <?php if ($readiness->diagnosticCount > 0): ?>
+            <p class="note">The index contains diagnostics. Review them before making completeness claims about the graph.</p>
+        <?php endif; ?>
+    </section>
+
+    <?php if ($graph->nodes !== []): ?>
+        <p class="eyebrow">Start exploring</p>
+        <section class="panel" aria-label="Map orientation">
+            <p class="note">These are the first <?= min(3, count($graph->nodes)) ?> nodes in agent-map's coupling ranking. This is a reading order, not an application execution flow.</p>
+            <ol class="stack">
+                <?php foreach (array_slice($graph->nodes, 0, 3) as $node): ?>
+                    <li>
+                        <a href="<?= TemplateRenderer::escape($nodeTargets[$node->id]['href']) ?>"><?= TemplateRenderer::escape($node->label) ?></a>
+                        <span class="small muted"><?= $node->kind === 'file' ? 'File' : 'Region' ?> · weighted degree <?= number_format($node->weight, 2, '.', '') ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </section>
+    <?php endif; ?>
+
     <p class="eyebrow">Graph</p>
     <section class="panel graph-explorer" style="overflow-x:auto" data-graph-explorer>
         <?php if ($graph->nodes === []): ?>
