@@ -174,6 +174,25 @@ final class ContractRevisionDeltaTest extends TestCase
         self::assertStringNotContainsString('+ src/B.php', $body);
     }
 
+    public function testBrowserComparesCandidateWithLastApprovedRevision(): void
+    {
+        $this->writeCard('UI-9', 'Intermediate candidate');
+        $store = new TaskContractStore($this->root);
+        $store->create('UI-9', 'Goal 1.', ['src/A.php'], [], ['composer ci'], 'planner');
+        $store->approve('UI-9', 'human-one', 1);
+        $store->revise('UI-9', 'Goal 2.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
+        $store->revise(
+            'UI-9', 'Goal 3.', ['src/A.php', 'src/B.php', 'src/C.php'], [], ['composer ci'], 'planner',
+        );
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-9'))
+            ->body;
+        self::assertStringContainsString('Revision 3 replaces revision 1', $body);
+        self::assertStringContainsString('approved by human-one', $body);
+        self::assertStringContainsString('+ src/B.php', $body);
+        self::assertStringContainsString('+ src/C.php', $body);
+    }
+
     private function writeCard(string $id, string $title): void
     {
         file_put_contents(
