@@ -1,5 +1,7 @@
 name: Approval UX against exact Loop candidate (temporary)
 on:
+  push:
+    branches: [test/approval-ui-approved-baseline-regression]
   pull_request:
     paths:
       - '.github/workflows/approval-owner-candidate.yml'
