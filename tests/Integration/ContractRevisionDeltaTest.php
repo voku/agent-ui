@@ -182,7 +182,12 @@ final class ContractRevisionDeltaTest extends TestCase
         $store->approve('UI-9', 'human-one', 1);
         $store->revise('UI-9', 'Goal 2.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
         $store->revise(
-            'UI-9', 'Goal 3.', ['src/A.php', 'src/B.php', 'src/C.php'], [], ['composer ci'], 'planner',
+            'UI-9',
+            'Goal 3.',
+            ['src/A.php', 'src/B.php', 'src/C.php'],
+            [],
+            ['composer ci'],
+            'planner',
         );
         $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
             ->handle(new Request('GET', '/task/UI-9'))
