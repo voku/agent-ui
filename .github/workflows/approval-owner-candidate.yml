@@ -1,0 +1,48 @@
+name: Approval UX against exact Loop candidate (temporary)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/approval-owner-candidate.yml'
+      - 'src/Feature/Task/**'
+      - 'src/Integration/AgentLoop/HumanDecisionGateway.php'
+      - 'templates/task/index.php'
+      - 'tests/Integration/ContractRevisionDeltaTest.php'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Install declared stable dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Checkout exact unmerged Loop owner candidate
+        uses: actions/checkout@v7
+        with:
+          repository: voku/agent-loop
+          ref: e3140b36c06e15acb2159dc8567cd5d36d1e2e80
+          path: .candidate-agent-loop
+          persist-credentials: false
+      - name: Substitute only the owner source in this disposable runner
+        run: |
+          test -d vendor/voku/agent-loop
+          test -f .candidate-agent-loop/src/Workflow/WorkflowHumanDecisionProjector.php
+          rm -rf vendor/voku/agent-loop
+          mv .candidate-agent-loop vendor/voku/agent-loop
+          composer dump-autoload --no-interaction
+      - name: Verify real browser approval integration
+        run: vendor/bin/phpunit tests/Integration/ContractRevisionDeltaTest.php
+      - name: Check UI static analysis and formatting
+        run: |
+          composer phpstan
+          composer template-lint
+          composer cs-check
