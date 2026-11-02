@@ -28,6 +28,12 @@ jobs:
           tools: composer:v2
       - name: Install declared dependencies
         run: composer install --no-interaction --prefer-dist
+      - name: Verify focused regressions
+        run: vendor/bin/phpunit --filter MapGraphEvidenceGuideTest
+      - name: Run PHPStan and code-style gates
+        run: |
+          composer phpstan
+          composer cs-check
       - name: Build a real PHP source map
         run: vendor/bin/agent-map build --root=. --paths=src,tests --out=.agent-map/php-symbols.json
       - name: Render and verify graph evidence from the real map
@@ -37,15 +43,14 @@ jobs:
         run: |
           mkdir -p var/architecture-evidence
           if [ -f .agent-map/php-symbols.json ]; then
-            sha256sum .agent-map/php-symbols.json > var/architecture-evidence/source-map.sha256
+            cp .agent-map/php-symbols.json var/architecture-evidence/php-symbols.json
+            sha256sum var/architecture-evidence/php-symbols.json > var/architecture-evidence/source-map.sha256
           fi
       - name: Upload reproducible experiment evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: architecture-evidence-php83
-          path: |
-            var/architecture-evidence/
-            .agent-map/php-symbols.json
+          path: var/architecture-evidence/
           if-no-files-found: warn
           retention-days: 7
