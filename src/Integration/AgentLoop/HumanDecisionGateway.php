@@ -7,8 +7,8 @@ namespace voku\AgentUi\Integration\AgentLoop;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
-use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjector;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
+use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjector;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionService;
 
 final readonly class HumanDecisionGateway
