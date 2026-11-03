@@ -20,6 +20,18 @@ use PHPUnit\Framework\TestCase;
  */
 final class WorkspaceShellTest extends TestCase
 {
+    /**
+     * Translation of the document can silently change displayed commands and
+     * deterministic prompt text, which are not ordinary localizable UI copy.
+     */
+    public function testControlPlaneDeclaresEnglishAndOptsOutOfAutomaticTranslation(): void
+    {
+        $header = $this->read('templates/layout/header.php');
+
+        self::assertStringContainsString('<html lang="en" translate="no">', $header);
+        self::assertStringContainsString('<meta name="google" content="notranslate">', $header);
+    }
+
     /** Every route the flat primary nav reached, before the grouping. */
     private const PRIMARY_ROUTES = ['/', '/setup', '/prompts', '/board', '/map', '/knowledge'];
 
