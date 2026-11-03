@@ -4,20 +4,15 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Feature\Task;
 
+use LogicException;
 use voku\AgentLoop\Workflow\TaskContract;
+use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
 
 /**
- * What one Contract revision changes relative to the revision before it.
+ * Read-only HTML adapter for Loop's typed approval comparison.
  *
- * Approval is the workflow's highest-stakes human decision, and a revision is
- * put to a reader who has already approved the one it replaces. Without the
- * earlier revision beside it, "approve revision 2" asks them to remember what
- * revision 1 said.
- *
- * The comparison is mechanical: set difference over two lists of strings that
- * agent-loop provided in the same shape. Nothing here decides whether a change
- * is significant, safe or acceptable - that is the judgement being asked for,
- * not one to pre-empt.
+ * The workflow owner selects the baseline and computes all Contract changes.
+ * This adapter provides template fields without reproducing that logic.
  */
 final readonly class ContractRevisionDelta
 {
@@ -35,31 +30,26 @@ final readonly class ContractRevisionDelta
     ) {
     }
 
-    public static function between(TaskContract $previous, TaskContract $current): self
+    public static function fromPresentation(WorkflowContractApprovalPresentation $presentation): self
     {
-        $lists = [];
-        foreach ([
-            'Scope' => [$previous->scope, $current->scope],
-            'Validation' => [$previous->validation, $current->validation],
-            'Non-goals' => [$previous->nonGoals, $current->nonGoals],
-            'Acceptance criteria' => [$previous->acceptanceCriteria, $current->acceptanceCriteria],
-        ] as $label => [$before, $after]) {
-            $added = array_values(array_diff($after, $before));
-            $removed = array_values(array_diff($before, $after));
-            if ($added === [] && $removed === []) {
-                continue;
-            }
-            $lists[$label] = ['added' => $added, 'removed' => $removed];
+        $delta = $presentation->revisionDelta();
+        if ($delta === null) {
+            throw new LogicException('Cannot compare a Contract without a previous revision.');
         }
 
         return new self(
-            fromRevision: $previous->revision,
-            toRevision: $current->revision,
-            previousApprovedBy: $previous->approvedBy,
-            previousApprovedAt: $previous->approvedAt,
-            previousGoal: $previous->goal === $current->goal ? null : $previous->goal,
-            lists: $lists,
+            fromRevision: $delta['from_revision'],
+            toRevision: $delta['to_revision'],
+            previousApprovedBy: $delta['previous_approved_by'],
+            previousApprovedAt: $delta['previous_approved_at'],
+            previousGoal: $delta['previous_goal'],
+            lists: $delta['lists'],
         );
+    }
+
+    public static function between(TaskContract $previous, TaskContract $current): self
+    {
+        return self::fromPresentation(new WorkflowContractApprovalPresentation($current, $previous, ''));
     }
 
     /**
