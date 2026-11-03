@@ -20,6 +20,15 @@ use PHPUnit\Framework\TestCase;
  */
 final class WorkspaceShellTest extends TestCase
 {
+    /** Every route the flat primary nav reached, before the grouping. */
+    private const PRIMARY_ROUTES = ['/', '/setup', '/prompts', '/board', '/map', '/knowledge'];
+
+    /** Every task view the flat button row reached, before the grouping. */
+    private const TASK_VIEWS = [
+        '', '/progress', '/contract', '/edit', '/context',
+        '/work', '/evidence', '/history', '/prompts', '/learning',
+    ];
+
     /**
      * Translation of the document can silently change displayed commands and
      * deterministic prompt text, which are not ordinary localizable UI copy.
@@ -31,15 +40,6 @@ final class WorkspaceShellTest extends TestCase
         self::assertStringContainsString('<html lang="en" translate="no">', $header);
         self::assertStringContainsString('<meta name="google" content="notranslate">', $header);
     }
-
-    /** Every route the flat primary nav reached, before the grouping. */
-    private const PRIMARY_ROUTES = ['/', '/setup', '/prompts', '/board', '/map', '/knowledge'];
-
-    /** Every task view the flat button row reached, before the grouping. */
-    private const TASK_VIEWS = [
-        '', '/progress', '/contract', '/edit', '/context',
-        '/work', '/evidence', '/history', '/prompts', '/learning',
-    ];
 
     /** Grouping is a rewrite of the link table, so the six destinations are listed and checked one by one. */
     public function testThePrimaryNavigationStillReachesEveryRouteItReachedBefore(): void
