@@ -26,6 +26,7 @@ Do not parse owner CLI output, private JSON files, card Markdown, or internal fi
 - State-changing requests are POST-only and CSRF-protected. Re-plan/revalidate through the owner before mutation when stale browser state could matter.
 - Server-rendered HTML is the default. Keep the no-framework/no-build-step constraint unless a concrete requirement proves it insufficient.
 - JavaScript is optional enhancement only; core pages/actions must remain useful without it.
+- UI-owned labels, help, errors, and navigation use English. Preserve the original wording of owner-owned projections, user-authored task text, evidence, and deterministic prompts; never silently translate or rewrite their bytes. The browser document opts out of automatic translation because displayed commands and prompt content can be copied verbatim.
 - The UI must not create a second database, workflow state store, recipe catalog, board parser, or Learning policy engine.
 
 ## Prompt Workbench boundary
