@@ -44,6 +44,11 @@ jobs:
           composer dump-autoload --no-interaction
       - name: Verify real browser approval integration
         run: vendor/bin/phpunit tests/Integration/ContractRevisionDeltaTest.php
+      - name: Run broader UI suite against exact owner candidate (excluding managed release projection only)
+        run: |
+          # The managed skill projection is intentionally checked by ordinary CI against released packages.
+          # This temporary run proves runtime compatibility with an unmerged owner, not release readiness.
+          vendor/bin/phpunit --filter '^(?!.*ManagedSkillProjectionTest)'
       - name: Check UI static analysis and formatting
         run: |
           composer phpstan
