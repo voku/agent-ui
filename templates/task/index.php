@@ -56,6 +56,43 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </div>
 
+<?php if ($contract !== null && $decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
+    <p class="eyebrow">Decision briefing</p>
+    <section class="panel panel--attention" aria-label="Approval briefing">
+        <div class="action__head">
+            <strong>Approve Contract revision <?= (int) $contract->revision ?>?</strong>
+            <span class="pill pill--attention">Human decision required</span>
+        </div>
+        <p><strong>What this enables:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
+        <div class="grid">
+            <div>
+                <strong class="small">Where the agent may work</strong>
+                <div class="stack" style="margin-top:6px">
+                    <?php foreach ($contract->scope as $path): ?>
+                        <code><?= TemplateRenderer::escape($path) ?></code>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div>
+                <strong class="small">Explicitly excluded</strong>
+                <?php if ($contract->nonGoals === []): ?>
+                    <p class="note">No non-goals were recorded. This does not expand the declared scope.</p>
+                <?php else: ?>
+                    <ul class="small">
+                        <?php foreach ($contract->nonGoals as $item): ?><li><?= TemplateRenderer::escape($item) ?></li><?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+        <p class="note">Acceptance criteria: <?= count($contract->acceptanceCriteria) ?>. Planned validation commands: <?= count($contract->validation) ?>.
+            A validation plan is not a passed test. Approval authorizes in-scope implementation, not acceptance of code, verification results or Learning.</p>
+        <div class="btn-row">
+            <a class="btn btn--primary" href="#decision">Review full terms &amp; decide</a>
+            <a class="btn" href="/task/<?= rawurlencode($card->id) ?>/contract">Inspect Contract &amp; impact</a>
+        </div>
+    </section>
+<?php endif; ?>
+
 <?php if ($workflow->references !== []): ?>
     <p class="eyebrow">Owner references</p>
     <section class="panel">
