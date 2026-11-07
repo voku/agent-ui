@@ -27,8 +27,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config --dry-run
-          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config
+          vendor/bin/agent-loop init install-assets --agent=claude --skip-git-config --dry-run
+          vendor/bin/agent-loop init install-assets --agent=claude --skip-git-config
           git status --short
       - name: Reject any unexpected generated change
         shell: bash
