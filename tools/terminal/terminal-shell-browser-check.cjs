@@ -5,6 +5,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
@@ -19,8 +20,8 @@ let transport;
 let browser;
 let session;
 
-function command(name, args) {
-    const result = spawnSync(name, args, { cwd: repo, encoding: 'utf8', timeout: 15000 });
+function command(name, args, env = process.env) {
+    const result = spawnSync(name, args, { cwd: repo, encoding: 'utf8', timeout: 15000, env });
     if (result.error) throw result.error;
     return result;
 }
@@ -166,11 +167,84 @@ async function run() {
     assert.equal(status.status, 0, status.stderr);
     assert.deepEqual(JSON.parse(status.stdout), { state: 'session_running', host: 'shell' });
 
+    // Hold an authenticated upload open while the user stops and starts a
+    // different process for the same task. The old upload must never type
+    // into the replacement process.
+    const origin = new URL(accessUrl).origin;
+    const cookies = await page.context().cookies(origin);
+    const cookie = cookies.map((entry) => `${entry.name}=${entry.value}`).join('; ');
+    const pending = http.request({ hostname: '127.0.0.1', port, path: '/_local/attachment', method: 'POST', headers: {
+        Cookie: cookie, Origin: origin, 'Content-Type': 'image/png', 'Content-Length': png.length, 'X-Agent-Ui-Csrf': csrf,
+    } });
+    const pendingStatus = new Promise((resolve, reject) => {
+        pending.on('response', (response) => { response.resume(); response.on('end', () => resolve(response.statusCode)); });
+        pending.on('error', reject);
+    });
+    pending.write(png.subarray(0, 8));
+    await until(async () => (await page.evaluate(async ({ token, bytes }) => (await fetch('/_local/attachment', {
+        method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': token }, body: Uint8Array.from(bytes),
+    })).status, { token: csrf, bytes: [...png] })) === 409, 'first upload is in flight');
+
     page.once('dialog', (dialog) => dialog.accept());
     await page.locator('[data-terminal-stop]').click();
     await until(() => tmux(['has-session', '-t', '=' + session]).status !== 0, 'browser stops generic shell');
     assert.equal(fs.existsSync(imagePath), false, 'stopping the task cleans uploaded image');
     assert.equal(fs.existsSync(clipboardPath), false, 'stopping the task cleans pasted clipboard image');
+    await page.locator('[data-terminal-start-button]').click();
+    await until(() => tmux(['has-session', '-t', '=' + session]).status === 0 && pid() !== originalPid, 'new task session');
+    pending.end(png.subarray(8));
+    assert.equal(await pendingStatus, 409, 'an upload cannot target a replacement session');
+    assert.equal(pane('agent-ui-attachments-'), false, 'stale upload does not type into the new process');
+
+    const changedProgram = http.request({ hostname: '127.0.0.1', port, path: '/_local/attachment', method: 'POST', headers: {
+        Cookie: cookie, Origin: origin, 'Content-Type': 'image/png', 'Content-Length': png.length, 'X-Agent-Ui-Csrf': csrf,
+    } });
+    const changedProgramStatus = new Promise((resolve, reject) => {
+        changedProgram.on('response', (response) => { response.resume(); response.on('end', () => resolve(response.statusCode)); });
+        changedProgram.on('error', reject);
+    });
+    changedProgram.write(png.subarray(0, 8));
+    await until(async () => (await page.evaluate(async ({ token, bytes }) => (await fetch('/_local/attachment', {
+        method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': token }, body: Uint8Array.from(bytes),
+    })).status, { token: csrf, bytes: [...png] })) === 409, 'second upload is in flight');
+    assert.equal(tmux(['send-keys', '-t', '=' + session + ':', 'sleep 30', 'Enter']).status, 0);
+    await until(() => tmux(['display-message', '-p', '-t', '=' + session + ':', '#{pane_current_command}']).stdout.trim() === 'sleep', 'foreground program changed');
+    changedProgram.end(png.subarray(8));
+    assert.equal(await changedProgramStatus, 409, 'an upload cannot target a different foreground program');
+    tmux(['send-keys', '-t', '=' + session + ':', 'C-c']);
+    await until(() => tmux(['display-message', '-p', '-t', '=' + session + ':', '#{pane_current_command}']).stdout.trim() !== 'sleep', 'shell resumed');
+
+    const uploaded = await page.evaluate(async ({ token, bytes }) => {
+        const result = await fetch('/_local/attachment', {
+            method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': token }, body: Uint8Array.from(bytes),
+        });
+        return { status: result.status, body: await result.json() };
+    }, { token: csrf, bytes: [...png] });
+    assert.equal(uploaded.status, 201);
+    assert.ok(fs.existsSync(uploaded.body.path));
+    assert.equal(tmux(['kill-session', '-t', '=' + session]).status, 0, 'simulate the host exiting itself');
+    const alternateTemp = path.join(temp, 'alternate-temp');
+    fs.mkdirSync(alternateTemp);
+    const fakeTools = path.join(temp, 'fake-tools');
+    fs.mkdirSync(fakeTools);
+    fs.writeFileSync(path.join(fakeTools, 'tmux'), '#!/bin/sh\nprintf "error connecting to socket (Permission denied)\\n" >&2\nexit 1\n', { mode: 0o755 });
+    const unknownStatus = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--stop'], {
+        ...process.env, PATH: fakeTools + path.delimiter + process.env.PATH, TMPDIR: alternateTemp,
+    });
+    assert.notEqual(unknownStatus.status, 0, 'unknown tmux failures are not treated as a missing session');
+    assert.ok(fs.existsSync(uploaded.body.path), 'an unavailable session does not authorize image cleanup');
+    const attachmentDir = path.dirname(uploaded.body.path);
+    const movedDir = path.join(temp, 'untrusted-target');
+    fs.renameSync(attachmentDir, movedDir);
+    fs.symlinkSync(movedDir, attachmentDir);
+    const rejectedCleanup = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--stop'], { ...process.env, TMPDIR: alternateTemp });
+    assert.notEqual(rejectedCleanup.status, 0, 'cleanup rejects a substituted symlink');
+    assert.ok(fs.existsSync(path.join(movedDir, path.basename(uploaded.body.path))), 'cleanup does not delete a symlink target');
+    fs.unlinkSync(attachmentDir);
+    fs.renameSync(movedDir, attachmentDir);
+    const cleanup = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--stop'], { ...process.env, TMPDIR: alternateTemp });
+    assert.equal(cleanup.status, 0, 'explicit cleanup works after host exit, even when TMPDIR changes');
+    assert.equal(fs.existsSync(uploaded.body.path), false, 'cleanup removes images after host exit');
     console.log('Generic shell, arbitrary CLI, authenticated image upload, clipboard, reconnect and stop passed.');
 }
 

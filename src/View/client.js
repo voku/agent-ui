@@ -956,8 +956,12 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             body: JSON.stringify(payload)
         }).then(function (response) {
             if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            return response.json();
+        }).then(function (result) {
             if (name === 'start') { viewerWanted = true; }
-            message.textContent = name === 'start' ? 'Session started.' : 'Session stopped. The governed task was not closed.';
+            message.textContent = name === 'start' ? 'Session started.'
+                : result.stopped ? 'Session stopped. The governed task was not closed.'
+                : 'The session had already ended; its task images were removed.';
         }).catch(function (error) {
             message.textContent = error.message || 'The local session action failed.';
         }).then(function () { busy = false; refreshSession(); });

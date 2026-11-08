@@ -6,7 +6,6 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
-const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
@@ -52,7 +51,7 @@ if (!commandOnly) {
 const socketPath = path.join(lockDir, 'ttyd.sock');
 // Uploaded images must outlive the browser transport: tmux may keep running
 // after the launcher exits. Explicit session stop removes the private files.
-const attachmentDir = path.join(fs.realpathSync(os.tmpdir()), `agent-ui-attachments-${process.getuid()}-${lockId}`);
+const attachmentDir = path.join(path.dirname(lockDir), `agent-ui-attachments-${process.getuid()}-${lockId}`);
 const maxAttachmentBytes = 8 * 1024 * 1024;
 const imageExtensions = Object.freeze({
     'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif',
@@ -64,13 +63,20 @@ function validImage(bytes, type) {
     if (type === 'image/gif') return ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString());
     return false;
 }
-function ensureAttachmentDirectory() {
-    try { fs.mkdirSync(attachmentDir, { mode: 0o700 }); }
-    catch (error) { if (error.code !== 'EEXIST') throw error; }
+function validateAttachmentDirectory() {
+    // The generated path is typed literally into the terminal. Reject a temp
+    // root containing shell metacharacters or whitespace rather than changing
+    // how an arbitrary CLI interprets a quoted filename.
+    if (!/^\/[A-Za-z0-9._/-]+$/.test(attachmentDir)) throw new Error('The local attachment path cannot be pasted safely.');
     const stat = fs.lstatSync(attachmentDir);
     if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0) {
         throw new Error('Private attachment directory has invalid ownership or permissions.');
     }
+}
+function ensureAttachmentDirectory() {
+    try { fs.mkdirSync(attachmentDir, { mode: 0o700 }); }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+    validateAttachmentDirectory();
 }
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
@@ -205,8 +211,8 @@ function requestHandler(req, res) {
                     const host = ensureSession(requestedHost, true);
                     return json(res, 200, { state: 'session_running', host });
                 }
-                stopSession();
-                return json(res, 200, { state: 'session_not_found' });
+                const result = stopSession();
+                return json(res, 200, { state: 'session_not_found', ...result });
             } catch (error) {
                 return deny(res, 409, error.message || 'The session action failed.');
             }
@@ -222,9 +228,12 @@ function receiveAttachment(req, res) {
     if (req.headers.origin !== expectedOrigin || !equal(req.headers['x-agent-ui-csrf'], csrfToken)) {
         return deny(res, 403, 'Origin and CSRF token required.');
     }
-    if (!terminalAvailable || inspectSession().state !== 'session_running') {
+    if (!terminalAvailable) {
         return deny(res, 409, 'Start an available task session before attaching an image.');
     }
+    let target;
+    try { target = withSessionLock(sessionTarget); }
+    catch (_) { return deny(res, 409, 'The task session is unavailable or changing.'); }
     const type = req.headers['content-type'];
     if (!Object.hasOwn(imageExtensions, type)) return deny(res, 415, 'Only PNG, JPEG, WebP and GIF images are supported.');
     if (Number(req.headers['content-length']) > maxAttachmentBytes) return deny(res, 413, 'Image exceeds 8 MiB.');
@@ -255,21 +264,27 @@ function receiveAttachment(req, res) {
         if (!validImage(bytes, type)) return deny(res, 415, 'Image signature does not match its type.');
         let filename;
         try {
-            ensureAttachmentDirectory();
-            if (fs.readdirSync(attachmentDir).length >= 32) {
-                return deny(res, 409, 'Task image limit reached; stop the task session to clean up.');
-            }
-            filename = path.join(attachmentDir, crypto.randomBytes(16).toString('hex') + imageExtensions[type]);
-            fs.writeFileSync(filename, bytes, { flag: 'wx', mode: 0o600 });
-            // Paste only an internal generated path, never a shell command or Enter.
-            // It remains the user's decision what to do with the image.
-            const sent = tmuxCommand(['send-keys', '-l', '-t', '=' + session + ':', ' ' + filename]);
-            if (sent.status !== 0) throw new Error('Unable to paste the image path into the terminal.');
+            withSessionLock(() => {
+                const current = sessionTarget();
+                if (current.identity !== target.identity) throw new Error('The task session changed during the upload.');
+                ensureAttachmentDirectory();
+                if (fs.readdirSync(attachmentDir).length >= 32) throw new Error('Task image limit reached; stop the task session to clean up.');
+                filename = path.join(attachmentDir, crypto.randomBytes(16).toString('hex') + imageExtensions[type]);
+                fs.writeFileSync(filename, bytes, { flag: 'wx', mode: 0o600 });
+                // Target the same pane observed at upload start, under the same
+                // task lock used by start/stop; never send Enter.
+                const sent = tmuxCommand(['send-keys', '-l', '-t', current.pane, ' ' + filename]);
+                if (sent.status !== 0) throw new Error('Unable to paste the image path into the terminal.');
+            });
             return json(res, 201, { path: filename });
         } catch (error) {
             if (filename) {
                 try { fs.unlinkSync(filename); } catch (_) { /* retain error context */ }
             }
+            if (error.message === 'The task session changed during the upload.' || error.message === 'The task session is unavailable.') {
+                return deny(res, 409, error.message);
+            }
+            if (error.message === 'Task image limit reached; stop the task session to clean up.') return deny(res, 409, error.message);
             console.error('Image upload failed:', error.message);
             return deny(res, 503, 'Image could not be saved or pasted into the terminal.');
         }
@@ -381,7 +396,14 @@ function inspectSession() {
     const target = '=' + session;
     try {
         const result = tmuxCommand(['has-session', '-t', target]);
-        if (result.status === 1) return { state: 'session_not_found', host: null };
+        if (result.status === 1) {
+            const detail = result.stderr.trim();
+            if (/^(no server running on |can't find session: |no such session: )/.test(detail) ||
+                /^error connecting to .+ \(No such file or directory\)$/.test(detail)) {
+                return { state: 'session_not_found', host: null };
+            }
+            return { state: 'unavailable', host: null };
+        }
         if (result.status !== 0) return { state: 'unavailable', host: null };
         const location = tmuxCommand(['display-message', '-p', '-t', target + ':', '#{session_path}']);
         const identity = tmuxCommand(['show-options', '-v', '-t', target + ':', '@agent-ui-host']);
@@ -390,6 +412,14 @@ function inspectSession() {
             identity.status !== 0 || !['shell', 'codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
         return { state: 'session_running', host };
     } catch (_) { return { state: 'unavailable', host: null }; }
+}
+function sessionTarget() {
+    if (inspectSession().state !== 'session_running') throw new Error('The task session is unavailable.');
+    const result = tmuxCommand(['display-message', '-p', '-t', '=' + session + ':', '#{pid}:#{session_id}:#{pane_id}:#{pane_pid}:#{pane_current_command}']);
+    const identity = result.stdout.trim();
+    const parts = /^(\d+):(\$\d+):(%\d+):(\d+):([^\n]+)$/.exec(identity);
+    if (result.status !== 0 || !parts) throw new Error('The task session is unavailable.');
+    return { identity, pane: parts[3] };
 }
 function withSessionLock(operation) {
     const operationDir = lockDir + '-operation';
@@ -434,12 +464,18 @@ function ensureSession(requestedHost, create) {
 function stopSession() {
     return withSessionLock(() => {
         const state = inspectSession();
-        if (state.state !== 'session_running') throw new Error('The task session is not available to stop.');
-        if (tmuxCommand(['kill-session', '-t', '=' + session]).status !== 0) throw new Error('The task session could not be stopped.');
-        if (fs.existsSync(attachmentDir)) {
-            ensureAttachmentDirectory();
-            fs.rmSync(attachmentDir, { recursive: true });
+        const hasAttachments = fs.existsSync(attachmentDir);
+        if (state.state === 'unavailable' || (state.state === 'session_not_found' && !hasAttachments)) {
+            throw new Error('The task session is not available to stop.');
         }
+        if (hasAttachments) validateAttachmentDirectory();
+        const stopped = state.state === 'session_running';
+        if (stopped && tmuxCommand(['kill-session', '-t', '=' + session]).status !== 0) throw new Error('The task session could not be stopped.');
+        if (hasAttachments) {
+            try { fs.rmSync(attachmentDir, { recursive: true }); }
+            catch (_) { throw new Error(stopped ? 'Session stopped, but task images could not be removed.' : 'Task images could not be removed.'); }
+        }
+        return { stopped, attachments_removed: hasAttachments };
     });
 }
 async function main() {
@@ -451,8 +487,9 @@ async function main() {
         return;
     }
     if (options.stop) {
-        stopSession();
-        console.log('The coding-host session was stopped. The governed task was not closed.');
+        const result = stopSession();
+        console.log(result.stopped ? 'The coding-host session was stopped. The governed task was not closed.'
+            : 'The session had already ended; its task images were removed.');
         return;
     }
     // The UI and terminal use distinct loopback origins. Cookies are scoped to

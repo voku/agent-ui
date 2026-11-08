@@ -165,7 +165,7 @@ require __DIR__ . '/../layout/header.php';
         <label for="terminal-image-file">Attach screenshot or image (PNG, JPEG, WebP, GIF; max 8 MiB)</label>
         <input type="file" id="terminal-image-file" data-terminal-image-file accept="image/png,image/jpeg,image/webp,image/gif">
         <button type="button" class="btn btn--small" data-terminal-image-clipboard>Paste image from clipboard</button>
-        <p class="note">The image is stored privately for this task. Its path is pasted into the terminal without pressing Enter. Drop an image here or choose a file if clipboard access is unavailable.</p>
+        <p class="note">The image is stored privately for this task. Its path is typed into the terminal without pressing Enter. Make sure the active program is ready for text; some programs interpret keystrokes as commands. Drop an image here or choose a file if clipboard access is unavailable.</p>
     </div>
     <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
     <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
