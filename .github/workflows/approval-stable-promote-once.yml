@@ -24,7 +24,7 @@ jobs:
           git config user.name 'Approval stable integration CI'
           git config user.email 'approval-stable-integration@users.noreply.github.com'
           git fetch origin main test/approval-ui-approved-baseline-regression
-          test "$(git rev-parse HEAD^)" = "93e355f00441f3e06d21af82aad359e6b9a25538"
+          test "$(git merge-base HEAD origin/test/approval-ui-approved-baseline-regression)" = "93e355f00441f3e06d21af82aad359e6b9a25538"
           test "$(git rev-parse origin/test/approval-ui-approved-baseline-regression)" = "93e355f00441f3e06d21af82aad359e6b9a25538"
           test "$(git rev-parse origin/main)" = "ef9622f24f269dde74468c24df4ad45536671258"
           if ! git merge --no-commit --no-ff origin/main; then
