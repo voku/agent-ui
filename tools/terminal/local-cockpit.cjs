@@ -78,6 +78,15 @@ function ensureAttachmentDirectory() {
     catch (error) { if (error.code !== 'EEXIST') throw error; }
     validateAttachmentDirectory();
 }
+function attachmentStatus() {
+    try {
+        validateAttachmentDirectory();
+        return { state: 'available', count: fs.readdirSync(attachmentDir).length };
+    } catch (error) {
+        if (error.code === 'ENOENT') return { state: 'none', count: 0 };
+        return { state: 'unavailable', count: null };
+    }
+}
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
@@ -190,7 +199,7 @@ function requestHandler(req, res) {
     if (!authenticated(req)) return deny(res, 401, 'Open the access URL printed by the local cockpit.');
     if (req.method === 'GET' && req.url === '/_local/session') {
         const state = inspectSession();
-        return json(res, 200, { ...state, terminal_available: terminalAvailable, hosts: hostAvailability(), csrf: csrfToken });
+        return json(res, 200, { ...state, terminal_available: terminalAvailable, hosts: hostAvailability(), attachments: attachmentStatus(), csrf: csrfToken });
     }
     if (req.method === 'POST' && ['/_local/session/start', '/_local/session/stop'].includes(req.url)) {
         if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||

@@ -911,11 +911,15 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                 var running = snapshot.state === 'session_running';
                 var missing = snapshot.state === 'session_not_found';
                 var available = snapshot.terminal_available === true;
+                var cleanup = missing && snapshot.attachments && snapshot.attachments.state === 'available';
                 state.textContent = running ? 'tmux session running (' + snapshot.host + ')'
                     : missing ? 'tmux session not found' : 'Local session status unavailable';
                 if (!available) { state.textContent += ' · terminal transport unavailable'; }
+                if (!snapshot.attachments || snapshot.attachments.state === 'unavailable') { state.textContent += ' · task images unavailable'; }
                 toggle.hidden = !running || !available;
-                stop.hidden = !running;
+                stop.hidden = !running && !cleanup;
+                stop.textContent = cleanup ? 'Clean up task images' : 'Stop session';
+                stop.setAttribute('data-cleanup-only', cleanup ? 'true' : 'false');
                 start.hidden = !missing;
                 frame.hidden = !running || !available;
                 attachment.hidden = !running || !available;
@@ -1030,7 +1034,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     });
     startButton.addEventListener('click', function () { action('start', { host: host.value }); });
     stop.addEventListener('click', function () {
-        if (window.confirm('Stop this coding-host session? This can interrupt its work and does not close the task.')) { action('stop', {}); }
+        var prompt = stop.getAttribute('data-cleanup-only') === 'true'
+            ? 'Remove the remaining task images?'
+            : 'Stop this coding-host session? This can interrupt its work and does not close the task.';
+        if (window.confirm(prompt)) { action('stop', {}); }
     });
     refreshSession();
 }());

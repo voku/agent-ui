@@ -240,11 +240,31 @@ async function run() {
     const rejectedCleanup = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--stop'], { ...process.env, TMPDIR: alternateTemp });
     assert.notEqual(rejectedCleanup.status, 0, 'cleanup rejects a substituted symlink');
     assert.ok(fs.existsSync(path.join(movedDir, path.basename(uploaded.body.path))), 'cleanup does not delete a symlink target');
+    await page.locator('[data-terminal-state]').getByText('task images unavailable').waitFor({ timeout: 15000 });
+    assert.equal(await page.locator('[data-terminal-stop]').isVisible(), false, 'unavailable image state does not offer cleanup');
     fs.unlinkSync(attachmentDir);
     fs.renameSync(movedDir, attachmentDir);
     const cleanup = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--stop'], { ...process.env, TMPDIR: alternateTemp });
     assert.equal(cleanup.status, 0, 'explicit cleanup works after host exit, even when TMPDIR changes');
     assert.equal(fs.existsSync(uploaded.body.path), false, 'cleanup removes images after host exit');
+
+    // The same cleanup is available in the cockpit after a host exits on its
+    // own, without manufacturing a running-session or workflow state.
+    await page.locator('[data-terminal-start-button]').click();
+    await until(() => tmux(['has-session', '-t', '=' + session]).status === 0, 'third task session');
+    const finalUpload = await page.evaluate(async ({ token, bytes }) => {
+        const result = await fetch('/_local/attachment', {
+            method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': token }, body: Uint8Array.from(bytes),
+        });
+        return { status: result.status, body: await result.json() };
+    }, { token: csrf, bytes: [...png] });
+    assert.equal(finalUpload.status, 201);
+    assert.equal(tmux(['kill-session', '-t', '=' + session]).status, 0);
+    await page.locator('[data-terminal-stop]').getByText('Clean up task images').waitFor({ timeout: 15000 });
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('[data-terminal-stop]').click();
+    await until(() => !fs.existsSync(finalUpload.body.path), 'browser image cleanup after host exit');
+    assert.equal(tmux(['has-session', '-t', '=' + session]).status, 1, 'cleanup does not restart the host');
     console.log('Generic shell, arbitrary CLI, authenticated image upload, clipboard, reconnect and stop passed.');
 }
 
