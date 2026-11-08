@@ -875,7 +875,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var host = panel.querySelector('[data-terminal-host]');
     var message = panel.querySelector('[data-terminal-message]');
     var state = panel.querySelector('[data-terminal-state]');
-    if (!frame || !toggle || !stop || !start || !startButton || !host || !message || !state) { return; }
+    var attachment = panel.querySelector('[data-terminal-attachment]');
+    var imageFile = panel.querySelector('[data-terminal-image-file]');
+    var pasteClipboard = panel.querySelector('[data-terminal-image-clipboard]');
+    if (!frame || !toggle || !stop || !start || !startButton || !host || !message || !state ||
+        !attachment || !imageFile || !pasteClipboard) { return; }
     var terminalUrl = frame.getAttribute('data-terminal-url');
     var connected = true;
     var viewerWanted = true;
@@ -914,6 +918,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                 stop.hidden = !running;
                 start.hidden = !missing;
                 frame.hidden = !running || !available;
+                attachment.hidden = !running || !available;
+                imageFile.disabled = busy || !running || !available;
+                pasteClipboard.disabled = busy || !running || !available ||
+                    !navigator.clipboard || typeof navigator.clipboard.read !== 'function';
                 if (!running || !available) {
                     if (connected) { frame.src = 'about:blank'; connected = false; }
                 } else if (viewerWanted && !connected) {
@@ -954,6 +962,68 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             message.textContent = error.message || 'The local session action failed.';
         }).then(function () { busy = false; refreshSession(); });
     }
+    function uploadImage(blob) {
+        if (busy || !csrf) { return; }
+        if (!blob || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(blob.type)) {
+            message.textContent = 'Choose a PNG, JPEG, WebP or GIF image.';
+            return;
+        }
+        if (blob.size > 8 * 1024 * 1024) {
+            message.textContent = 'Image exceeds 8 MiB.';
+            return;
+        }
+        busy = true;
+        imageFile.disabled = true;
+        pasteClipboard.disabled = true;
+        message.textContent = 'Uploading image to the local task session…';
+        window.fetch('/_local/attachment', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': blob.type, 'X-Agent-Ui-Csrf': csrf },
+            body: blob
+        }).then(function (response) {
+            if (!response.ok) {
+                return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); });
+            }
+            return response.json();
+        }).then(function (result) {
+            message.textContent = 'Image path pasted (not submitted): ' + result.path;
+        }).catch(function (error) {
+            message.textContent = error.message || 'Image upload failed.';
+        }).then(function () {
+            busy = false;
+            refreshSession();
+        });
+    }
+    imageFile.addEventListener('change', function () {
+        if (imageFile.files && imageFile.files.length) { uploadImage(imageFile.files[0]); }
+        imageFile.value = '';
+    });
+    pasteClipboard.addEventListener('click', function () {
+        if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+            message.textContent = 'Clipboard images are unavailable; choose a file instead.';
+            return;
+        }
+        navigator.clipboard.read().then(function (items) {
+            var types = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+            for (var i = 0; i < items.length; i++) {
+                for (var j = 0; j < types.length; j++) {
+                    if (items[i].types.indexOf(types[j]) !== -1) { return items[i].getType(types[j]); }
+                }
+            }
+            throw new Error('Clipboard contains no supported image.');
+        }).then(uploadImage).catch(function (error) {
+            message.textContent = error.message || 'Clipboard access denied; choose a file instead.';
+        });
+    });
+    attachment.addEventListener('dragover', function (event) {
+        event.preventDefault();
+    });
+    attachment.addEventListener('drop', function (event) {
+        event.preventDefault();
+        if (event.dataTransfer && event.dataTransfer.files.length) {
+            uploadImage(event.dataTransfer.files[0]);
+        }
+    });
     startButton.addEventListener('click', function () { action('start', { host: host.value }); });
     stop.addEventListener('click', function () {
         if (window.confirm('Stop this coding-host session? This can interrupt its work and does not close the task.')) { action('stop', {}); }

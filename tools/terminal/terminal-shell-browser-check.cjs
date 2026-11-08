@@ -109,6 +109,50 @@ async function run() {
     await page.keyboard.press('Enter');
     await until(() => pane('GENERIC_CLI_TASK=UI-36'), 'arbitrary CLI inside shell');
 
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaLj/HwAEwgJ/1iyXeQAAAABJRU5ErkJggg==', 'base64');
+    const csrf = await page.evaluate(async () => (await (await fetch('/_local/session')).json()).csrf);
+    const noCsrf = await page.evaluate(async (bytes) => (await fetch('/_local/attachment', {
+        method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': 'wrong' },
+        body: Uint8Array.from(bytes),
+    })).status, [...png]);
+    assert.equal(noCsrf, 403, 'image upload requires the session CSRF token');
+    const malformed = await page.evaluate(async ({ token }) => (await fetch('/_local/attachment', {
+        method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': token },
+        body: new Blob(['not actually PNG'], { type: 'image/png' }),
+    })).status, { token: csrf });
+    assert.equal(malformed, 415, 'fake image payload is not accepted');
+
+    await page.locator('[data-terminal-image-file]').setInputFiles({
+        name: 'screenshot.png', mimeType: 'image/png', buffer: png,
+    });
+    await until(async () => (await page.locator('[data-terminal-message]').textContent()).includes('Image path pasted'), 'file upload');
+    const firstMessage = await page.locator('[data-terminal-message]').textContent();
+    const imagePath = firstMessage.split('Image path pasted (not submitted): ')[1].trim();
+    assert.ok(fs.existsSync(imagePath), 'uploaded image is available to the running agent');
+    assert.deepEqual(fs.readFileSync(imagePath), png, 'image bytes are retained');
+    await until(() => tmux(['capture-pane', '-p', '-J', '-t', '=' + session + ':']).stdout.includes(imagePath),
+        'absolute image path pasted into terminal without pressing Enter');
+
+    // Clipboard access is a user-gesture-only browser API. Chromium grants it
+    // to the local test origin, then the button uses the same upload path.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'],
+        { origin: new URL(accessUrl).origin });
+    await page.evaluate(async (encoded) => {
+        const raw = atob(encoded);
+        const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0));
+        await navigator.clipboard.write([new ClipboardItem({
+            'image/png': new Blob([bytes], { type: 'image/png' }),
+        })]);
+    }, png.toString('base64'));
+    await page.locator('[data-terminal-image-clipboard]').click();
+    await until(async () => {
+        const text = await page.locator('[data-terminal-message]').textContent();
+        return text.includes('Image path pasted') && text !== firstMessage;
+    }, 'clipboard paste upload');
+    const clipboardMessage = await page.locator('[data-terminal-message]').textContent();
+    const clipboardPath = clipboardMessage.split('Image path pasted (not submitted): ')[1].trim();
+    assert.ok(fs.existsSync(clipboardPath), 'clipboard image saved to private task storage');
+
     await page.reload();
     await frame.locator('.xterm-helper-textarea').waitFor({ timeout: 15000 });
     assert.equal(pid(), originalPid, 'reloading must not restart the shell');
@@ -125,7 +169,9 @@ async function run() {
     page.once('dialog', (dialog) => dialog.accept());
     await page.locator('[data-terminal-stop]').click();
     await until(() => tmux(['has-session', '-t', '=' + session]).status !== 0, 'browser stops generic shell');
-    console.log('Generic shell, task env, arbitrary CLI, reload, reconnect and browser stop passed.');
+    assert.equal(fs.existsSync(imagePath), false, 'stopping the task cleans uploaded image');
+    assert.equal(fs.existsSync(clipboardPath), false, 'stopping the task cleans pasted clipboard image');
+    console.log('Generic shell, arbitrary CLI, authenticated image upload, clipboard, reconnect and stop passed.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {

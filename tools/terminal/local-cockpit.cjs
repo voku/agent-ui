@@ -6,6 +6,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
@@ -49,6 +50,28 @@ if (!commandOnly) {
     fs.writeFileSync(path.join(lockDir, 'pid'), String(process.pid), { mode: 0o600, flag: 'wx' });
 }
 const socketPath = path.join(lockDir, 'ttyd.sock');
+// Uploaded images must outlive the browser transport: tmux may keep running
+// after the launcher exits. Explicit session stop removes the private files.
+const attachmentDir = path.join(fs.realpathSync(os.tmpdir()), `agent-ui-attachments-${process.getuid()}-${lockId}`);
+const maxAttachmentBytes = 8 * 1024 * 1024;
+const imageExtensions = Object.freeze({
+    'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif',
+});
+function validImage(bytes, type) {
+    if (type === 'image/png') return bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
+    if (type === 'image/jpeg') return bytes.subarray(0, 3).equals(Buffer.from('ffd8ff', 'hex'));
+    if (type === 'image/webp') return bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
+    if (type === 'image/gif') return ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString());
+    return false;
+}
+function ensureAttachmentDirectory() {
+    try { fs.mkdirSync(attachmentDir, { mode: 0o700 }); }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+    const stat = fs.lstatSync(attachmentDir);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0) {
+        throw new Error('Private attachment directory has invalid ownership or permissions.');
+    }
+}
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
@@ -64,6 +87,7 @@ let terminalAvailable = false;
 let quitting = false;
 const upgradedSockets = new Set();
 let pendingSocket = null;
+let attachmentBusy = false;
 async function cleanup(exitCode) {
     if (quitting) return;
     quitting = true;
@@ -188,8 +212,68 @@ function requestHandler(req, res) {
             }
         });
     }
+    if (req.method === 'POST' && req.url === '/_local/attachment') {
+        return receiveAttachment(req, res);
+    }
     if (/^\/_terminal(?:\/|\?|$)/.test(req.url)) return deny(res, 404, 'Not found.');
     proxy(req, res, false);
+}
+function receiveAttachment(req, res) {
+    if (req.headers.origin !== expectedOrigin || !equal(req.headers['x-agent-ui-csrf'], csrfToken)) {
+        return deny(res, 403, 'Origin and CSRF token required.');
+    }
+    if (!terminalAvailable || inspectSession().state !== 'session_running') {
+        return deny(res, 409, 'Start an available task session before attaching an image.');
+    }
+    const type = req.headers['content-type'];
+    if (!Object.hasOwn(imageExtensions, type)) return deny(res, 415, 'Only PNG, JPEG, WebP and GIF images are supported.');
+    if (Number(req.headers['content-length']) > maxAttachmentBytes) return deny(res, 413, 'Image exceeds 8 MiB.');
+    if (attachmentBusy) return deny(res, 409, 'Another image upload is in progress.');
+    attachmentBusy = true;
+    let length = 0;
+    let failed = false;
+    const chunks = [];
+    req.setTimeout(15000, () => { failed = true; attachmentBusy = false; req.destroy(); });
+    req.on('aborted', () => { failed = true; attachmentBusy = false; });
+    req.on('error', () => { failed = true; attachmentBusy = false; });
+    req.on('data', (chunk) => {
+        if (failed) return;
+        length += chunk.length;
+        if (length > maxAttachmentBytes) {
+            failed = true;
+            attachmentBusy = false;
+            deny(res, 413, 'Image exceeds 8 MiB.');
+            req.resume();
+            return;
+        }
+        chunks.push(chunk);
+    });
+    req.on('end', () => {
+        attachmentBusy = false;
+        if (failed) return;
+        const bytes = Buffer.concat(chunks, length);
+        if (!validImage(bytes, type)) return deny(res, 415, 'Image signature does not match its type.');
+        let filename;
+        try {
+            ensureAttachmentDirectory();
+            if (fs.readdirSync(attachmentDir).length >= 32) {
+                return deny(res, 409, 'Task image limit reached; stop the task session to clean up.');
+            }
+            filename = path.join(attachmentDir, crypto.randomBytes(16).toString('hex') + imageExtensions[type]);
+            fs.writeFileSync(filename, bytes, { flag: 'wx', mode: 0o600 });
+            // Paste only an internal generated path, never a shell command or Enter.
+            // It remains the user's decision what to do with the image.
+            const sent = tmuxCommand(['send-keys', '-l', '-t', '=' + session + ':', ' ' + filename]);
+            if (sent.status !== 0) throw new Error('Unable to paste the image path into the terminal.');
+            return json(res, 201, { path: filename });
+        } catch (error) {
+            if (filename) {
+                try { fs.unlinkSync(filename); } catch (_) { /* retain error context */ }
+            }
+            console.error('Image upload failed:', error.message);
+            return deny(res, 503, 'Image could not be saved or pasted into the terminal.');
+        }
+    });
 }
 function terminalRequest(req, res) {
     if (!permitted(req, true)) return deny(res, 403, 'Local origin required.');
@@ -352,6 +436,10 @@ function stopSession() {
         const state = inspectSession();
         if (state.state !== 'session_running') throw new Error('The task session is not available to stop.');
         if (tmuxCommand(['kill-session', '-t', '=' + session]).status !== 0) throw new Error('The task session could not be stopped.');
+        if (fs.existsSync(attachmentDir)) {
+            ensureAttachmentDirectory();
+            fs.rmSync(attachmentDir, { recursive: true });
+        }
     });
 }
 async function main() {
