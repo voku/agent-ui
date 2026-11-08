@@ -86,6 +86,21 @@ require __DIR__ . '/../layout/header.php';
         </div>
         <p class="note">Acceptance criteria: <?= count($contract->acceptanceCriteria) ?>. Planned validation commands: <?= count($contract->validation) ?>.
             A validation plan is not a passed test. Approval authorizes in-scope implementation, not acceptance of code, verification results or Learning.</p>
+        <?php if ($contractDelta !== null): ?>
+            <?php
+            $changedFields = array_keys($contractDelta->lists);
+            if ($contractDelta->previousGoal !== null) {
+                array_unshift($changedFields, 'Goal');
+            }
+            ?>
+            <p class="note"><strong>Change summary:</strong>
+                Revision <?= (int) $contractDelta->toRevision ?> compared with
+                <?= $contractDelta->previousWasApproved() ? 'approved' : 'draft' ?> revision <?= (int) $contractDelta->fromRevision ?>.
+                <?= $changedFields === []
+                    ? 'No changes in the compared fields.'
+                    : 'Changed fields: ' . TemplateRenderer::escape(implode(', ', $changedFields)) . '.' ?>
+                The full additions and removals are in the decision section below.</p>
+        <?php endif; ?>
         <?php if ($contract->revision > 2): ?>
             <p class="note" role="status"><strong>Revision history matters:</strong>
                 This version of the UI compares with the immediately previous Contract revision,
