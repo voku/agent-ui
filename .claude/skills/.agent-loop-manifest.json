@@ -102,8 +102,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/skills/agent-loop-l2-context",
-            "source_sha256": "sha256:d761985df58123a32a923232c07ade91999a32271c0bbed0b529c61605e2d23a",
-            "representation_sha256": "sha256:d761985df58123a32a923232c07ade91999a32271c0bbed0b529c61605e2d23a",
+            "source_sha256": "sha256:a8a47fe9cab60814240dd8e09b08643b62e2e090bc30db34c40fb872dd2a8e3a",
+            "representation_sha256": "sha256:a8a47fe9cab60814240dd8e09b08643b62e2e090bc30db34c40fb872dd2a8e3a",
             "adopted": false
         },
         {
@@ -122,8 +122,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/skills/agent-loop-php-setup",
-            "source_sha256": "sha256:2fb16e5c98ab8e1cfd90e9b0dfbb1618a56fa5a089ac5358f6a1a9bfbc51e053",
-            "representation_sha256": "sha256:2fb16e5c98ab8e1cfd90e9b0dfbb1618a56fa5a089ac5358f6a1a9bfbc51e053",
+            "source_sha256": "sha256:33bc56fdd48ebe6b468f51745085730c653052521b6483b08b6e5d40bdf5e70c",
+            "representation_sha256": "sha256:33bc56fdd48ebe6b468f51745085730c653052521b6483b08b6e5d40bdf5e70c",
             "adopted": false
         },
         {
