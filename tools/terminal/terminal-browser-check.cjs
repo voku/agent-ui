@@ -164,6 +164,14 @@ async function run() {
     await page.locator('[data-terminal-state]').getByText('tmux session running').waitFor();
     const [graphBox, terminalBox] = await Promise.all([page.locator('[data-workflow-graph]').boundingBox(), page.locator('[data-terminal-panel]').boundingBox()]);
     assert.ok(terminalBox.x >= graphBox.x + graphBox.width, 'desktop workflow and terminal appear side by side');
+    // One browser page provides the owner-backed briefing, human decision and
+    // interactive PTY without inventing a second workflow authority.
+    assert.equal(await page.locator('[data-workflow-brief]').count(), 1);
+    assert.equal(await page.locator('[data-workflow-brief]').getByText('Contract authority').count(), 1);
+    assert.equal(await page.locator('[data-workflow-decision] button[type="submit"]').count(), 1);
+    assert.equal(await page.locator('[data-workflow-brief] a[href="#workflow-terminal"]').count(), 1);
+    const briefBounds = await page.locator('[data-workflow-brief]').boundingBox();
+    assert.ok(briefBounds.x + briefBounds.width <= terminalBox.x + 2, 'HTML briefing remains beside the terminal');
     await frame.locator('.xterm-helper-textarea').focus();
     await page.keyboard.type('browser terminal proof');
     await page.keyboard.press('Enter');
