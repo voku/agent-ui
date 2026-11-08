@@ -888,7 +888,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(new FormData(form)).toString()
         }).then(function (response) {
-            var destination = new URL(response.url, window.location.href);
+            var destination = new URL(response.url);
             if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
                 destination.pathname !== window.location.pathname) {
                 throw new Error('Approval was not confirmed. Reload the current Contract before retrying.');
