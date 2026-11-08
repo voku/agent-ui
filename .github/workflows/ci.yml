@@ -35,3 +35,5 @@ jobs:
         run: composer update --no-interaction --prefer-dist --prefer-lowest --prefer-stable
       - name: Validate lowest supported graph
         run: composer ci
+      - name: Analyse the native lifecycle fixture
+        run: vendor/bin/phpstan analyse --level=max --memory-limit=512M --no-progress tools/dogfood/host-native-no-runner.php
