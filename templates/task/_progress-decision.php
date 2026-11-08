@@ -57,7 +57,7 @@ $csrf = $model['csrf_token'];
             </div>
         <?php endif; ?>
 
-        <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve" style="margin-top:16px">
+        <form class="form" method="post" data-workflow-approval-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve" style="margin-top:16px">
             <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
             <input type="hidden" name="return_to" value="progress">
             <input type="hidden" name="revision" value="<?= (int) $contract->revision ?>">
@@ -67,6 +67,7 @@ $csrf = $model['csrf_token'];
                 <button class="btn btn--primary" type="submit">Approve Contract</button>
                 <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/contract">Revise before approving</a>
             </div>
+            <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
         </form>
     </section>
 <?php elseif ($decisions->actions !== []): ?>
