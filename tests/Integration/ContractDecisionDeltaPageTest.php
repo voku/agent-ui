@@ -54,6 +54,9 @@ final class ContractDecisionDeltaPageTest extends TestCase
         self::assertStringContainsString('Explicitly excluded', $main);
         self::assertStringContainsString('no new dependencies', $main);
         self::assertStringContainsString('A validation plan is not a passed test.', $main);
+        self::assertStringContainsString('Change summary:', $main);
+        self::assertStringContainsString('Changed fields: Scope, Acceptance criteria.', $main);
+        self::assertStringContainsString('approved revision 1.', $main);
         self::assertStringContainsString('href="#decision">Review full terms &amp; decide</a>', $main);
         self::assertStringContainsString('href="/task/APP-1/contract">Inspect Contract &amp; impact</a>', $main);
     }
@@ -83,6 +86,8 @@ final class ContractDecisionDeltaPageTest extends TestCase
 
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
         self::assertStringContainsString('Approve Contract revision 3?', $main);
+        self::assertStringContainsString('draft revision 2.', $main);
+        self::assertStringContainsString('Changed fields: Scope', $main);
         self::assertStringContainsString('The displayed delta may omit earlier', $main);
         self::assertStringContainsString('href="/task/APP-1/history">revision event timeline</a>', $main);
         self::assertStringContainsString('not complete archived Contract contents.', $main);
