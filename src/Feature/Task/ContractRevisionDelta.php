@@ -25,6 +25,7 @@ final readonly class ContractRevisionDelta
         public int $toRevision,
         public ?string $previousApprovedBy,
         public ?string $previousApprovedAt,
+        public bool $previousWasApproved,
         public ?string $previousGoal,
         public array $lists,
     ) {
@@ -42,6 +43,7 @@ final readonly class ContractRevisionDelta
             toRevision: $delta['to_revision'],
             previousApprovedBy: $delta['previous_approved_by'],
             previousApprovedAt: $delta['previous_approved_at'],
+            previousWasApproved: $delta['previous_was_approved'],
             previousGoal: $delta['previous_goal'],
             lists: $delta['lists'],
         );
@@ -66,6 +68,6 @@ final readonly class ContractRevisionDelta
 
     public function previousWasApproved(): bool
     {
-        return $this->previousApprovedBy !== null;
+        return $this->previousWasApproved;
     }
 }

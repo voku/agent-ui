@@ -52,6 +52,32 @@ final class ContractRevisionDeltaTest extends TestCase
         self::assertArrayNotHasKey('Acceptance criteria', $delta->lists);
     }
 
+    public function testLegacyStandingActorIsNotPresentedAsHumanApproval(): void
+    {
+        $this->writeCard('UI-99', 'Legacy pseudo-approval fixture');
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-99', 'Original goal.', ['src/A.php'], [], ['composer ci'], 'planner');
+        $contracts->approve('UI-99', 'maintainer', 1);
+        $contracts->revise('UI-99', 'Wider goal.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
+
+        $history = $contracts->supersededRevisions('UI-99');
+        self::assertCount(1, $history);
+        $raw = file_get_contents($history[0]->path);
+        self::assertIsString($raw);
+        /** @var array<string, mixed> $archived */
+        $archived = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        $archived['approved_by'] = 'standing:legacy-runner';
+        self::assertNotFalse(file_put_contents($history[0]->path, json_encode($archived, JSON_THROW_ON_ERROR)));
+
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-99'))
+            ->body;
+
+        self::assertStringContainsString('Revision 2 compared with draft revision 1', $body);
+        self::assertStringNotContainsString('approved by standing:legacy-runner', $body);
+        self::assertStringContainsString('src/B.php', $body);
+    }
+
     public function testAnUnchangedGoalIsNotReportedAsAChange(): void
     {
         $contracts = new TaskContractStore($this->root);

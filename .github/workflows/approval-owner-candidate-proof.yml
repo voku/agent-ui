@@ -1,0 +1,52 @@
+name: Approval owner candidate integration proof
+
+on:
+  push:
+    branches:
+      - test/ui-approval-owner-evidence-20261108
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-owner-browser-and-quality:
+    name: Pinned Loop owner / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: voku/agent-loop
+          ref: 066f2966e0ad16117aef204f52d39373113e686a
+          path: build/agent-loop-owner
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - name: Install real stable dependency graph
+        run: composer install --no-interaction --prefer-dist
+      - name: Substitute exact owner source in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='066f2966e0ad16117aef204f52d39373113e686a'
+          actual="$(git -C build/agent-loop-owner rev-parse HEAD)"
+          test "$actual" = "$expected"
+          test -d vendor/voku/agent-loop/src
+          rm -rf vendor/voku/agent-loop/src
+          cp -R build/agent-loop-owner/src vendor/voku/agent-loop/src
+          test -f vendor/voku/agent-loop/src/Workflow/WorkflowContractApprovalPresentation.php
+          printf 'Consumer head: %s\nOwner head: %s\n' "$GITHUB_SHA" "$actual"
+      - name: Run unmodified full consumer CI
+        run: composer ci
