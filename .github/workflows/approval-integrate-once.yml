@@ -62,6 +62,7 @@ jobs:
           for old, new in changes.items():
               assert source.count(old) == 1, f'expected one occurrence of {old}'
               source = source.replace(old, new)
+          source = '\n'.join(line.rstrip() for line in source.split('\n'))
           tests.write_text(source)
           PY
           git rm -f .github/workflows/approval-owner-candidate.yml
