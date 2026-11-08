@@ -131,7 +131,7 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-6'))
             ->body;
 
-        self::assertStringContainsString('Revision 2 replaces revision 1', $body);
+        self::assertStringContainsString('Revision 2 compared with approved revision 1', $body);
         self::assertStringContainsString('approved by approver-one', $body);
         self::assertStringContainsString('Original goal.', $body);
         self::assertStringContainsString('src/B.php', $body);
@@ -147,10 +147,10 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-7'))
             ->body;
 
-        self::assertStringNotContainsString('replaces revision', $body);
+        self::assertStringNotContainsString('compared with', $body);
     }
 
-    public function testThePageComparesAgainstTheReplacedRevisionNotTheOriginal(): void
+    public function testThePageComparesAgainstTheLatestApprovedRevision(): void
     {
         // Three revisions. The reader approved revision 2, so the page must
         // describe 3 against 2. Comparing against revision 1 would report a
@@ -166,12 +166,118 @@ final class ContractRevisionDeltaTest extends TestCase
             ->handle(new Request('GET', '/task/UI-8'))
             ->body;
 
-        self::assertStringContainsString('Revision 3 replaces revision 2', $body);
+        self::assertStringContainsString('Revision 3 compared with approved revision 2', $body);
         self::assertStringContainsString('approved by approver-two', $body);
         self::assertStringContainsString('Goal two.', $body);
         self::assertStringNotContainsString('Goal one.', $body);
         // src/B.php arrived in revision 2 and is not part of this decision.
         self::assertStringNotContainsString('+ src/B.php', $body);
+    }
+
+    public function testBrowserComparesCandidateWithLastApprovedRevision(): void
+    {
+        $this->writeCard('UI-9', 'Intermediate candidate');
+        $store = new TaskContractStore($this->root);
+        $store->create('UI-9', 'Goal 1.', ['src/A.php'], [], ['composer ci'], 'planner');
+        $store->approve('UI-9', 'human-one', 1);
+        $store->revise('UI-9', 'Goal 2.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
+        $store->revise(
+            'UI-9',
+            'Goal 3.',
+            ['src/A.php', 'src/B.php', 'src/C.php'],
+            [],
+            ['composer ci'],
+            'planner',
+        );
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-9'))
+            ->body;
+        self::assertStringContainsString('Revision 3 compared with approved revision 1', $body);
+        self::assertStringContainsString('approved by human-one', $body);
+        self::assertStringContainsString('+ src/B.php', $body);
+        self::assertStringContainsString('+ src/C.php', $body);
+    }
+
+    public function testBrowserShowsOperatingPromptOrderChanges(): void
+    {
+        $this->writeCard('UI-10', 'Prompt sequence decision');
+        $store = new TaskContractStore($this->root);
+        $prompts = [
+            ['id' => 'lint', 'arguments' => []],
+            ['id' => 'audit', 'arguments' => []],
+        ];
+        $store->create(
+            'UI-10',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: $prompts,
+        );
+        $store->approve('UI-10', 'original-human', 1);
+        $store->revise(
+            'UI-10',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: [$prompts[1], $prompts[0]],
+        );
+
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-10'))
+            ->body;
+
+        self::assertStringContainsString('Operating prompt order', $body);
+        self::assertStringContainsString('+ audit -&gt; lint', $body);
+        self::assertStringContainsString('lint -&gt; audit', $body);
+    }
+
+    public function testBrowserShowsReorderWhenAnotherPromptIsAdded(): void
+    {
+        $this->writeCard('UI-11', 'Mixed prompt sequence change');
+        $store = new TaskContractStore($this->root);
+        $prompts = [
+            ['id' => 'lint', 'arguments' => []],
+            ['id' => 'audit', 'arguments' => []],
+        ];
+        $store->create(
+            'UI-11',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: $prompts,
+        );
+        $store->approve('UI-11', 'original-human', 1);
+        $store->revise(
+            'UI-11',
+            'Keep prompt intent.',
+            ['src/A.php'],
+            [],
+            ['composer ci'],
+            'planner',
+            operatingPromptManifest: 'prompts/catalog.json',
+            operatingPrompts: [
+                $prompts[1],
+                $prompts[0],
+                ['id' => 'scan', 'arguments' => []],
+            ],
+        );
+
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-11'))
+            ->body;
+
+        self::assertStringContainsString('Operating prompt order', $body);
+        self::assertStringContainsString('+ audit -&gt; lint -&gt; scan', $body);
+        self::assertStringContainsString('lint -&gt; audit', $body);
     }
 
     private function writeCard(string $id, string $title): void

@@ -51,7 +51,7 @@ final readonly class TaskAction
             'workflow' => $workflow,
             'human_decisions' => $humanDecisions,
             'contract' => $contract,
-            'contract_delta' => $this->contractDelta($taskId, $contract),
+            'contract_delta' => $this->contractDelta($taskId, $contract, $workflow->nextAction, $workflow->nextActionKind),
             'runner' => $this->runner->status($taskId),
             'context_explanation' => $this->context->task($taskId),
             'context_coverage' => $transparency->context,
@@ -61,25 +61,23 @@ final readonly class TaskAction
         ]));
     }
 
-    /**
-     * What the current Contract revision changes against the one it replaced.
-     *
-     * Only the immediately preceding revision is compared: that is the one the
-     * reader approved, and the one the current revision is asking them to
-     * change. Earlier revisions are history, not the decision in front of them.
-     */
-    private function contractDelta(string $taskId, ?TaskContract $contract): ?ContractRevisionDelta
-    {
+    /** Contract approval comparison is owned by the current Loop projection. */
+    private function contractDelta(
+        string $taskId,
+        ?TaskContract $contract,
+        string $nextAction,
+        string $nextActionKind,
+    ): ?ContractRevisionDelta {
         if ($contract === null) {
             return null;
         }
 
-        $superseded = $this->decisions->supersededRevisions($taskId);
-        if ($superseded === []) {
+        $presentation = $this->decisions->contractApprovalPresentation($taskId, $nextAction, $nextActionKind);
+        if ($presentation === null || $presentation->previousRevision === null) {
             return null;
         }
 
-        return ContractRevisionDelta::between($superseded[count($superseded) - 1], $contract);
+        return ContractRevisionDelta::fromPresentation($presentation);
     }
 
     public function edit(string $taskId): Response
