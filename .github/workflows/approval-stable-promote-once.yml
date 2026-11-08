@@ -79,9 +79,10 @@ jobs:
         run: |
           composer install --no-interaction --prefer-dist
           composer show voku/agent-loop --format=json | jq -e '.versions | index("0.20.85") != null'
-      - name: Regenerate managed first-party Claude skills from installed owner
+      - name: Regenerate installed package-owned Claude assets without project-local roots
         run: |
-          vendor/bin/agent-loop init sync-skills --agent=claude
+          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config --dry-run
+          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config
           git status --short
       - name: Execute ordinary full Composer CI against released owner
         run: composer ci
