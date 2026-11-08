@@ -87,7 +87,7 @@ final class ContractDecisionDeltaPageTest extends TestCase
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
         self::assertStringContainsString('Approve Contract revision 3?', $main);
         self::assertStringContainsString('draft revision 2.', $main);
-        self::assertStringContainsString('Changed fields: Scope', $main);
+        self::assertStringContainsString('Changed fields: Goal, Scope, Acceptance criteria.', $main);
         self::assertStringContainsString('The displayed delta may omit earlier', $main);
         self::assertStringContainsString('href="/task/APP-1/history">revision event timeline</a>', $main);
         self::assertStringContainsString('not complete archived Contract contents.', $main);
