@@ -23,6 +23,7 @@ final readonly class ContractRevisionDelta
     private function __construct(
         public int $fromRevision,
         public int $toRevision,
+        private bool $previousGenuinelyApproved,
         public ?string $previousApprovedBy,
         public ?string $previousApprovedAt,
         public ?string $previousGoal,
@@ -40,6 +41,7 @@ final readonly class ContractRevisionDelta
         return new self(
             fromRevision: $delta['from_revision'],
             toRevision: $delta['to_revision'],
+            previousGenuinelyApproved: $delta['previous_was_approved'],
             previousApprovedBy: $delta['previous_approved_by'],
             previousApprovedAt: $delta['previous_approved_at'],
             previousGoal: $delta['previous_goal'],
@@ -66,6 +68,6 @@ final readonly class ContractRevisionDelta
 
     public function previousWasApproved(): bool
     {
-        return $this->previousApprovedBy !== null;
+        return $this->previousGenuinelyApproved;
     }
 }
