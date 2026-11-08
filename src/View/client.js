@@ -861,6 +861,48 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         });
     }
 
+    document.addEventListener('agent-ui:workflow-refresh-request', function () {
+        window.clearTimeout(timer);
+        if (inFlight) { schedule(500); }
+        else { poll(); }
+    });
+
+    // One deliberate human click; never infer approval from terminal output.
+    // The existing server route owns CSRF, exact revision checks and the
+    // actual workflow mutation. Progressive enhancement keeps no-JS POSTs.
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-workflow-approval-form') ||
+            typeof FormData !== 'function' || typeof URLSearchParams !== 'function') { return; }
+        event.preventDefault();
+        if (form.dataset.pending === '1') { return; }
+        form.dataset.pending = '1';
+        var button = form.querySelector('button[type="submit"]');
+        var feedback = form.querySelector('[data-workflow-approval-status]');
+        if (button) { button.disabled = true; }
+        if (feedback) { feedback.hidden = false; feedback.textContent = 'Recording this exact revision…'; }
+        window.fetch(form.action, {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(new FormData(form)).toString()
+        }).then(function (response) {
+            var destination = new URL(response.url, window.location.href);
+            if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
+                destination.pathname !== window.location.pathname) {
+                throw new Error('Approval was not confirmed. Reload the current Contract before retrying.');
+            }
+            if (feedback) { feedback.textContent = 'Recorded by agent-loop. Refreshing owner state…'; }
+            document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
+        }).catch(function (error) {
+            if (feedback) { feedback.textContent = error.message || 'Could not record the decision.'; }
+        }).then(function () {
+            delete form.dataset.pending;
+            if (button && form.isConnected) { button.disabled = false; }
+        });
+    });
+
     retry.addEventListener('click', function () {
         window.clearTimeout(timer);
         poll();
