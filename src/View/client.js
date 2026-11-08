@@ -863,39 +863,101 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     poll();
 }());
 
-/* Disconnect the viewer only; the separately managed tmux session remains. */
+/* Local process observation and explicit session controls stay separate from Loop state. */
 (function enhanceLocalTerminal() {
     var panel = document.querySelector('[data-terminal-panel]');
     if (!panel) { return; }
     var frame = panel.querySelector('[data-terminal-frame]');
-    var button = panel.querySelector('[data-terminal-toggle]');
+    var toggle = panel.querySelector('[data-terminal-toggle]');
+    var stop = panel.querySelector('[data-terminal-stop]');
+    var start = panel.querySelector('[data-terminal-start]');
+    var startButton = panel.querySelector('[data-terminal-start-button]');
+    var host = panel.querySelector('[data-terminal-host]');
     var message = panel.querySelector('[data-terminal-message]');
     var state = panel.querySelector('[data-terminal-state]');
-    if (!frame || !button || !message || !state) { return; }
+    if (!frame || !toggle || !stop || !start || !startButton || !host || !message || !state) { return; }
     var terminalUrl = frame.getAttribute('data-terminal-url');
     var connected = true;
-    button.hidden = false;
-    button.addEventListener('click', function () {
-        connected = !connected;
-        frame.src = connected ? terminalUrl : 'about:blank';
-        button.textContent = connected ? 'Disconnect' : 'Reconnect';
-        message.textContent = connected
+    var viewerWanted = true;
+    var csrf = '';
+    var timer;
+    var busy = false;
+    var generation = 0;
+
+    function setViewer(wanted) {
+        viewerWanted = wanted;
+        if (connected !== wanted) { frame.src = wanted ? terminalUrl : 'about:blank'; }
+        connected = wanted;
+        toggle.textContent = wanted ? 'Disconnect' : 'Reconnect';
+        message.textContent = wanted
             ? 'Connection status appears in the terminal. Disconnecting leaves the session running.'
             : 'Viewer disconnected. The tmux session was not stopped.';
-    });
+    }
+    toggle.addEventListener('click', function () { setViewer(!viewerWanted); });
     if (typeof window.fetch !== 'function') { return; }
     state.textContent = 'Checking local session…';
     function refreshSession() {
+        window.clearTimeout(timer);
+        var requestGeneration = ++generation;
         window.fetch('/_local/session', { credentials: 'same-origin', cache: 'no-store' })
             .then(function (response) { if (!response.ok) { throw new Error('Unavailable'); } return response.json(); })
             .then(function (snapshot) {
-                state.textContent = snapshot.state === 'session_running' ? 'tmux session running'
-                    : snapshot.state === 'session_not_found' ? 'tmux session not found'
-                    : 'Local session status unavailable';
+                if (requestGeneration !== generation) { return; }
+                csrf = snapshot.csrf;
+                var running = snapshot.state === 'session_running';
+                var missing = snapshot.state === 'session_not_found';
+                var available = snapshot.terminal_available === true;
+                state.textContent = running ? 'tmux session running (' + snapshot.host + ')'
+                    : missing ? 'tmux session not found' : 'Local session status unavailable';
+                if (!available) { state.textContent += ' · terminal transport unavailable'; }
+                toggle.hidden = !running || !available;
+                stop.hidden = !running;
+                start.hidden = !missing;
+                frame.hidden = !running || !available;
+                if (!running || !available) {
+                    if (connected) { frame.src = 'about:blank'; connected = false; }
+                } else if (viewerWanted && !connected) {
+                    setViewer(true);
+                }
+                Array.prototype.forEach.call(host.options, function (option) {
+                    option.disabled = !snapshot.hosts || snapshot.hosts[option.value] !== true;
+                });
+                if (host.selectedOptions.length && host.selectedOptions[0].disabled) {
+                    var first = Array.prototype.find.call(host.options, function (option) { return !option.disabled; });
+                    if (first) { host.value = first.value; }
+                }
+                startButton.disabled = busy || !available || !host.selectedOptions.length || host.selectedOptions[0].disabled;
+                stop.disabled = busy;
             })
-            .catch(function () { state.textContent = 'Local session status unavailable'; })
-            .then(function () { window.setTimeout(refreshSession, document.hidden ? 30000 : 5000); });
+            .catch(function () {
+                if (requestGeneration === generation) { state.textContent = 'Local session status unavailable'; start.hidden = true; stop.hidden = true; }
+            })
+            .then(function () { if (requestGeneration === generation) { timer = window.setTimeout(refreshSession, document.hidden ? 30000 : 5000); } });
     }
+    function action(name, payload) {
+        if (busy || !csrf) { return; }
+        busy = true;
+        generation++;
+        window.clearTimeout(timer);
+        startButton.disabled = true;
+        stop.disabled = true;
+        message.textContent = name === 'start' ? 'Starting the selected coding host…' : 'Stopping the local session…';
+        window.fetch('/_local/session/' + name, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
+            body: JSON.stringify(payload)
+        }).then(function (response) {
+            if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            if (name === 'start') { viewerWanted = true; }
+            message.textContent = name === 'start' ? 'Session started.' : 'Session stopped. The governed task was not closed.';
+        }).catch(function (error) {
+            message.textContent = error.message || 'The local session action failed.';
+        }).then(function () { busy = false; refreshSession(); });
+    }
+    startButton.addEventListener('click', function () { action('start', { host: host.value }); });
+    stop.addEventListener('click', function () {
+        if (window.confirm('Stop this coding-host session? This can interrupt its work and does not close the task.')) { action('stop', {}); }
+    });
     refreshSession();
 }());
 

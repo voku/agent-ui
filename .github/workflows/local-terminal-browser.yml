@@ -35,4 +35,6 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium
       - name: Exercise authenticated terminal and session recovery
-        run: node tools/terminal/terminal-browser-check.cjs
+        run: |
+          node tools/terminal/terminal-browser-check.cjs
+          COCKPIT_TEST_BROWSER_START=1 node tools/terminal/terminal-browser-check.cjs

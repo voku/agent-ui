@@ -16,9 +16,11 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-ui-cockpit-check-'));
 const project = path.join(temp, 'project');
 const fakeBin = path.join(temp, 'bin');
 const pidFile = path.join(temp, 'fake-host.pid');
+const startsFile = path.join(temp, 'fake-host-starts');
 fs.mkdirSync(fakeBin);
 const quotedPidFile = "'" + pidFile.replace(/'/g, "'\\''") + "'";
-fs.writeFileSync(path.join(fakeBin, 'codex'), '#!/bin/sh\nprintf "%s" "$$" > ' + quotedPidFile + '\nprintf "FAKE HOST READY\\n"\nwhile IFS= read -r line; do printf "received: %s\\n" "$line"; done\n', { mode: 0o755 });
+const quotedStartsFile = "'" + startsFile.replace(/'/g, "'\\''") + "'";
+fs.writeFileSync(path.join(fakeBin, 'codex'), '#!/bin/sh\nprintf "%s" "$$" > ' + quotedPidFile + '\nprintf "%s\\n" "$$" >> ' + quotedStartsFile + '\nprintf "FAKE HOST READY\\n"\nwhile IFS= read -r line; do printf "received: %s\\n" "$line"; done\n', { mode: 0o755 });
 const env = { ...process.env, PATH: fakeBin + path.delimiter + process.env.PATH };
 let server, browser, session;
 function command(executable, args) {
@@ -77,7 +79,8 @@ async function run() {
     const origin = `http://127.0.0.1:${port}`;
     const script = path.join(__dirname, 'local-cockpit.cjs');
     const baseArgs = [script, `--root=${project}`, '--task=UI-36'];
-    server = spawn(process.execPath, [...baseArgs, '--start=codex', `--port=${port}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const browserStart = process.env.COCKPIT_TEST_BROWSER_START === '1';
+    server = spawn(process.execPath, [...baseArgs, browserStart ? '--serve' : '--start=codex', `--port=${port}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '', errors = '';
     server.stdout.on('data', (chunk) => { output += chunk; });
     server.stderr.on('data', (chunk) => { errors += chunk; });
@@ -87,15 +90,16 @@ async function run() {
     }, 'transport startup');
     const accessUrl = output.match(/http:\/\/\S+/)[0];
     session = output.match(/tmux session ([^;]+)/)[1];
-    await until(() => fs.existsSync(pidFile), 'fake host startup');
-    const initialPid = fs.readFileSync(pidFile, 'utf8');
+    if (!browserStart) await until(() => fs.existsSync(pidFile), 'fake host startup');
+    else assert.equal(fs.existsSync(pidFile), false, 'opening the cockpit does not start a host');
+    let initialPid = browserStart ? null : fs.readFileSync(pidFile, 'utf8');
 
     assert.equal((await request(port, '/task/UI-36/progress')).status, 401);
     assert.equal((await request(port, '/_local/access', { Host: `attacker.example:${port}` })).status, 403);
     assert.equal((await request(port, '/_local/login', { Origin: 'https://attacker.example', 'Content-Type': 'application/json' }, 'POST', '{}')).status, 403);
     const duplicate = command(process.execPath, [...baseArgs, '--start=codex', `--port=${await freePort()}`]);
     assert.notEqual(duplicate.status, 0);
-    assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid);
+    if (initialPid) assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid);
 
     browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
     const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
@@ -104,10 +108,34 @@ async function run() {
     await page.waitForURL('**/task/UI-36/progress');
     const cookies = await context.cookies(origin);
     const cookie = cookies.map((entry) => `${entry.name}=${entry.value}`).join('; ');
-    const terminalUrl = new URL(await page.locator('[data-terminal-frame]').getAttribute('src'));
+    const terminalUrl = new URL(await page.locator('[data-terminal-frame]').getAttribute('data-terminal-url'));
     const terminalPort = Number(terminalUrl.port);
     assert.notEqual(terminalPort, port, 'terminal has a separate browser origin');
-    assert.equal((await request(port, '/_local/session', { Cookie: cookie })).status, 200);
+    const sessionResponse = await request(port, '/_local/session', { Cookie: cookie });
+    assert.equal(sessionResponse.status, 200);
+    const csrf = JSON.parse(sessionResponse.body).csrf;
+    const actionHeaders = { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf };
+    assert.equal((await request(port, '/_local/session/start', { ...actionHeaders, 'X-Agent-Ui-Csrf': 'wrong' }, 'POST', '{"host":"codex"}')).status, 403);
+    assert.equal((await request(port, '/_local/session/start', { ...actionHeaders, Origin: 'https://attacker.example' }, 'POST', '{"host":"codex"}')).status, 403);
+    assert.equal((await request(port, '/_local/session/start', actionHeaders, 'POST', '{"host":"sh"}')).status, 400);
+    assert.equal((await request(port, '/_local/session/stop', { ...actionHeaders, 'X-Agent-Ui-Csrf': 'wrong' }, 'POST', '{}')).status, 403);
+    assert.equal((await request(port, '/_local/session/stop', { ...actionHeaders, Origin: 'https://attacker.example' }, 'POST', '{}')).status, 403);
+    if (browserStart) {
+        assert.equal(fs.existsSync(pidFile), false, 'rejected requests do not start a host');
+        const attempts = await Promise.all([
+            page.locator('[data-terminal-start-button]').click(),
+            request(port, '/_local/session/start', actionHeaders, 'POST', '{"host":"codex"}'),
+            request(port, '/_local/session/start', actionHeaders, 'POST', '{"host":"codex"}'),
+        ]);
+        assert.deepEqual(attempts.slice(1).map((item) => item.status), [200, 200]);
+        await until(() => fs.existsSync(startsFile), 'browser host startup');
+        initialPid = fs.readFileSync(pidFile, 'utf8');
+        assert.equal(fs.readFileSync(startsFile, 'utf8').trim().split('\n').length, 1, 'concurrent starts launch one process');
+        assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid, 'concurrent starts reuse the host');
+    }
+    const cliStatus = command(process.execPath, [...baseArgs, '--status', '--format=json']);
+    check(cliStatus, 'CLI status');
+    assert.deepEqual(JSON.parse(cliStatus.stdout), { state: 'session_running', host: 'codex' });
     assert.equal((await request(port, '/_local/session', { Cookie: cookie, Origin: 'https://attacker.example' })).status, 403);
     assert.equal((await request(port, '/_local/session', { Cookie: cookie, Origin: terminalUrl.origin })).status, 403);
     assert.equal((await request(port, '/_terminal/', { Cookie: cookie })).status, 404);
@@ -155,12 +183,33 @@ async function run() {
     const mobileWidth = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
     assert.ok(mobileWidth.scroll <= mobileWidth.client + 1, 'mobile cockpit does not overflow horizontally');
 
-    check(command('tmux', ['-L', 'agent-ui', 'kill-session', '-t', '=' + session]), 'Stop fake session');
+    if (browserStart) {
+        page.once('dialog', (dialog) => dialog.accept());
+        await page.locator('[data-terminal-stop]').click();
+    } else {
+        check(command(process.execPath, [...baseArgs, '--stop']), 'CLI stop');
+    }
     await until(async () => JSON.parse((await request(port, '/_local/session', { Cookie: cookie })).body).state === 'session_not_found', 'session exit');
     await stopServer();
     const attach = command(process.execPath, [...baseArgs, '--attach', `--port=${await freePort()}`]);
     assert.notEqual(attach.status, 0, 'attach does not restart an exited host');
     assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid);
+    if (browserStart) {
+        // A failed terminal transport must not take the workflow UI down.
+        fs.writeFileSync(path.join(fakeBin, 'ttyd'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+        const unavailablePort = await freePort();
+        server = spawn(process.execPath, [...baseArgs, '--serve', `--port=${unavailablePort}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        let unavailableOutput = '';
+        server.stdout.on('data', (chunk) => { unavailableOutput += chunk; });
+        await until(() => unavailableOutput.includes('Terminal transport unavailable'), 'unavailable terminal');
+        await page.goto(unavailableOutput.match(/http:\/\/\S+/)[0]);
+        await page.waitForURL('**/task/UI-36/progress');
+        await page.locator('[data-terminal-state]').getByText('terminal transport unavailable').waitFor();
+        assert.equal(await page.locator('[data-terminal-start-button]').isDisabled(), true);
+        assert.equal((await page.request.get(`http://127.0.0.1:${unavailablePort}/task/UI-36/progress.json`)).status(), 200);
+        assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid);
+        await stopServer();
+    }
     console.log('Terminal browser, reconnect, task binding, origin, authentication and single-viewer checks passed.');
 }
 run().catch((error) => { console.error(error.message); process.exitCode = 1; }).finally(async () => {

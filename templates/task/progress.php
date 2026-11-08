@@ -145,10 +145,21 @@ require __DIR__ . '/../layout/header.php';
 <aside class="workflow-cockpit__terminal panel" aria-label="Local terminal session" data-terminal-panel>
     <div class="action__head">
         <strong>Local terminal session</strong>
-        <button type="button" class="btn btn--small" data-terminal-toggle hidden>Disconnect</button>
+        <div>
+            <button type="button" class="btn btn--small" data-terminal-toggle hidden>Disconnect</button>
+            <button type="button" class="btn btn--small" data-terminal-stop hidden>Stop session</button>
+        </div>
     </div>
     <p class="note">The terminal shows a local coding-host session. Its activity does not establish workflow progress or verification.</p>
     <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
+    <div data-terminal-start hidden>
+        <label for="terminal-host">Coding host</label>
+        <select id="terminal-host" data-terminal-host>
+            <option value="codex">Codex</option>
+            <option value="claude">Claude Code</option>
+        </select>
+        <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
+    </div>
     <iframe title="Local coding-agent terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
     <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
 </aside>

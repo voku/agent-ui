@@ -9,17 +9,19 @@ const http = require('node:http');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
-const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--start=codex|claude | --attach) [--port=8090]';
+const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
 const fail = (message) => { console.error(message); process.exit(1); };
 const options = {};
 for (const argument of process.argv.slice(2)) {
-    if (argument === '--attach' && !options.attach) { options.attach = true; continue; }
-    const match = /^--(root|task|start|port)=(.+)$/.exec(argument);
+    if (['--attach', '--serve', '--status', '--stop'].includes(argument) && !options[argument.slice(2)]) { options[argument.slice(2)] = true; continue; }
+    const match = /^--(root|task|start|port|format)=(.+)$/.exec(argument);
     if (!match || Object.hasOwn(options, match[1])) fail(usage);
     options[match[1]] = match[2];
 }
 if (!options.root || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(options.task || '') ||
-    Boolean(options.attach) === Boolean(options.start) || (options.start && !['codex', 'claude'].includes(options.start))) fail(usage);
+    [options.attach, options.start, options.serve, options.status, options.stop].filter(Boolean).length !== 1 ||
+    (options.start && !['codex', 'claude'].includes(options.start))) fail(usage);
+if (options.format && (!options.status || !['text', 'json'].includes(options.format))) fail(usage);
 const port = Number(options.port || 8090);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) fail('Port must be between 1024 and 65535.');
 let root;
@@ -31,7 +33,8 @@ try {
 const packageRoot = path.resolve(__dirname, '../..');
 const autoloadCandidates = [path.join(packageRoot, 'vendor/autoload.php'), path.resolve(packageRoot, '../../autoload.php')];
 const autoload = autoloadCandidates.find((candidate) => fs.existsSync(candidate));
-if (!autoload) fail('Composer autoload was not found; install agent-ui dependencies first.');
+const commandOnly = Boolean(options.status || options.stop);
+if (!commandOnly && !autoload) fail('Composer autoload was not found; install agent-ui dependencies first.');
 
 // A lock prevents two local transports for the same project/task. A lock left by
 // an unclean exit is deliberately not removed automatically; see the README.
@@ -39,11 +42,16 @@ const lockId = crypto.createHash('sha256').update(root + '\0' + options.task).di
 const session = 'agent-ui-' + lockId;
 if (typeof process.getuid !== 'function') fail('The experimental terminal requires a local POSIX system.');
 const lockDir = path.join(fs.realpathSync('/tmp'), `agent-ui-terminal-${process.getuid()}-${lockId}`);
-try { fs.mkdirSync(lockDir, { mode: 0o700 }); } catch (_) { fail(`A terminal transport is active or its lock needs cleanup: ${lockDir}`); }
-fs.writeFileSync(path.join(lockDir, 'pid'), String(process.pid), { mode: 0o600, flag: 'wx' });
+let ownsLock = false;
+if (!commandOnly) {
+    try { fs.mkdirSync(lockDir, { mode: 0o700 }); } catch (_) { fail(`A terminal transport is active or its lock needs cleanup: ${lockDir}`); }
+    ownsLock = true;
+    fs.writeFileSync(path.join(lockDir, 'pid'), String(process.pid), { mode: 0o600, flag: 'wx' });
+}
 const socketPath = path.join(lockDir, 'ttyd.sock');
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
+const csrfToken = crypto.randomBytes(32).toString('base64url');
 const cookieName = 'agent_ui_terminal_' + crypto.randomBytes(8).toString('hex');
 const expectedHost = '127.0.0.1:' + port;
 const expectedOrigin = 'http://' + expectedHost;
@@ -52,6 +60,7 @@ let server;
 let terminalServer;
 let terminalHost;
 let terminalOrigin;
+let terminalAvailable = false;
 let quitting = false;
 const upgradedSockets = new Set();
 let pendingSocket = null;
@@ -67,7 +76,9 @@ async function cleanup(exitCode) {
     await Promise.race([Promise.all(stopped), new Promise((resolve) => setTimeout(resolve, 2000))]);
     for (const item of running) if (item.exitCode === null && item.signalCode === null) item.kill('SIGKILL');
     await Promise.race([Promise.all(stopped), new Promise((resolve) => setTimeout(resolve, 2000))]);
-    if (running.every((item) => item.exitCode !== null || item.signalCode !== null)) {
+    if (!ownsLock) {
+        process.exit(exitCode);
+    } else if (running.every((item) => item.exitCode !== null || item.signalCode !== null)) {
         try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch (_) { /* report on next start */ }
     } else {
         console.error(`A transport process did not exit; its lock was retained: ${lockDir}`);
@@ -76,12 +87,19 @@ async function cleanup(exitCode) {
 }
 process.on('SIGINT', () => cleanup(0));
 process.on('SIGTERM', () => cleanup(0));
-function child(command, args, env, onStderr) {
+function child(command, args, env, onStderr, onFailure) {
     const processChild = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'], env });
     children.push(processChild);
     processChild.stderr.on('data', (data) => { if (onStderr) onStderr(data.toString()); });
-    processChild.on('error', () => { console.error(`${command} could not start.`); cleanup(1); });
-    processChild.on('exit', () => { if (!quitting) { console.error(`${command} exited; the tmux session was left running.`); cleanup(1); } });
+    processChild.on('error', () => {
+        if (onFailure) onFailure();
+        else { console.error(`${command} could not start.`); cleanup(1); }
+    });
+    processChild.on('exit', () => {
+        if (quitting) return;
+        if (onFailure) onFailure();
+        else { console.error(`${command} exited; the tmux session was left running.`); cleanup(1); }
+    });
     return processChild;
 }
 function equal(a, b) {
@@ -105,6 +123,10 @@ function permitted(req, terminal = false) {
 function deny(res, code, message) {
     res.writeHead(code, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(message);
+}
+function json(res, code, value) {
+    res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    res.end(JSON.stringify(value));
 }
 const loginScript = `const token=location.hash.slice(1);history.replaceState(null,'',location.pathname);fetch('/_local/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>{if(!r.ok)throw Error();location.replace(${JSON.stringify('/task/' + encodeURIComponent(options.task) + '/progress')})}).catch(()=>{document.body.textContent='Access denied. Start a new local cockpit.'});`;
 const loginHash = crypto.createHash('sha256').update(loginScript).digest('base64');
@@ -132,14 +154,33 @@ function requestHandler(req, res) {
     }
     if (!authenticated(req)) return deny(res, 401, 'Open the access URL printed by the local cockpit.');
     if (req.method === 'GET' && req.url === '/_local/session') {
-        let state = 'unavailable';
-        try {
-            const result = tmuxCommand(['has-session', '-t', '=' + session]);
-            if (result.status === 0) state = 'session_running';
-            else if (result.status === 1) state = 'session_not_found';
-        } catch (_) { /* explicitly unavailable */ }
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-        return res.end(JSON.stringify({ state }));
+        const state = inspectSession();
+        return json(res, 200, { ...state, terminal_available: terminalAvailable, hosts: hostAvailability(), csrf: csrfToken });
+    }
+    if (req.method === 'POST' && ['/_local/session/start', '/_local/session/stop'].includes(req.url)) {
+        if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
+            !equal(req.headers['x-agent-ui-csrf'], csrfToken)) return deny(res, 403, 'Origin and CSRF token required.');
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; if (body.length > 256) req.destroy(); });
+        return req.on('end', async () => {
+            let value;
+            try { value = JSON.parse(body); } catch (_) { return deny(res, 400, 'Invalid request.'); }
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return deny(res, 400, 'Invalid request.');
+            try {
+                if (req.url === '/_local/session/start') {
+                    if (!['codex', 'claude'].includes(value.host)) return deny(res, 400, 'Unsupported coding host.');
+                    if (!terminalAvailable) return deny(res, 503, 'The terminal transport is unavailable.');
+                    const taskStatus = await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`);
+                    if (taskStatus !== 200) return deny(res, 409, 'The task is unavailable in the selected project.');
+                    const host = ensureSession(value.host, true);
+                    return json(res, 200, { state: 'session_running', host });
+                }
+                stopSession();
+                return json(res, 200, { state: 'session_not_found' });
+            } catch (error) {
+                return deny(res, 409, error.message || 'The session action failed.');
+            }
+        });
     }
     if (/^\/_terminal(?:\/|\?|$)/.test(req.url)) return deny(res, 404, 'Not found.');
     proxy(req, res, false);
@@ -233,33 +274,83 @@ function hostExecutable(name) {
     }
     throw new Error(`The ${name} executable is not available on PATH.`);
 }
-function ensureSession() {
+function hostAvailability() {
+    const availability = {};
+    for (const name of ['codex', 'claude']) {
+        try { hostExecutable(name); availability[name] = true; } catch (_) { availability[name] = false; }
+    }
+    return availability;
+}
+function inspectSession() {
     const target = '=' + session;
-    const exists = tmuxCommand(['has-session', '-t', target]).status === 0;
-    if (!exists) {
-        if (!options.start) throw new Error('The task has no running terminal session; use --start to start a host.');
-        const executable = hostExecutable(options.start);
-        // tmux executes multiple command arguments directly. The shell program is
-        // constant; the resolved executable is supplied as an argument, not code.
-        const created = tmuxCommand(['new-session', '-d', '-s', session, '-c', root, 'sh', '-c', 'exec "$0"', executable]);
-        if (created.status !== 0) throw new Error('The coding-host session could not be started.');
-        const marked = tmuxCommand(['set-option', '-t', target + ':', '@agent-ui-host', options.start]);
-        if (marked.status !== 0) {
-            tmuxCommand(['kill-session', '-t', target]);
-            throw new Error('The coding host exited before its session could be recorded.');
+    try {
+        const result = tmuxCommand(['has-session', '-t', target]);
+        if (result.status === 1) return { state: 'session_not_found', host: null };
+        if (result.status !== 0) return { state: 'unavailable', host: null };
+        const location = tmuxCommand(['display-message', '-p', '-t', target + ':', '#{session_path}']);
+        const identity = tmuxCommand(['show-options', '-v', '-t', target + ':', '@agent-ui-host']);
+        const host = identity.stdout.trim();
+        if (location.status !== 0 || fs.realpathSync(location.stdout.trim()) !== root ||
+            identity.status !== 0 || !['codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
+        return { state: 'session_running', host };
+    } catch (_) { return { state: 'unavailable', host: null }; }
+}
+function withSessionLock(operation) {
+    const operationDir = lockDir + '-operation';
+    try { fs.mkdirSync(operationDir, { mode: 0o700 }); }
+    catch (_) { throw new Error('A task session action is already running; retry shortly.'); }
+    try {
+        fs.writeFileSync(path.join(operationDir, 'pid'), String(process.pid), { mode: 0o600, flag: 'wx' });
+        return operation();
+    } finally {
+        fs.rmSync(operationDir, { recursive: true, force: true });
+    }
+}
+function ensureSession(requestedHost, create) {
+    return withSessionLock(() => {
+        const target = '=' + session;
+        let state = inspectSession();
+        if (state.state === 'session_not_found') {
+            if (!create) throw new Error('The task has no running terminal session; start a host explicitly.');
+            if (!['codex', 'claude'].includes(requestedHost)) throw new Error('Unsupported coding host.');
+            const executable = hostExecutable(requestedHost);
+            // tmux executes multiple command arguments directly. The shell program is
+            // constant; the resolved executable is supplied as an argument, not code.
+            const created = tmuxCommand(['new-session', '-d', '-s', session, '-c', root, 'sh', '-c', 'exec "$0"', executable]);
+            if (created.status !== 0) throw new Error('The coding-host session could not be started.');
+            const marked = tmuxCommand(['set-option', '-t', target + ':', '@agent-ui-host', requestedHost]);
+            if (marked.status !== 0) {
+                tmuxCommand(['kill-session', '-t', target]);
+                throw new Error('The coding host exited before its session could be recorded.');
+            }
+            state = inspectSession();
         }
-    }
-    const location = tmuxCommand(['display-message', '-p', '-t', target + ':', '#{session_path}']);
-    const identity = tmuxCommand(['show-options', '-v', '-t', target + ':', '@agent-ui-host']);
-    let sameRoot = false;
-    try { sameRoot = location.status === 0 && fs.realpathSync(location.stdout.trim()) === root; } catch (_) { /* invalid root */ }
-    const host = identity.stdout.trim();
-    if (!sameRoot || identity.status !== 0 || !['codex', 'claude'].includes(host) || (options.start && options.start !== host)) {
-        throw new Error('The existing session does not match this project, task, and host.');
-    }
-    return host;
+        if (state.state !== 'session_running' || (requestedHost && requestedHost !== state.host)) {
+            throw new Error('The existing session does not match this project, task, and host.');
+        }
+        return state.host;
+    });
+}
+function stopSession() {
+    return withSessionLock(() => {
+        const state = inspectSession();
+        if (state.state !== 'session_running') throw new Error('The task session is not available to stop.');
+        if (tmuxCommand(['kill-session', '-t', '=' + session]).status !== 0) throw new Error('The task session could not be stopped.');
+    });
 }
 async function main() {
+    if (options.status) {
+        const status = inspectSession();
+        if (options.format === 'json') console.log(JSON.stringify(status));
+        else console.log(`Session: ${status.state}${status.host ? ` (${status.host})` : ''}`);
+        if (status.state === 'unavailable') process.exitCode = 2;
+        return;
+    }
+    if (options.stop) {
+        stopSession();
+        console.log('The coding-host session was stopped. The governed task was not closed.');
+        return;
+    }
     // The UI and terminal use distinct loopback origins. Cookies are scoped to
     // the same local host, but browser same-origin rules isolate their scripts.
     server = http.createServer(requestHandler);
@@ -285,14 +376,25 @@ async function main() {
         });
     });
     await waitFor(async () => (await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`)) === 200, 'The task is unavailable in the selected project.');
-    const host = ensureSession();
+    const initialState = inspectSession();
+    const host = options.serve
+        ? (initialState.state === 'session_running' ? initialState.host : null)
+        : ensureSession(options.start || null, Boolean(options.start));
     const terminalEnv = { ...process.env, TMUX: '' };
     delete terminalEnv.TMUX_TMPDIR;
-    child('ttyd', ['-i', socketPath, '-b', '/_terminal', '-W', '-O', '-m', '1', 'tmux', '-L', 'agent-ui', 'attach-session', '-t', '=' + session], terminalEnv);
-    await waitFor(async () => { try { return fs.statSync(socketPath).isSocket(); } catch (_) { return false; } }, 'ttyd did not create its local socket.');
+    let terminalExited = false;
+    child('ttyd', ['-i', socketPath, '-b', '/_terminal', '-W', '-O', '-m', '1', 'tmux', '-L', 'agent-ui', 'attach-session', '-t', '=' + session], terminalEnv, null, () => {
+        terminalExited = true;
+        terminalAvailable = false;
+    });
+    for (let attempt = 0; attempt < 50 && !terminalExited; attempt++) {
+        try { if (fs.statSync(socketPath).isSocket()) { terminalAvailable = true; break; } } catch (_) { /* waiting */ }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     console.log(`Open http://${expectedHost}/_local/access#${accessToken}`);
-    console.log(`Task ${options.task}; host ${host}; tmux session ${session}; project ${root}`);
+    console.log(`Task ${options.task}; host ${host || 'not started'}; tmux session ${session}; project ${root}`);
     console.log(`Normal terminal: env -u TMUX -u TMUX_TMPDIR tmux -L agent-ui attach-session -t =${session}`);
+    if (!terminalAvailable) console.log('Terminal transport unavailable; workflow navigation remains available.');
     console.log('Stopping this transport disconnects the browser and leaves the tmux session running.');
 }
 main().catch((error) => { console.error(error.message); cleanup(1); });
