@@ -84,8 +84,9 @@ final class ContractDecisionDeltaPageTest extends TestCase
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
         self::assertStringContainsString('Approve Contract revision 3?', $main);
         self::assertStringContainsString('The displayed delta may omit earlier', $main);
-        self::assertStringContainsString('href="/task/APP-1/history">full revision history</a>', $main);
-        self::assertStringContainsString('A complete owner-backed cumulative comparison is not yet available here.', $main);
+        self::assertStringContainsString('href="/task/APP-1/history">revision event timeline</a>', $main);
+        self::assertStringContainsString('not complete archived Contract contents.', $main);
+        self::assertStringContainsString('a complete cumulative comparison is not yet available here.', $main);
     }
 
     public function testTwoRevisionBriefingDoesNotShowMultiRevisionWarning(): void
