@@ -24,6 +24,9 @@ jobs:
         run: |
           git config user.name 'Approval integration CI'
           git config user.email 'approval-integration@users.noreply.github.com'
+          git fetch origin 8f5bf9bf76b29c82ae9756565b7ae118f6b12d6f
+          test "$(git rev-parse FETCH_HEAD)" = "8f5bf9bf76b29c82ae9756565b7ae118f6b12d6f"
+          git merge --no-ff --no-edit FETCH_HEAD
           git fetch origin efa8ac3f95597394453f29079dd0bde5d18345ca
           test "$(git rev-parse FETCH_HEAD)" = "efa8ac3f95597394453f29079dd0bde5d18345ca"
           if ! git merge --no-commit --no-ff FETCH_HEAD; then
