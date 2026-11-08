@@ -21,6 +21,12 @@ $csrf = $model['csrf_token'];
             <span class="small faint">planned by <?= TemplateRenderer::escape($contract->plannedBy) ?></span>
         </div>
 
+        <div class="workflow-brief__next" style="margin-top:12px">
+            <strong>What this decision means</strong>
+            <p class="small" style="margin:5px 0 0">Approving gives the coding agent authority to work only within this exact Contract revision and its listed scope. Validation, evidence, review and closeout remain separate gates. Nothing here claims that the work or tests are done.</p>
+            <p class="small" style="margin:5px 0 0">To change the goal, allowed paths or acceptance criteria, revise the Contract instead of approving it. The agent must then follow the next owner-projected action.</p>
+        </div>
+
         <p style="margin:14px 0 8px"><strong>Goal:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
         <div class="grid" style="font-size:12px;margin:8px 0">
             <div>
