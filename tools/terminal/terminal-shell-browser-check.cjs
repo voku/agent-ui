@@ -111,7 +111,10 @@ async function run() {
     await until(() => pane('GENERIC_CLI_TASK=UI-36'), 'arbitrary CLI inside shell');
 
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaLj/HwAEwgJ/1iyXeQAAAABJRU5ErkJggg==', 'base64');
-    const csrf = await page.evaluate(async () => (await (await fetch('/_local/session')).json()).csrf);
+    const initialSession = await page.evaluate(async () => (await (await fetch('/_local/session')).json()));
+    const csrf = initialSession.csrf;
+    const originalSessionToken = initialSession.session_token;
+    assert.equal(typeof originalSessionToken, 'string');
     const noCsrf = await page.evaluate(async (bytes) => (await fetch('/_local/attachment', {
         method: 'POST', headers: { 'Content-Type': 'image/png', 'X-Agent-Ui-Csrf': 'wrong' },
         body: Uint8Array.from(bytes),
@@ -192,6 +195,12 @@ async function run() {
     assert.equal(fs.existsSync(clipboardPath), false, 'stopping the task cleans pasted clipboard image');
     await page.locator('[data-terminal-start-button]').click();
     await until(() => tmux(['has-session', '-t', '=' + session]).status === 0 && pid() !== originalPid, 'new task session');
+    const staleStop = await page.evaluate(async ({ token, sessionToken }) => (await fetch('/_local/session/stop', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': token },
+        body: JSON.stringify({ session_token: sessionToken }),
+    })).status, { token: csrf, sessionToken: originalSessionToken });
+    assert.equal(staleStop, 409, 'a stale stop cannot terminate the replacement session');
+    assert.equal(tmux(['has-session', '-t', '=' + session]).status, 0);
     pending.end(png.subarray(8));
     assert.equal(await pendingStatus, 409, 'an upload cannot target a replacement session');
     assert.equal(pane('agent-ui-attachments-'), false, 'stale upload does not type into the new process');
@@ -261,6 +270,17 @@ async function run() {
     assert.equal(finalUpload.status, 201);
     assert.equal(tmux(['kill-session', '-t', '=' + session]).status, 0);
     await page.locator('[data-terminal-stop]').getByText('Clean up task images').waitFor({ timeout: 15000 });
+    const restarted = await page.evaluate(async (token) => (await fetch('/_local/session/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': token }, body: JSON.stringify({ host: 'shell' }),
+    })).status, csrf);
+    assert.equal(restarted, 200);
+    const staleCleanup = await page.evaluate(async (token) => (await fetch('/_local/session/stop', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': token }, body: JSON.stringify({ cleanup_only: true }),
+    })).status, csrf);
+    assert.equal(staleCleanup, 409, 'cleanup cannot stop a newly started session');
+    assert.equal(tmux(['has-session', '-t', '=' + session]).status, 0);
+    assert.ok(fs.existsSync(finalUpload.body.path), 'rejected cleanup keeps the image');
+    assert.equal(tmux(['kill-session', '-t', '=' + session]).status, 0);
     page.once('dialog', (dialog) => dialog.accept());
     await page.locator('[data-terminal-stop]').click();
     await until(() => !fs.existsSync(finalUpload.body.path), 'browser image cleanup after host exit');

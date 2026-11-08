@@ -198,7 +198,13 @@ function requestHandler(req, res) {
     }
     if (!authenticated(req)) return deny(res, 401, 'Open the access URL printed by the local cockpit.');
     if (req.method === 'GET' && req.url === '/_local/session') {
-        const state = inspectSession();
+        let state;
+        try {
+            state = withSessionLock(() => {
+                const current = inspectSession();
+                return { ...current, session_token: current.state === 'session_running' ? sessionBinding().token : null };
+            });
+        } catch (_) { state = { state: 'unavailable', host: null, session_token: null }; }
         return json(res, 200, { ...state, terminal_available: terminalAvailable, hosts: hostAvailability(), attachments: attachmentStatus(), csrf: csrfToken });
     }
     if (req.method === 'POST' && ['/_local/session/start', '/_local/session/stop'].includes(req.url)) {
@@ -220,7 +226,9 @@ function requestHandler(req, res) {
                     const host = ensureSession(requestedHost, true);
                     return json(res, 200, { state: 'session_running', host });
                 }
-                const result = stopSession();
+                const cleanupOnly = value.cleanup_only === true;
+                if (!cleanupOnly && typeof value.session_token !== 'string') return deny(res, 400, 'Session identity is required.');
+                const result = stopSession(cleanupOnly ? null : value.session_token, cleanupOnly);
                 return json(res, 200, { state: 'session_not_found', ...result });
             } catch (error) {
                 return deny(res, 409, error.message || 'The session action failed.');
@@ -430,6 +438,14 @@ function sessionTarget() {
     if (result.status !== 0 || !parts) throw new Error('The task session is unavailable.');
     return { identity, pane: parts[3] };
 }
+function sessionBinding() {
+    if (inspectSession().state !== 'session_running') throw new Error('The task session is unavailable.');
+    const result = tmuxCommand(['display-message', '-p', '-t', '=' + session + ':', '#{pid}:#{session_id}']);
+    const identity = result.stdout.trim();
+    const parts = /^(\d+):(\$\d+)$/.exec(identity);
+    if (result.status !== 0 || !parts) throw new Error('The task session is unavailable.');
+    return { token: crypto.createHmac('sha256', csrfToken).update(identity).digest('hex'), target: parts[2] };
+}
 function withSessionLock(operation) {
     const operationDir = lockDir + '-operation';
     try { fs.mkdirSync(operationDir, { mode: 0o700 }); }
@@ -470,16 +486,25 @@ function ensureSession(requestedHost, create) {
         return state.host;
     });
 }
-function stopSession() {
+function stopSession(expectedToken = null, cleanupOnly = false) {
     return withSessionLock(() => {
         const state = inspectSession();
         const hasAttachments = fs.existsSync(attachmentDir);
+        if (cleanupOnly && state.state !== 'session_not_found') throw new Error('The session changed; cleanup was not performed.');
         if (state.state === 'unavailable' || (state.state === 'session_not_found' && !hasAttachments)) {
             throw new Error('The task session is not available to stop.');
         }
+        let target = null;
+        if (state.state === 'session_running') {
+            const binding = sessionBinding();
+            if (expectedToken !== null && !equal(expectedToken, binding.token)) throw new Error('The session changed; it was not stopped.');
+            target = binding.target;
+        } else if (expectedToken !== null) {
+            throw new Error('The session changed; it was not stopped.');
+        }
         if (hasAttachments) validateAttachmentDirectory();
         const stopped = state.state === 'session_running';
-        if (stopped && tmuxCommand(['kill-session', '-t', '=' + session]).status !== 0) throw new Error('The task session could not be stopped.');
+        if (stopped && tmuxCommand(['kill-session', '-t', target]).status !== 0) throw new Error('The task session could not be stopped.');
         if (hasAttachments) {
             try { fs.rmSync(attachmentDir, { recursive: true }); }
             catch (_) { throw new Error(stopped ? 'Session stopped, but task images could not be removed.' : 'Task images could not be removed.'); }

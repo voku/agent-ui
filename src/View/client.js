@@ -884,6 +884,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var connected = true;
     var viewerWanted = true;
     var csrf = '';
+    var sessionToken = null;
     var timer;
     var busy = false;
     var generation = 0;
@@ -908,6 +909,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             .then(function (snapshot) {
                 if (requestGeneration !== generation) { return; }
                 csrf = snapshot.csrf;
+                sessionToken = snapshot.session_token;
                 var running = snapshot.state === 'session_running';
                 var missing = snapshot.state === 'session_not_found';
                 var available = snapshot.terminal_available === true;
@@ -1034,10 +1036,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     });
     startButton.addEventListener('click', function () { action('start', { host: host.value }); });
     stop.addEventListener('click', function () {
-        var prompt = stop.getAttribute('data-cleanup-only') === 'true'
+        var cleanupOnly = stop.getAttribute('data-cleanup-only') === 'true';
+        var prompt = cleanupOnly
             ? 'Remove the remaining task images?'
             : 'Stop this coding-host session? This can interrupt its work and does not close the task.';
-        if (window.confirm(prompt)) { action('stop', {}); }
+        if (window.confirm(prompt)) { action('stop', cleanupOnly ? { cleanup_only: true } : { session_token: sessionToken }); }
     });
     refreshSession();
 }());
