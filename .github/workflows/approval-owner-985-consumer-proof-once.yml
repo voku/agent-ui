@@ -29,12 +29,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: voku/agent-loop
-          ref: 3a5a1f0249911d4d48e6a109f8b9f3fa8b62ccc3
+          ref: 279a5bc8b5d749061c78481aa748e4efe3741e5a
           path: .owner-candidate
           persist-credentials: false
       - name: Replace owner runtime only within disposable CI runner
         run: |
-          test "$(git -C .owner-candidate rev-parse HEAD)" = "3a5a1f0249911d4d48e6a109f8b9f3fa8b62ccc3"
+          test "$(git -C .owner-candidate rev-parse HEAD)" = "279a5bc8b5d749061c78481aa748e4efe3741e5a"
           test -d vendor/voku/agent-loop
           rm -rf vendor/voku/agent-loop
           mv .owner-candidate vendor/voku/agent-loop
