@@ -81,8 +81,8 @@ jobs:
           composer show voku/agent-loop --format=json | jq -e '.versions | index("0.20.85") != null'
       - name: Regenerate installed package-owned Claude assets without project-local roots
         run: |
-          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config --dry-run
-          vendor/bin/agent-loop init install-assets --agent=claude --no-package-subagents --skip-git-config
+          vendor/bin/agent-loop init install-assets --agent=claude --skip-git-config --dry-run
+          vendor/bin/agent-loop init install-assets --agent=claude --skip-git-config
           git status --short
       - name: Execute ordinary full Composer CI against released owner
         run: composer ci
