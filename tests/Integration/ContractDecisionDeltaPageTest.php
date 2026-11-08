@@ -38,6 +38,70 @@ final class ContractDecisionDeltaPageTest extends TestCase
         $this->removeDirectory($this->root);
     }
 
+    public function testApprovalBriefingPrecedesDecisionAndKeepsAuthorityVisible(): void
+    {
+        $app = $this->revisedContract();
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+
+        $brief = strpos($main, 'aria-label="Approval briefing"');
+        $decision = strpos($main, 'aria-label="Your decision"');
+        self::assertIsInt($brief);
+        self::assertIsInt($decision);
+        self::assertLessThan($decision, $brief, 'The developer must see the briefing before the approval form.');
+        self::assertStringContainsString('Approve Contract revision 2?', $main);
+        self::assertStringContainsString('Make the greeter friendlier without changing its public API.', $main);
+        self::assertStringContainsString('Where the agent may work', $main);
+        self::assertStringContainsString('Explicitly excluded', $main);
+        self::assertStringContainsString('no new dependencies', $main);
+        self::assertStringContainsString('A validation plan is not a passed test.', $main);
+        self::assertStringContainsString('Change summary:', $main);
+        self::assertStringContainsString('Changed fields: Scope, Acceptance criteria.', $main);
+        self::assertStringContainsString('approved revision 1.', $main);
+        self::assertStringContainsString('href="#decision">Review full terms &amp; decide</a>', $main);
+        self::assertStringContainsString('href="/task/APP-1/contract">Inspect Contract &amp; impact</a>', $main);
+    }
+
+    public function testApprovalBriefingDisappearsWhenOwnerNoLongerAllowsApproval(): void
+    {
+        $app = $this->revisedContract();
+        $contracts = new TaskContractStore($this->root);
+        $contracts->approve('APP-1', 'maintainer', 2);
+
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+        self::assertStringNotContainsString('aria-label="Approval briefing"', $main);
+        self::assertStringNotContainsString('Approve Contract revision 2?', $main);
+    }
+
+    public function testMultiRevisionBriefingUsesOwnerApprovedBaselineWithoutObsoleteWarning(): void
+    {
+        $app = $this->revisedContract();
+        (new TaskContractStore($this->root))->revise(
+            taskId: 'APP-1',
+            goal: 'Current candidate introduces a third revision.',
+            scope: ['src/Greeter.php', 'tests/GreeterTest.php', 'src/Another.php'],
+            nonGoals: ['no new dependencies'],
+            validation: ['php -l src/Greeter.php'],
+            plannedBy: 'planner-agent',
+        );
+
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+        self::assertStringContainsString('Approve Contract revision 3?', $main);
+        self::assertStringContainsString('approved revision 1.', $main);
+        self::assertStringContainsString('Changed fields: Goal, Scope, Acceptance criteria.', $main);
+        self::assertStringNotContainsString('Revision history matters:', $main);
+
+
+
+    }
+
+    public function testTwoRevisionBriefingDoesNotShowMultiRevisionWarning(): void
+    {
+        $app = $this->revisedContract();
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+
+        self::assertStringNotContainsString('Revision history matters:', $main);
+    }
+
     public function testEachAddedAndRemovedEntryIsItsOwnLine(): void
     {
         $app = $this->revisedContract();
