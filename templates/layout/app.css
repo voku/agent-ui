@@ -1133,6 +1133,15 @@ details.raw[open] > summary { margin-bottom: 10px; }
 
 /* --- Code search, source viewing and impact visualization (Map surface) --- */
 
+.workflow-cockpit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.workflow-cockpit__progress { min-width: 0; }
+.workflow-cockpit__terminal { position: sticky; top: 18px; min-width: 0; }
+.workflow-cockpit__terminal iframe { display: block; width: 100%; height: min(68vh, 720px); min-height: 360px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #111; }
+@media (max-width: 860px) {
+    .workflow-cockpit { grid-template-columns: minmax(0, 1fr); }
+    .workflow-cockpit__terminal { position: static; grid-row: 1; }
+}
+
 .check { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
 .check input { margin: 0; }
 

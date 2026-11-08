@@ -863,6 +863,42 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     poll();
 }());
 
+/* Disconnect the viewer only; the separately managed tmux session remains. */
+(function enhanceLocalTerminal() {
+    var panel = document.querySelector('[data-terminal-panel]');
+    if (!panel) { return; }
+    var frame = panel.querySelector('[data-terminal-frame]');
+    var button = panel.querySelector('[data-terminal-toggle]');
+    var message = panel.querySelector('[data-terminal-message]');
+    var state = panel.querySelector('[data-terminal-state]');
+    if (!frame || !button || !message || !state) { return; }
+    var terminalUrl = frame.getAttribute('data-terminal-url');
+    var connected = true;
+    button.hidden = false;
+    button.addEventListener('click', function () {
+        connected = !connected;
+        frame.src = connected ? terminalUrl : 'about:blank';
+        button.textContent = connected ? 'Disconnect' : 'Reconnect';
+        message.textContent = connected
+            ? 'Connection status appears in the terminal. Disconnecting leaves the session running.'
+            : 'Viewer disconnected. The tmux session was not stopped.';
+    });
+    if (typeof window.fetch !== 'function') { return; }
+    state.textContent = 'Checking local session…';
+    function refreshSession() {
+        window.fetch('/_local/session', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (response) { if (!response.ok) { throw new Error('Unavailable'); } return response.json(); })
+            .then(function (snapshot) {
+                state.textContent = snapshot.state === 'session_running' ? 'tmux session running'
+                    : snapshot.state === 'session_not_found' ? 'tmux session not found'
+                    : 'Local session status unavailable';
+            })
+            .catch(function () { state.textContent = 'Local session status unavailable'; })
+            .then(function () { window.setTimeout(refreshSession, document.hidden ? 30000 : 5000); });
+    }
+    refreshSession();
+}());
+
 /*
  * Optional shortcut: "/" moves focus to the header search, as on most developer
  * tools. The form is a plain GET form and works without this; the hint glyph

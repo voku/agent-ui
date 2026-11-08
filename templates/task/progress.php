@@ -1,6 +1,7 @@
 <?php
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
+use voku\AgentUi\Runtime\LocalTerminal;
 use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
@@ -10,6 +11,9 @@ $card = $model['card'];
 $taskContext = $model['task_context'];
 $progress = $model['progress'];
 $decisionHtml = $model['decision_html'];
+$terminalTask = getenv('AGENT_UI_TERMINAL_TASK');
+$terminalOrigin = LocalTerminal::origin();
+$showTerminal = is_string($terminalTask) && $terminalTask === $card->id && $terminalOrigin !== null;
 $title = $card->id . ' · Workflow progress · agent-ui';
 $nav = null;
 $projectLabel = null;
@@ -18,6 +22,8 @@ require __DIR__ . '/../layout/header.php';
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Workflow progress</p>
 <?php $taskNavCurrent = '/progress'; require __DIR__ . '/../layout/task-context.php'; ?>
 
+<div<?= $showTerminal ? ' class="workflow-cockpit"' : '' ?>>
+<div class="workflow-cockpit__progress">
 <div class="page-head" data-workflow-live data-task-id="<?= TemplateRenderer::escape($card->id) ?>" data-progress-url="/task/<?= rawurlencode($card->id) ?>/progress.json">
     <h1>Workflow progress</h1>
     <p class="lede">Where this task is in the Loop-owned governed workflow. The order and status come from agent-loop; this page does not reconstruct lifecycle policy.</p>
@@ -134,6 +140,20 @@ require __DIR__ . '/../layout/header.php';
     </ol>
     <p class="note">Done, current, pending, blocked and not-applicable remain distinct owner-projected states. agent-ui does not calculate a percentage complete.</p>
     </div>
+</div>
+<?php if ($showTerminal): ?>
+<aside class="workflow-cockpit__terminal panel" aria-label="Local terminal session" data-terminal-panel>
+    <div class="action__head">
+        <strong>Local terminal session</strong>
+        <button type="button" class="btn btn--small" data-terminal-toggle hidden>Disconnect</button>
+    </div>
+    <p class="note">The terminal shows a local coding-host session. Its activity does not establish workflow progress or verification.</p>
+    <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
+    <iframe title="Local coding-agent terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
+    <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
+</aside>
+<?php endif; ?>
+</div>
 
 <?php if (ClientScript::graphLibrary() !== ''): ?><script><?= ClientScript::graphLibrary() ?></script><?php endif; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>
