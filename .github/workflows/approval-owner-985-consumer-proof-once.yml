@@ -1,0 +1,48 @@
+name: Owner 985 historical approval integration (temporary)
+on:
+  push:
+    branches:
+      - test/approval-owner-985-consumer-20261108
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+      - name: Install the published dependency graph
+        run: composer install --no-interaction --prefer-dist
+      - uses: actions/checkout@v7
+        with:
+          repository: voku/agent-loop
+          ref: 3a5a1f0249911d4d48e6a109f8b9f3fa8b62ccc3
+          path: .owner-candidate
+          persist-credentials: false
+      - name: Replace owner runtime only within disposable CI runner
+        run: |
+          test "$(git -C .owner-candidate rev-parse HEAD)" = "3a5a1f0249911d4d48e6a109f8b9f3fa8b62ccc3"
+          test -d vendor/voku/agent-loop
+          rm -rf vendor/voku/agent-loop
+          mv .owner-candidate vendor/voku/agent-loop
+          composer dump-autoload --no-interaction
+      - name: Prove legacy standing-actor classification and the browser
+        run: |
+          vendor/bin/phpunit tests/Integration/ContractRevisionDeltaTest.php tests/Integration/ContractDecisionDeltaPageTest.php
+          vendor/bin/phpunit --filter '^(?!.*ManagedSkillProjectionTest)'
+          composer phpstan
+          composer template-lint
+          composer cs-check
