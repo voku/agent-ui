@@ -1335,3 +1335,24 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .search-hit__detail, .search-hit__why { color: var(--ink-faint); font-size: 12.5px; overflow-wrap: anywhere; }
 .search-hit__also { font-size: 12.5px; }
 @media (hover: none) { .masthead-search__hint { display: none; } }
+
+
+/* Task briefing: concise owner-backed context beside the live local PTY. */
+.workflow-brief { margin: 0 0 18px; padding: 18px; }
+.workflow-brief__goal { margin: 4px 0 0; font-size: clamp(16px, 1.6vw, 22px); line-height: 1.35; overflow-wrap: anywhere; }
+.workflow-brief__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.workflow-brief__facts > div { min-width: 0; padding: 12px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface-alt); }
+.workflow-brief__facts strong, .workflow-brief__facts .small { display: block; overflow-wrap: anywhere; }
+.workflow-brief__facts strong { margin-top: 4px; font-size: 14px; }
+.workflow-brief__facts .note { margin: 4px 0 0; }
+.workflow-brief__next { padding: 12px 14px; border-inline-start: 3px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius-sm); }
+.workflow-brief__next .note { margin: 4px 0 0; }
+.workflow-brief__hint { margin: 3px 0; font-weight: 600; overflow-wrap: anywhere; }
+.workflow-brief__contract { margin: 14px 0 0; }
+.workflow-brief__contract summary { cursor: pointer; font-weight: 600; }
+.workflow-brief__contract .workflow-brief__facts { margin: 10px 0; }
+.workflow-brief__line { display: block; overflow-wrap: anywhere; margin-top: 6px; }
+.workflow-brief__links { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 8px; }
+.workflow-brief__links .btn { text-align: center; }
+.workflow-brief [data-evidence-status] { font-weight: 600; }
+@media (max-width: 700px) { .workflow-brief__facts { grid-template-columns: minmax(0, 1fr); } }
