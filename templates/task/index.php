@@ -86,6 +86,13 @@ require __DIR__ . '/../layout/header.php';
         </div>
         <p class="note">Acceptance criteria: <?= count($contract->acceptanceCriteria) ?>. Planned validation commands: <?= count($contract->validation) ?>.
             A validation plan is not a passed test. Approval authorizes in-scope implementation, not acceptance of code, verification results or Learning.</p>
+        <?php if ($contract->revision > 2): ?>
+            <p class="note" role="status"><strong>Revision history matters:</strong>
+                This version of the UI compares with the immediately previous Contract revision,
+                which may not be the last human-approved one. The displayed delta may omit earlier
+                unapproved changes. Review the <a href="/task/<?= rawurlencode($card->id) ?>/history">full revision history</a>
+                before deciding. A complete owner-backed cumulative comparison is not yet available here.</p>
+        <?php endif; ?>
         <div class="btn-row">
             <a class="btn btn--primary" href="#decision">Review full terms &amp; decide</a>
             <a class="btn" href="/task/<?= rawurlencode($card->id) ?>/contract">Inspect Contract &amp; impact</a>
