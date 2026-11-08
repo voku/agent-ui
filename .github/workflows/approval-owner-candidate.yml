@@ -31,14 +31,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: voku/agent-loop
-          ref: 64b36c22d216cec0d0e38890bfe75b6b307819b0
+          ref: eb4beb9665597d5b1eba9454a028553a5072b1b4
           path: .candidate-agent-loop
           persist-credentials: false
       - name: Substitute only the owner source in this disposable runner
         run: |
           test -d vendor/voku/agent-loop
           test -f .candidate-agent-loop/src/Workflow/WorkflowHumanDecisionProjector.php
-          test "$(git -C .candidate-agent-loop rev-parse HEAD)" = "64b36c22d216cec0d0e38890bfe75b6b307819b0"
+          test "$(git -C .candidate-agent-loop rev-parse HEAD)" = "eb4beb9665597d5b1eba9454a028553a5072b1b4"
           rm -rf vendor/voku/agent-loop
           mv .candidate-agent-loop vendor/voku/agent-loop
           composer dump-autoload --no-interaction
