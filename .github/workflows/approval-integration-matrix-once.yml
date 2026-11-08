@@ -1,0 +1,46 @@
+name: Integrated approval UI against exact owner (temporary)
+on:
+  push:
+    branches:
+      - test/approval-integrated-candidate-20261108
+permissions:
+  contents: read
+jobs:
+  integrated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+      - name: Install declared stable packages
+        run: composer install --no-interaction --prefer-dist
+      - uses: actions/checkout@v7
+        with:
+          repository: voku/agent-loop
+          ref: 64b36c22d216cec0d0e38890bfe75b6b307819b0
+          path: .owner-candidate
+          persist-credentials: false
+      - name: Exact owner source replacement in disposable runner
+        run: |
+          test "$(git -C .owner-candidate rev-parse HEAD)" = "64b36c22d216cec0d0e38890bfe75b6b307819b0"
+          test -d vendor/voku/agent-loop
+          rm -rf vendor/voku/agent-loop
+          mv .owner-candidate vendor/voku/agent-loop
+          composer dump-autoload --no-interaction
+      - name: Verify merged approval UI and its real consumers
+        run: |
+          vendor/bin/phpunit tests/Integration/ContractRevisionDeltaTest.php tests/Integration/ContractDecisionDeltaPageTest.php
+          vendor/bin/phpunit --filter '^(?!.*ManagedSkillProjectionTest)'
+          composer phpstan
+          composer template-lint
+          composer cs-check
