@@ -16,6 +16,7 @@ final class CliApplicationTest extends TestCase
         self::assertStringContainsString('Usage:', $output);
         self::assertStringContainsString('agent-ui [serve]', $output);
         self::assertStringContainsString('agent-ui status', $output);
+        self::assertStringContainsString('agent-ui session start TASK', $output);
         self::assertStringContainsString('--port=PORT', $output);
     }
 
@@ -140,5 +141,70 @@ final class CliApplicationTest extends TestCase
         self::assertSame('unreachable', $payload['status'] ?? null);
         self::assertSame('http://127.0.0.1:1', $payload['url'] ?? null);
         self::assertIsString($payload['project_id'] ?? null);
+    }
+
+    public function testSessionUsesTheSharedNodeImplementationWithoutAShell(): void
+    {
+        $temporaryRoot = sys_get_temp_dir() . '/agent-ui-session-cli-' . bin2hex(random_bytes(5));
+        self::assertTrue(mkdir($temporaryRoot, 0o700));
+        $project = $temporaryRoot . '/project$(touch PWNED)';
+        self::assertTrue(mkdir($project, 0o700));
+        $node = $temporaryRoot . '/node';
+        $capture = $temporaryRoot . '/arguments';
+        file_put_contents($node, "#!/bin/sh\nprintf '%s\\n' \"\$@\" > \"\$AGENT_UI_TEST_CAPTURE\"\nexit 23\n");
+        chmod($node, 0o700);
+        $environment = getenv();
+        $environment['PATH'] = $temporaryRoot . PATH_SEPARATOR . ($environment['PATH'] ?? '');
+        $environment['AGENT_UI_TEST_CAPTURE'] = $capture;
+        $bin = dirname(__DIR__, 2) . '/bin/agent-ui';
+
+        try {
+            $process = proc_open(
+                [PHP_BINARY, $bin, 'session', 'start', 'UI-145', '--root=' . $project, '--host=codex', '--port=18090'],
+                [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+                $temporaryRoot,
+                $environment,
+            );
+            self::assertIsResource($process);
+            foreach ($pipes as $pipe) {
+                fclose($pipe);
+            }
+            self::assertSame(23, proc_close($process));
+            $arguments = file($capture, FILE_IGNORE_NEW_LINES);
+            self::assertSame([
+                dirname(__DIR__, 2) . '/tools/terminal/local-cockpit.cjs',
+                '--root=' . $project,
+                '--task=UI-145',
+                '--start=codex',
+                '--port=18090',
+            ], $arguments);
+            self::assertFileDoesNotExist($temporaryRoot . '/PWNED');
+        } finally {
+            @unlink($capture);
+            @unlink($node);
+            @rmdir($project);
+            @rmdir($temporaryRoot);
+        }
+    }
+
+    public function testSessionRejectsUnsupportedHostsBeforeLaunchingNode(): void
+    {
+        $bin = dirname(__DIR__, 2) . '/bin/agent-ui';
+        $process = proc_open(
+            [PHP_BINARY, $bin, 'session', 'start', 'UI-145', '--host=sh'],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            dirname(__DIR__, 2),
+        );
+        self::assertIsResource($process);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        self::assertSame(1, proc_close($process));
+        self::assertSame('', $stdout);
+        self::assertIsString($stderr);
+        self::assertStringContainsString('invalid session root, host, port or format', $stderr);
     }
 }

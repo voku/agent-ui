@@ -31,8 +31,8 @@ try {
 } catch (_) { fail('Project root must resolve to an existing directory.'); }
 
 const packageRoot = path.resolve(__dirname, '../..');
-const autoloadCandidates = [path.join(packageRoot, 'vendor/autoload.php'), path.resolve(packageRoot, '../../autoload.php')];
-const autoload = autoloadCandidates.find((candidate) => fs.existsSync(candidate));
+const autoloadCandidates = [process.env.AGENT_UI_COMPOSER_AUTOLOAD, path.join(packageRoot, 'vendor/autoload.php'), path.resolve(packageRoot, '../../autoload.php')];
+const autoload = autoloadCandidates.find((candidate) => typeof candidate === 'string' && fs.existsSync(candidate));
 const commandOnly = Boolean(options.status || options.stop);
 if (!commandOnly && !autoload) fail('Composer autoload was not found; install agent-ui dependencies first.');
 
@@ -87,6 +87,11 @@ async function cleanup(exitCode) {
 }
 process.on('SIGINT', () => cleanup(0));
 process.on('SIGTERM', () => cleanup(0));
+const launcherPid = Number(process.env.AGENT_UI_SESSION_PARENT_PID || 0);
+if (!commandOnly && Number.isSafeInteger(launcherPid) && launcherPid > 0) {
+    const watcher = setInterval(() => { if (process.ppid !== launcherPid) cleanup(0); }, 1000);
+    watcher.unref();
+}
 function child(command, args, env, onStderr, onFailure) {
     const processChild = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'], env });
     children.push(processChild);

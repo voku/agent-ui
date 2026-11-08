@@ -17,6 +17,7 @@ const project = path.join(temp, 'project');
 const fakeBin = path.join(temp, 'bin');
 const pidFile = path.join(temp, 'fake-host.pid');
 const startsFile = path.join(temp, 'fake-host-starts');
+let transportLock;
 fs.mkdirSync(fakeBin);
 const quotedPidFile = "'" + pidFile.replace(/'/g, "'\\''") + "'";
 const quotedStartsFile = "'" + startsFile.replace(/'/g, "'\\''") + "'";
@@ -72,15 +73,20 @@ async function stopServer() {
     const exited = new Promise((resolve) => server.once('exit', resolve));
     server.kill('SIGTERM');
     await Promise.race([exited, pause(7000).then(() => { throw new Error('Transport did not stop.'); })]);
+    if (transportLock) await until(() => !fs.existsSync(transportLock), 'transport lock cleanup');
 }
 async function run() {
     check(command('php', [path.join(packageRoot, 'tools/rendered/workflow-live-fixture.php'), project]), 'Fixture');
     const port = await freePort();
     const origin = `http://127.0.0.1:${port}`;
     const script = path.join(__dirname, 'local-cockpit.cjs');
+    const cli = path.join(packageRoot, 'bin/agent-ui');
     const baseArgs = [script, `--root=${project}`, '--task=UI-36'];
     const browserStart = process.env.COCKPIT_TEST_BROWSER_START === '1';
-    server = spawn(process.execPath, [...baseArgs, browserStart ? '--serve' : '--start=codex', `--port=${port}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const useCli = process.env.COCKPIT_TEST_USE_CLI === '1';
+    const sessionAction = browserStart ? 'serve' : 'start';
+    const cliArgs = [cli, 'session', sessionAction, 'UI-36', `--root=${project}`, ...(browserStart ? [] : ['--host=codex']), `--port=${port}`];
+    server = spawn(useCli ? 'php' : process.execPath, useCli ? cliArgs : [...baseArgs, browserStart ? '--serve' : '--start=codex', `--port=${port}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '', errors = '';
     server.stdout.on('data', (chunk) => { output += chunk; });
     server.stderr.on('data', (chunk) => { errors += chunk; });
@@ -90,6 +96,8 @@ async function run() {
     }, 'transport startup');
     const accessUrl = output.match(/http:\/\/\S+/)[0];
     session = output.match(/tmux session ([^;]+)/)[1];
+    const lockId = crypto.createHash('sha256').update(fs.realpathSync(project) + '\0UI-36').digest('hex').slice(0, 24);
+    transportLock = path.join(fs.realpathSync('/tmp'), `agent-ui-terminal-${process.getuid()}-${lockId}`);
     if (!browserStart) await until(() => fs.existsSync(pidFile), 'fake host startup');
     else assert.equal(fs.existsSync(pidFile), false, 'opening the cockpit does not start a host');
     let initialPid = browserStart ? null : fs.readFileSync(pidFile, 'utf8');
@@ -133,7 +141,8 @@ async function run() {
         assert.equal(fs.readFileSync(startsFile, 'utf8').trim().split('\n').length, 1, 'concurrent starts launch one process');
         assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid, 'concurrent starts reuse the host');
     }
-    const cliStatus = command(process.execPath, [...baseArgs, '--status', '--format=json']);
+    const cliStatus = useCli ? command('php', [cli, 'session', 'status', 'UI-36', `--root=${project}`, '--format=json'])
+        : command(process.execPath, [...baseArgs, '--status', '--format=json']);
     check(cliStatus, 'CLI status');
     assert.deepEqual(JSON.parse(cliStatus.stdout), { state: 'session_running', host: 'codex' });
     assert.equal((await request(port, '/_local/session', { Cookie: cookie, Origin: 'https://attacker.example' })).status, 403);
@@ -187,7 +196,7 @@ async function run() {
         page.once('dialog', (dialog) => dialog.accept());
         await page.locator('[data-terminal-stop]').click();
     } else {
-        check(command(process.execPath, [...baseArgs, '--stop']), 'CLI stop');
+        check(useCli ? command('php', [cli, 'session', 'stop', 'UI-36', `--root=${project}`]) : command(process.execPath, [...baseArgs, '--stop']), 'CLI stop');
     }
     await until(async () => JSON.parse((await request(port, '/_local/session', { Cookie: cookie })).body).state === 'session_not_found', 'session exit');
     await stopServer();
@@ -198,7 +207,9 @@ async function run() {
         // A failed terminal transport must not take the workflow UI down.
         fs.writeFileSync(path.join(fakeBin, 'ttyd'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
         const unavailablePort = await freePort();
-        server = spawn(process.execPath, [...baseArgs, '--serve', `--port=${unavailablePort}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        server = spawn(useCli ? 'php' : process.execPath, useCli
+            ? [cli, 'session', 'serve', 'UI-36', `--root=${project}`, `--port=${unavailablePort}`]
+            : [...baseArgs, '--serve', `--port=${unavailablePort}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
         let unavailableOutput = '';
         server.stdout.on('data', (chunk) => { unavailableOutput += chunk; });
         await until(() => unavailableOutput.includes('Terminal transport unavailable'), 'unavailable terminal');
@@ -209,6 +220,20 @@ async function run() {
         assert.equal((await page.request.get(`http://127.0.0.1:${unavailablePort}/task/UI-36/progress.json`)).status(), 200);
         assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid);
         await stopServer();
+    }
+    if (useCli) {
+        fs.rmSync(path.join(fakeBin, 'ttyd'), { force: true });
+        const restartPort = await freePort();
+        server = spawn('php', [cli, 'session', 'start', 'UI-36', `--root=${project}`, '--host=codex', `--port=${restartPort}`], { cwd: packageRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        let restartOutput = '';
+        server.stdout.on('data', (chunk) => { restartOutput += chunk; });
+        await until(() => restartOutput.includes('Normal terminal:'), 'CLI transport restart');
+        await until(() => fs.readFileSync(startsFile, 'utf8').trim().split('\n').length === 2, 'second explicit host start');
+        const restartedPid = fs.readFileSync(pidFile, 'utf8');
+        await stopServer();
+        assert.equal(command('tmux', ['-L', 'agent-ui', 'has-session', '-t', '=' + session]).status, 0, 'ending the CLI transport leaves the host running');
+        assert.equal(fs.readFileSync(pidFile, 'utf8'), restartedPid);
+        check(command('php', [cli, 'session', 'stop', 'UI-36', `--root=${project}`]), 'CLI stop after transport exit');
     }
     console.log('Terminal browser, reconnect, task binding, origin, authentication and single-viewer checks passed.');
 }

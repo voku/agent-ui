@@ -88,20 +88,20 @@ The optional terminal prototype puts a coding-host terminal beside the workflow 
 
 ```bash
 # Open the task cockpit without starting a coding host.
-node vendor/voku/agent-ui/tools/terminal/local-cockpit.cjs --root=. --task=UI-145 --serve
+vendor/bin/agent-ui session serve UI-145 --root=.
 
 # Or start Codex explicitly from the CLI; choose codex or claude.
-node vendor/voku/agent-ui/tools/terminal/local-cockpit.cjs --root=. --task=UI-145 --start=codex
+vendor/bin/agent-ui session start UI-145 --host=codex --root=.
 
 # Reopen, inspect, or explicitly stop the same task session.
-node vendor/voku/agent-ui/tools/terminal/local-cockpit.cjs --root=. --task=UI-145 --attach
-node vendor/voku/agent-ui/tools/terminal/local-cockpit.cjs --root=. --task=UI-145 --status --format=json
-node vendor/voku/agent-ui/tools/terminal/local-cockpit.cjs --root=. --task=UI-145 --stop
+vendor/bin/agent-ui session attach UI-145 --root=.
+vendor/bin/agent-ui session status UI-145 --root=. --format=json
+vendor/bin/agent-ui session stop UI-145 --root=.
 ```
 
 Open the access URL printed by the command on the same machine. Treat the URL as a password: its fragment grants access to a writable terminal with the coding host's OS permissions. The transport binds to `127.0.0.1`, requires a session-specific browser credential, checks Host and Origin, isolates the terminal frontend on a separate loopback origin, and uses a private Unix socket for `ttyd`. It permits one browser terminal viewer per task. It does not expose a general command API or automatically accept host prompts or Loop decisions. The task's canonical next action remains visible in the UI; follow the normal agent-loop workflow in the coding host.
 
-With `--serve`, select an installed host and choose **Start session** in the page. Opening the page alone does not start one. The **Disconnect** button closes the browser viewer only; **Stop session** explicitly stops the coding host after confirmation and does not close the governed task. Reload or reconnect to return to the same tmux session. Stopping the local transport also leaves the coding host running. The command prints a `tmux attach-session` command for a normal terminal. A missing session is reported and `--attach` never starts a replacement. `--start` and the browser start control explicitly request a new host if none exists. The CLI and browser use the same session operations.
+With `session serve`, select an installed host and choose **Start session** in the page. Opening the page alone does not start one. The **Disconnect** button closes the browser viewer only; **Stop session** explicitly stops the coding host after confirmation and does not close the governed task. Reload or reconnect to return to the same tmux session. Stopping the local transport also leaves the coding host running. The command prints a `tmux attach-session` command for a normal terminal. A missing session is reported and `session attach` never starts a replacement. `session start` and the browser start control explicitly request a new host if none exists. The CLI and browser use the same session operations.
 
 This is a prototype: no workflow progress is inferred from terminal output, and a failed terminal transport is reported while workflow navigation remains available. `tmux` may retain the environment of its existing server, so environment changes made after that server started might not reach a new coding host. If the transport is killed uncleanly, its private lock directory can remain under `/tmp`; verify the PID in its `pid` file is no longer a live transport before removing that directory. No terminal transcript is stored in Loop projections.
 
