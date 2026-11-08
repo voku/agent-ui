@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\Task\ContractRevisionDelta;
@@ -27,6 +28,59 @@ final class ContractRevisionDeltaTest extends TestCase
     {
         $this->removeDir($this->root);
         parent::tearDown();
+    }
+
+    public function testReservedStandingActorIsNeverPresentedAsHumanApproval(): void
+    {
+        $previous = new TaskContract(
+            taskId: 'UI-LEGACY',
+            goal: 'Original goal.',
+            scope: ['src/A.php'],
+            nonGoals: [],
+            validation: ['composer ci'],
+            status: TaskContract::SUPERSEDED,
+            revision: 1,
+            createdAt: '2026-11-08T00:00:00Z',
+            updatedAt: '2026-11-08T00:00:00Z',
+            path: $this->root . '/previous.json',
+            plannedBy: 'planner',
+            approvedBy: 'standing:legacy-policy',
+            approvedAt: '2026-11-08T00:00:00Z',
+        );
+        $candidate = new TaskContract(
+            taskId: 'UI-LEGACY',
+            goal: 'Changed goal.',
+            scope: ['src/A.php', 'src/B.php'],
+            nonGoals: [],
+            validation: ['composer ci'],
+            status: TaskContract::CANDIDATE,
+            revision: 2,
+            createdAt: '2026-11-08T00:00:00Z',
+            updatedAt: '2026-11-08T00:00:00Z',
+            path: $this->root . '/candidate.json',
+            plannedBy: 'planner',
+        );
+
+        $delta = ContractRevisionDelta::between($previous, $candidate);
+        self::assertSame('standing:legacy-policy', $delta->previousApprovedBy);
+        self::assertFalse($delta->previousWasApproved());
+
+        $human = new TaskContract(
+            taskId: 'UI-LEGACY',
+            goal: 'Original goal.',
+            scope: ['src/A.php'],
+            nonGoals: [],
+            validation: ['composer ci'],
+            status: TaskContract::SUPERSEDED,
+            revision: 1,
+            createdAt: '2026-11-08T00:00:00Z',
+            updatedAt: '2026-11-08T00:00:00Z',
+            path: $this->root . '/previous.json',
+            plannedBy: 'planner',
+            approvedBy: 'human-reviewer',
+            approvedAt: '2026-11-08T00:00:00Z',
+        );
+        self::assertTrue(ContractRevisionDelta::between($human, $candidate)->previousWasApproved());
     }
 
     public function testTheDeltaNamesWhatMovedAndWhoApprovedWhatItReplaces(): void
