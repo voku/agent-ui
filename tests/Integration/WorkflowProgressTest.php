@@ -51,6 +51,11 @@ final class WorkflowProgressTest extends TestCase
         self::assertSame(200, $before->status);
         self::assertStringContainsString('Human decision required', $before->body);
         self::assertStringContainsString('Approve revision 1', $before->body);
+        self::assertStringContainsString('data-workflow-brief', $before->body);
+        self::assertStringContainsString('Developer briefing', $before->body);
+        self::assertStringContainsString('Not approved', $before->body);
+        self::assertStringContainsString('What this decision means', $before->body);
+        self::assertStringContainsString('href="#workflow-approval"', $before->body);
         self::assertStringContainsString('name="revision" value="1"', $before->body);
         self::assertStringContainsString('Show governed workflow progress without moving authority into agent-ui.', $before->body);
         self::assertStringContainsString('src/Feature/Task', $before->body);
@@ -84,6 +89,8 @@ final class WorkflowProgressTest extends TestCase
 
         $after = $app->handle(new Request('GET', '/task/UI-36/progress'));
         self::assertStringNotContainsString('Approve Contract</button>', $after->body);
+        self::assertStringContainsString('Approved revision 1', $after->body);
+        self::assertStringNotContainsString('href="#workflow-approval"', $after->body);
     }
 
     public function testRefreshReturnsCurrentOwnerProgressAndUpdatedDecision(): void
@@ -122,6 +129,11 @@ final class WorkflowProgressTest extends TestCase
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $payload['decision_html']);
         self::assertStringNotContainsString('<script>alert(1)</script>', $payload['decision_html']);
         self::assertSame(hash('sha256', $payload['decision_html']), $payload['decision_digest']);
+        self::assertIsString($payload['brief_html']);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $payload['brief_html']);
+        self::assertStringNotContainsString('<script>alert(1)</script>', $payload['brief_html']);
+        self::assertStringContainsString('Required validation (not a passing result)', $payload['brief_html']);
+        self::assertSame(hash('sha256', $payload['brief_html']), $payload['brief_digest']);
 
         $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
         self::assertIsString($csrf);
@@ -140,6 +152,8 @@ final class WorkflowProgressTest extends TestCase
         $current = (new WorkflowProgressGateway($this->root))->task('UI-36');
         self::assertSame($current->nextAction, $updated['next_action']);
         self::assertNotSame($payload['decision_digest'], $updated['decision_digest']);
+        self::assertNotSame($payload['brief_digest'], $updated['brief_digest']);
+        self::assertStringContainsString('Approved revision 1', $updated['brief_html']);
         self::assertIsString($updated['decision_html']);
         self::assertStringNotContainsString('Approve Contract</button>', $updated['decision_html']);
     }
