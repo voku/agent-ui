@@ -49,6 +49,9 @@ final class WorkflowProgressTest extends TestCase
         $before = $app->handle(new Request('GET', '/task/UI-36/progress'));
 
         self::assertSame(200, $before->status);
+        self::assertStringContainsString('href="/task/UI-36/work">Changes and review</a>', $before->body);
+        self::assertStringContainsString('href="/task/UI-36/evidence">Evidence</a>', $before->body);
+        self::assertStringContainsString('href="/task/UI-36/history">History</a>', $before->body);
         self::assertStringContainsString('Human decision required', $before->body);
         self::assertStringContainsString('Approve revision 1', $before->body);
         self::assertStringContainsString('name="revision" value="1"', $before->body);

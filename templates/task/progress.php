@@ -37,8 +37,8 @@ require __DIR__ . '/../layout/header.php';
         <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($progress->state)) ?>" data-progress-state><?= TemplateRenderer::escape(Presentation::label($progress->state)) ?></span>
         <span class="small faint">task <?= TemplateRenderer::escape($progress->taskId) ?></span>
     </div>
-    <p class="note">The canonical next action at the top of this page comes from the same agent-loop
-        policy evaluation as the workflow progress below, so it is shown there once rather than twice here.</p>
+    <p class="note">The next action above comes from agent-loop. The terminal shows the host's activity separately.</p>
+    <p><a href="/task/<?= rawurlencode($card->id) ?>/work">Changes and review</a> · <a href="/task/<?= rawurlencode($card->id) ?>/evidence">Evidence</a> · <a href="/task/<?= rawurlencode($card->id) ?>/history">History</a></p>
 </section>
 
 <div data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
