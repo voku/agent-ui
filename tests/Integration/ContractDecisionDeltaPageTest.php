@@ -69,6 +69,33 @@ final class ContractDecisionDeltaPageTest extends TestCase
         self::assertStringNotContainsString('Approve Contract revision 2?', $main);
     }
 
+    public function testMultiRevisionBriefingWarnsThatAnIntermediateDraftMayHideChanges(): void
+    {
+        $app = $this->revisedContract();
+        (new TaskContractStore($this->root))->revise(
+            taskId: 'APP-1',
+            goal: 'Current candidate introduces a third revision.',
+            scope: ['src/Greeter.php', 'tests/GreeterTest.php', 'src/Another.php'],
+            nonGoals: ['no new dependencies'],
+            validation: ['php -l src/Greeter.php'],
+            plannedBy: 'planner-agent',
+        );
+
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+        self::assertStringContainsString('Approve Contract revision 3?', $main);
+        self::assertStringContainsString('The displayed delta may omit earlier', $main);
+        self::assertStringContainsString('href="/task/APP-1/history">full revision history</a>', $main);
+        self::assertStringContainsString('A complete owner-backed cumulative comparison is not yet available here.', $main);
+    }
+
+    public function testTwoRevisionBriefingDoesNotShowMultiRevisionWarning(): void
+    {
+        $app = $this->revisedContract();
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
+
+        self::assertStringNotContainsString('Revision history matters:', $main);
+    }
+
     public function testEachAddedAndRemovedEntryIsItsOwnLine(): void
     {
         $app = $this->revisedContract();
