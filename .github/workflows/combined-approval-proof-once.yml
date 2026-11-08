@@ -22,8 +22,17 @@ jobs:
           git config user.email 'approval-integration@users.noreply.github.com'
           git fetch origin efa8ac3f95597394453f29079dd0bde5d18345ca
           test "$(git rev-parse FETCH_HEAD)" = "efa8ac3f95597394453f29079dd0bde5d18345ca"
-          git merge --no-commit --no-ff FETCH_HEAD
+          if ! git merge --no-commit --no-ff FETCH_HEAD; then
+            # PR 126 proposes ^0.20.79; PR 132 deliberately requires ^0.20.84.
+            # Resolve only that known composer.json overlap, never hide source conflicts.
+            test "$(git diff --name-only --diff-filter=U)" = "composer.json"
+            git checkout --ours composer.json
+            grep -F '"voku/agent-loop": "^0.20.84"' composer.json
+            git add composer.json
+          fi
           test -z "$(git diff --name-only --diff-filter=U)"
+          test -f tests/Integration/ContractRevisionDeltaTest.php
+          test -f tests/Integration/ContractDecisionDeltaPageTest.php
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
