@@ -674,10 +674,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var status = live.querySelector('[data-workflow-live-status]');
     var retry = live.querySelector('[data-workflow-live-retry]');
     var decision = document.querySelector('[data-workflow-decision]');
+    var brief = document.querySelector('[data-workflow-brief]');
     var empty = document.querySelector('[data-progress-empty]');
     var details = document.querySelector('[data-progress-details]');
     var list = document.querySelector('[data-progress-list]');
-    if (!url || !taskId || !status || !retry || !decision || !empty || !details || !list) { return; }
+    if (!url || !taskId || !status || !retry || !decision || !brief || !empty || !details || !list) { return; }
 
     status.hidden = false;
     status.textContent = 'Connecting to live workflow updates…';
@@ -711,6 +712,8 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             typeof value.has_human_decision !== 'boolean' ||
             typeof value.decision_html !== 'string' ||
             typeof value.decision_digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.decision_digest) ||
+            typeof value.brief_html !== 'string' ||
+            typeof value.brief_digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.brief_digest) ||
             (value.command_reference !== null && typeof value.command_reference !== 'string')) { return false; }
         var fields = ['state', 'state_label', 'state_tone', 'next_action', 'next_action_kind',
             'next_action_kind_label', 'next_action_kind_tone', 'next_action_hint'];
@@ -799,6 +802,13 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         if (referenceLink && snapshot.command_reference !== null) {
             referenceLink.setAttribute('href', '/commands#' + encodeURIComponent(snapshot.command_reference));
             text('[data-task-command-name]', snapshot.command_reference);
+        }
+
+        if (brief.getAttribute('data-brief-digest') !== snapshot.brief_digest) {
+            // The Loop-backed briefing is server-rendered. No agent transcript
+            // or client-derived lifecycle state is introduced by this refresh.
+            brief.innerHTML = snapshot.brief_html;
+            brief.setAttribute('data-brief-digest', snapshot.brief_digest);
         }
 
         if (decision.getAttribute('data-decision-digest') !== snapshot.decision_digest) {
