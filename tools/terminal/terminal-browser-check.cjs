@@ -176,6 +176,25 @@ async function run() {
     await page.keyboard.type('browser terminal proof');
     await page.keyboard.press('Enter');
     await until(() => command('tmux', ['-L', 'agent-ui', 'capture-pane', '-p', '-t', '=' + session + ':']).stdout.includes('received: browser terminal proof'), 'terminal input');
+
+    // Deliberate human decision through the normal CSRF-protected server route:
+    // update the owner-backed HTML and graph without reloading the ttyd frame
+    // or starting another host process.
+    await page.evaluate(() => { window.__workbenchMarker = 'same-document'; });
+    const oldBrief = await page.locator('[data-workflow-brief]').getAttribute('data-brief-digest');
+    await page.locator('[data-workflow-approval-form] input[name="actor"]').fill('browser-reviewer');
+    await page.locator('[data-workflow-approval-form] button[type="submit"]').click();
+    await page.waitForFunction((digest) => {
+        const brief = document.querySelector('[data-workflow-brief]');
+        return brief && brief.getAttribute('data-brief-digest') !== digest &&
+            brief.textContent.includes('Approved revision 1');
+    }, oldBrief, { timeout: 15000 });
+    assert.equal(await page.evaluate(() => window.__workbenchMarker), 'same-document');
+    assert.equal(await page.locator('[data-workflow-approval-form]').count(), 0);
+    assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid, 'HTML approval never restarts the coding host');
+    assert.equal(await page.locator('[data-terminal-frame]').getAttribute('src'), terminalUrl.origin + '/_terminal/',
+        'HTML approval keeps the terminal connected');
+
     const secondViewer = await websocketAttempt(terminalPort, { Cookie: cookie, Origin: terminalUrl.origin });
     assert.notEqual(secondViewer, 101, 'only one writable browser viewer is accepted');
     await page.locator('[data-terminal-toggle]').click();
