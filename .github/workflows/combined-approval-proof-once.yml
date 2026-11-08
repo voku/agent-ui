@@ -1,0 +1,56 @@
+name: Combined approval briefing and owner-delta proof (temporary)
+on:
+  push:
+    branches:
+      - test/approval-combined-integration-20261108
+
+permissions:
+  contents: read
+
+jobs:
+  combined-approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Merge exact browser candidate without changing either PR
+        run: |
+          git config user.name 'Approval integration CI'
+          git config user.email 'approval-integration@users.noreply.github.com'
+          git fetch origin efa8ac3f95597394453f29079dd0bde5d18345ca
+          test "$(git rev-parse FETCH_HEAD)" = "efa8ac3f95597394453f29079dd0bde5d18345ca"
+          git merge --no-commit --no-ff FETCH_HEAD
+          test -z "$(git diff --name-only --diff-filter=U)"
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Install declared dependencies before replacing owner in disposable runner
+        run: composer install --no-interaction --prefer-dist
+      - uses: actions/checkout@v7
+        with:
+          repository: voku/agent-loop
+          ref: 64b36c22d216cec0d0e38890bfe75b6b307819b0
+          path: .candidate-agent-loop
+          persist-credentials: false
+      - name: Verify exact owner head and substitute only its runtime source
+        run: |
+          test "$(git -C .candidate-agent-loop rev-parse HEAD)" = "64b36c22d216cec0d0e38890bfe75b6b307819b0"
+          test -d vendor/voku/agent-loop
+          rm -rf vendor/voku/agent-loop
+          mv .candidate-agent-loop vendor/voku/agent-loop
+          composer dump-autoload --no-interaction
+      - name: Run real combined approval browser integration
+        run: |
+          vendor/bin/phpunit tests/Integration/ContractRevisionDeltaTest.php tests/Integration/ContractDecisionDeltaPageTest.php
+      - name: Run broader consumer suite against owner candidate
+        run: vendor/bin/phpunit --filter '^(?!.*ManagedSkillProjectionTest)'
+      - name: Check static analysis, template syntax and formatting
+        run: |
+          composer phpstan
+          composer template-lint
+          composer cs-check
