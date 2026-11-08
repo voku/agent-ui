@@ -198,6 +198,45 @@ final class ContractRevisionDeltaTest extends TestCase
         self::assertStringContainsString('+ src/C.php', $body);
     }
 
+    public function testLegacyStandingActorNeverLabelsBrowserBaselineAsHumanApproved(): void
+    {
+        $this->writeCard('UI-LEGACY', 'Legacy reserved approval');
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-LEGACY', 'First draft.', ['src/A.php'], [], ['composer ci'], 'planner');
+
+        // Pre-upgrade artifacts can carry a reserved pseudo-actor. Preserve this
+        // fixture on disk because current approve() correctly rejects it.
+        $path = $contracts->path('UI-LEGACY');
+        $json = file_get_contents($path);
+        self::assertIsString($json);
+        $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($data);
+        $data['status'] = 'approved';
+        $data['approved_by'] = ' standing:legacy-actor ';
+        $data['approved_at'] = '2026-11-07T12:00:00+00:00';
+        self::assertNotFalse(file_put_contents(
+            $path,
+            json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
+        ));
+
+        $contracts->revise('UI-LEGACY', 'Second candidate.', ['src/A.php', 'src/B.php'], [], ['composer ci'], 'planner');
+        $gateway = new HumanDecisionGateway($this->root);
+        $delta = ContractRevisionDelta::between(
+            $gateway->supersededRevisions('UI-LEGACY')[0],
+            $gateway->contract('UI-LEGACY') ?? self::fail('no contract'),
+        );
+        self::assertFalse($delta->previousWasApproved());
+        self::assertNull($delta->previousApprovedBy);
+
+        $body = (new Application($this->root, dirname(__DIR__, 2) . '/templates'))
+            ->handle(new Request('GET', '/task/UI-LEGACY'))
+            ->body;
+
+        self::assertStringContainsString('Revision 2 compared with draft revision 1', $body);
+        self::assertStringContainsString('+ src/B.php', $body);
+        self::assertStringNotContainsString('approved by standing:', $body);
+    }
+
     public function testBrowserShowsOperatingPromptOrderChanges(): void
     {
         $this->writeCard('UI-10', 'Prompt sequence decision');
