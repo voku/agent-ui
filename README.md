@@ -84,13 +84,17 @@ The workflow progress view refreshes its Loop-owned projection while the page is
 
 ### Experimental local terminal cockpit
 
-The optional terminal prototype puts a coding-host terminal beside the workflow progress view. It is intended for a single user on a local POSIX machine, not remote or shared deployments. It requires Node.js 22+, `tmux`, `ttyd` 1.7.4+, PHP, and a `codex` or `claude` executable on `PATH`. The regular UI and external terminal workflows do not require any of these terminal tools.
+The optional terminal prototype puts a persistent, generic interactive shell beside the workflow progress view. It is intended for a single user on a local POSIX machine, not remote or shared deployments. It requires Node.js 22+, `tmux`, `ttyd` 1.7.4+ and PHP. The shell is `/bin/sh`; coding agents are optional programs installed separately. The regular UI and external terminal workflows do not require any of these terminal tools.
 
 ```bash
 # Open the task cockpit without starting a coding host.
 vendor/bin/agent-ui session serve UI-145 --root=.
 
-# Or start Codex explicitly from the CLI; choose codex or claude.
+# Start a normal shell; run any installed terminal CLI inside it.
+vendor/bin/agent-ui session start UI-145 --root=.
+# Within the shell: agy, codex, claude, composer ci, git status, etc.
+
+# Optional backwards-compatible direct host shortcut.
 vendor/bin/agent-ui session start UI-145 --host=codex --root=.
 
 # Reopen, inspect, or explicitly stop the same task session.
@@ -99,11 +103,11 @@ vendor/bin/agent-ui session status UI-145 --root=. --format=json
 vendor/bin/agent-ui session stop UI-145 --root=.
 ```
 
-Open the access URL printed by the command on the same machine. Treat the URL as a password: its fragment grants access to a writable terminal with the coding host's OS permissions. The transport binds to `127.0.0.1`, requires a session-specific browser credential, checks Host and Origin, isolates the terminal frontend on a separate loopback origin, and uses a private Unix socket for `ttyd`. It permits one browser terminal viewer per task. It does not expose a general command API or automatically accept host prompts or Loop decisions. The task's canonical next action remains visible in the UI; follow the normal agent-loop workflow in the coding host.
+Open the access URL printed by the command on the same machine. Treat the URL as a password: its fragment grants access to a writable terminal with the coding host's OS permissions. The transport binds to `127.0.0.1`, requires a session-specific browser credential, checks Host and Origin, isolates the terminal frontend on a separate loopback origin, and uses a private Unix socket for `ttyd`. It permits one browser terminal viewer per task. It intentionally exposes a full OS-user shell, but no unauthenticated command API; it never automatically accepts host prompts or Loop decisions. The task's canonical next action remains visible in the UI; follow the normal agent-loop workflow in the coding host.
 
-With `session serve`, select an installed host and choose **Start session** in the page. Opening the page alone does not start one. The **Disconnect** button closes the browser viewer only; **Stop session** explicitly stops the coding host after confirmation and does not close the governed task. Reload or reconnect to return to the same tmux session. Stopping the local transport also leaves the coding host running. The command prints a `tmux attach-session` command for a normal terminal. A missing session is reported and `session attach` never starts a replacement. `session start` and the browser start control explicitly request a new host if none exists. The CLI and browser use the same session operations.
+With `session serve`, choose **Interactive shell (any CLI)** and **Start session** in the page; optional direct Codex/Claude shortcuts remain available. Opening the page alone does not start one. The **Disconnect** button closes the browser viewer only; **Stop session** explicitly stops the coding host after confirmation and does not close the governed task. Reload or reconnect to return to the same tmux session. Stopping the local transport also leaves the coding host running. The command prints a `tmux attach-session` command for a normal terminal. The session exports `AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` for task-aware commands, but never automatically starts or completes an agent-loop lifecycle. To switch agents, start the generic shell and invoke whichever CLI is installed there; no vendor-specific `agent-ui` integration is required. A missing session is reported and `session attach` never starts a replacement. `session start` and the browser start control explicitly request a new host if none exists. The CLI and browser use the same session operations.
 
-This is a prototype: no workflow progress is inferred from terminal output, and a failed terminal transport is reported while workflow navigation remains available. `tmux` may retain the environment of its existing server, so environment changes made after that server started might not reach a new coding host. If the transport is killed uncleanly, its private lock directory can remain under `/tmp`; verify the PID in its `pid` file is no longer a live transport before removing that directory. No terminal transcript is stored in Loop projections.
+This is a prototype: browser image pasting and file drop are not implemented in this slice; no workflow progress is inferred from terminal output, and a failed terminal transport is reported while workflow navigation remains available. `tmux` may retain the environment of its existing server, so environment changes made after that server started might not reach a new coding host. If the transport is killed uncleanly, its private lock directory can remain under `/tmp`; verify the PID in its `pid` file is no longer a live transport before removing that directory. No terminal transcript is stored in Loop projections.
 
 ## Setup
 

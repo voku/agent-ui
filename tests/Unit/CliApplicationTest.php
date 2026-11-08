@@ -180,6 +180,28 @@ final class CliApplicationTest extends TestCase
                 '--port=18090',
             ], $arguments);
             self::assertFileDoesNotExist($temporaryRoot . '/PWNED');
+
+            // The default is now a real interactive shell, not a vendor-specific host.
+            $shellProcess = proc_open(
+                [PHP_BINARY, $bin, 'session', 'start', 'UI-145', '--root=' . $project, '--port=18090'],
+                [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $shellPipes,
+                $temporaryRoot,
+                $environment,
+            );
+            self::assertIsResource($shellProcess);
+            foreach ($shellPipes as $pipe) {
+                fclose($pipe);
+            }
+            self::assertSame(23, proc_close($shellProcess));
+            self::assertSame([
+                dirname(__DIR__, 2) . '/tools/terminal/local-cockpit.cjs',
+                '--root=' . $project,
+                '--task=UI-145',
+                '--start=shell',
+                '--port=18090',
+            ], file($capture, FILE_IGNORE_NEW_LINES));
+            self::assertFileDoesNotExist($temporaryRoot . '/PWNED');
         } finally {
             @unlink($capture);
             @unlink($node);

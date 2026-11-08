@@ -1,0 +1,136 @@
+'use strict';
+
+// End-to-end browser smoke: a real interactive shell can run an arbitrary
+// installed CLI while preserving the task context and tmux process on reload.
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const net = require('node:net');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn, spawnSync } = require('node:child_process');
+const { chromium } = require('playwright');
+
+const repo = path.resolve(__dirname, '../..');
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-ui-shell-'));
+const project = path.join(temp, 'project');
+const script = path.join(__dirname, 'local-cockpit.cjs');
+let transport;
+let browser;
+let session;
+
+function command(name, args) {
+    const result = spawnSync(name, args, { cwd: repo, encoding: 'utf8', timeout: 15000 });
+    if (result.error) throw result.error;
+    return result;
+}
+function tmux(args) {
+    return command('tmux', ['-L', 'agent-ui', ...args]);
+}
+function pane(text) {
+    return tmux(['capture-pane', '-p', '-t', '=' + session + ':']).stdout.includes(text);
+}
+function pid() {
+    const result = tmux(['display-message', '-p', '-t', '=' + session + ':', '#{pane_pid}']);
+    assert.equal(result.status, 0);
+    return result.stdout.trim();
+}
+async function until(test, label, timeoutMs = 20000) {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+        if (await test()) return;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    throw new Error('Timed out: ' + label);
+}
+function freePort() {
+    return new Promise((resolve, reject) => {
+        const listener = net.createServer();
+        listener.once('error', reject);
+        listener.listen(0, '127.0.0.1', () => {
+            const port = listener.address().port;
+            listener.close(() => resolve(port));
+        });
+    });
+}
+async function stopTransport() {
+    if (!transport || transport.exitCode !== null || transport.signalCode !== null) return;
+    const stopped = new Promise((resolve) => transport.once('exit', resolve));
+    transport.kill('SIGTERM');
+    await Promise.race([stopped, new Promise((_, reject) => setTimeout(() => reject(new Error('Transport shutdown timed out')), 7000))]);
+}
+
+async function run() {
+    const fixture = command('php', [path.join(repo, 'tools/rendered/workflow-live-fixture.php'), project]);
+    assert.equal(fixture.status, 0, fixture.stderr);
+    fs.mkdirSync(path.join(project, 'bin'));
+    fs.writeFileSync(path.join(project, 'bin/agy'),
+        '#!/bin/sh\nprintf "GENERIC_CLI_TASK=%s\\n" "$AGENT_LOOP_TASK_ID"\n', { mode: 0o755 });
+
+    const port = await freePort();
+    transport = spawn(process.execPath, [script, '--root=' + project, '--task=UI-36', '--serve', '--port=' + port],
+        { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    let errors = '';
+    transport.stdout.on('data', (chunk) => { output += chunk; });
+    transport.stderr.on('data', (chunk) => { errors += chunk; });
+    await until(() => {
+        if (transport.exitCode !== null) throw new Error('Transport exited: ' + errors);
+        return output.includes('Normal terminal:');
+    }, 'cockpit startup');
+    session = output.match(/tmux session ([^;]+)/)[1];
+    const accessUrl = output.match(/http:\/\/\S+/)[0];
+
+    browser = await chromium.launch({ headless: true, args: ['--no-sandbox'],
+        ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 920 } });
+    await page.goto(accessUrl);
+    await page.waitForURL('**/task/UI-36/progress');
+    await page.locator('[data-terminal-host]').selectOption('shell');
+    assert.equal(tmux(['has-session', '-t', '=' + session]).status, 1, 'viewing does not start a shell');
+    await page.locator('[data-terminal-start-button]').click();
+    await until(() => tmux(['has-session', '-t', '=' + session]).status === 0, 'browser starts generic shell');
+    const originalPid = pid();
+    await page.locator('[data-terminal-state]').getByText('tmux session running (shell)').waitFor();
+    const frame = page.frameLocator('[data-terminal-frame]');
+    await frame.locator('.xterm-helper-textarea').waitFor({ timeout: 15000 });
+    await frame.locator('.xterm-helper-textarea').focus();
+    await page.keyboard.type('echo TASK_FROM_SHELL=$AGENT_LOOP_TASK_ID');
+    await page.keyboard.press('Enter');
+    await until(() => pane('TASK_FROM_SHELL=UI-36'), 'task environment');
+
+    await page.keyboard.type('pwd');
+    await page.keyboard.press('Enter');
+    await until(() => pane(project), 'project working directory');
+
+    // agy stands in for any future CLI. No provider integration or special
+    // agent-ui executable allowlist is involved in invoking it from the shell.
+    await page.keyboard.type('./bin/agy');
+    await page.keyboard.press('Enter');
+    await until(() => pane('GENERIC_CLI_TASK=UI-36'), 'arbitrary CLI inside shell');
+
+    await page.reload();
+    await frame.locator('.xterm-helper-textarea').waitFor({ timeout: 15000 });
+    assert.equal(pid(), originalPid, 'reloading must not restart the shell');
+    await page.locator('[data-terminal-toggle]').click();
+    assert.equal(pid(), originalPid, 'disconnecting must not stop the shell');
+    await page.locator('[data-terminal-toggle]').click();
+    await frame.locator('.xterm-helper-textarea').waitFor({ timeout: 15000 });
+    assert.equal(pid(), originalPid, 'reconnecting must not restart shell');
+
+    const status = command(process.execPath, [script, '--root=' + project, '--task=UI-36', '--status', '--format=json']);
+    assert.equal(status.status, 0, status.stderr);
+    assert.deepEqual(JSON.parse(status.stdout), { state: 'session_running', host: 'shell' });
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('[data-terminal-stop]').click();
+    await until(() => tmux(['has-session', '-t', '=' + session]).status !== 0, 'browser stops generic shell');
+    console.log('Generic shell, task env, arbitrary CLI, reload, reconnect and browser stop passed.');
+}
+
+run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
+    if (browser) await browser.close();
+    await stopTransport();
+    if (session) tmux(['kill-session', '-t', '=' + session]);
+    fs.rmSync(temp, { recursive: true, force: true });
+});

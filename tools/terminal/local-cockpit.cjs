@@ -9,7 +9,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
-const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
+const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=shell|codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
 const fail = (message) => { console.error(message); process.exit(1); };
 const options = {};
 for (const argument of process.argv.slice(2)) {
@@ -20,7 +20,7 @@ for (const argument of process.argv.slice(2)) {
 }
 if (!options.root || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(options.task || '') ||
     [options.attach, options.start, options.serve, options.status, options.stop].filter(Boolean).length !== 1 ||
-    (options.start && !['codex', 'claude'].includes(options.start))) fail(usage);
+    (options.start && !['shell', 'codex', 'claude'].includes(options.start))) fail(usage);
 if (options.format && (!options.status || !['text', 'json'].includes(options.format))) fail(usage);
 const port = Number(options.port || 8090);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) fail('Port must be between 1024 and 65535.');
@@ -173,11 +173,12 @@ function requestHandler(req, res) {
             if (!value || typeof value !== 'object' || Array.isArray(value)) return deny(res, 400, 'Invalid request.');
             try {
                 if (req.url === '/_local/session/start') {
-                    if (!['codex', 'claude'].includes(value.host)) return deny(res, 400, 'Unsupported coding host.');
+                    const requestedHost = value.host === undefined ? 'shell' : value.host;
+                    if (!['shell', 'codex', 'claude'].includes(requestedHost)) return deny(res, 400, 'Unsupported terminal host.');
                     if (!terminalAvailable) return deny(res, 503, 'The terminal transport is unavailable.');
                     const taskStatus = await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`);
                     if (taskStatus !== 200) return deny(res, 409, 'The task is unavailable in the selected project.');
-                    const host = ensureSession(value.host, true);
+                    const host = ensureSession(requestedHost, true);
                     return json(res, 200, { state: 'session_running', host });
                 }
                 stopSession();
@@ -269,6 +270,12 @@ function tmuxCommand(args) {
     return result;
 }
 function hostExecutable(name) {
+    // POSIX interactive shell is the generic default. Other CLI agents are programs
+    // a developer may run inside it; only explicit shortcuts launch a host directly.
+    if (name === 'shell') {
+        fs.accessSync('/bin/sh', fs.constants.X_OK);
+        return '/bin/sh';
+    }
     for (const directory of (process.env.PATH || '').split(path.delimiter)) {
         if (!directory) continue;
         try {
@@ -281,7 +288,7 @@ function hostExecutable(name) {
 }
 function hostAvailability() {
     const availability = {};
-    for (const name of ['codex', 'claude']) {
+    for (const name of ['shell', 'codex', 'claude']) {
         try { hostExecutable(name); availability[name] = true; } catch (_) { availability[name] = false; }
     }
     return availability;
@@ -296,7 +303,7 @@ function inspectSession() {
         const identity = tmuxCommand(['show-options', '-v', '-t', target + ':', '@agent-ui-host']);
         const host = identity.stdout.trim();
         if (location.status !== 0 || fs.realpathSync(location.stdout.trim()) !== root ||
-            identity.status !== 0 || !['codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
+            identity.status !== 0 || !['shell', 'codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
         return { state: 'session_running', host };
     } catch (_) { return { state: 'unavailable', host: null }; }
 }
@@ -317,11 +324,15 @@ function ensureSession(requestedHost, create) {
         let state = inspectSession();
         if (state.state === 'session_not_found') {
             if (!create) throw new Error('The task has no running terminal session; start a host explicitly.');
-            if (!['codex', 'claude'].includes(requestedHost)) throw new Error('Unsupported coding host.');
+            if (!['shell', 'codex', 'claude'].includes(requestedHost)) throw new Error('Unsupported coding host.');
             const executable = hostExecutable(requestedHost);
-            // tmux executes multiple command arguments directly. The shell program is
-            // constant; the resolved executable is supplied as an argument, not code.
-            const created = tmuxCommand(['new-session', '-d', '-s', session, '-c', root, 'sh', '-c', 'exec "$0"', executable]);
+            // The command is constant shell syntax; task, root and executable are
+            // positional arguments, never interpolated into executable shell code.
+            // Export task context for both generic shells and optional direct hosts.
+            const launchScript = 'export AGENT_LOOP_TASK_ID="$1" AGENT_UI_PROJECT_ROOT="$2"; exec "$0"' +
+                (requestedHost === 'shell' ? ' -i' : '');
+            const created = tmuxCommand(['new-session', '-d', '-s', session, '-c', root,
+                'sh', '-c', launchScript, executable, options.task, root]);
             if (created.status !== 0) throw new Error('The coding-host session could not be started.');
             const marked = tmuxCommand(['set-option', '-t', target + ':', '@agent-ui-host', requestedHost]);
             if (marked.status !== 0) {

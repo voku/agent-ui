@@ -150,17 +150,18 @@ require __DIR__ . '/../layout/header.php';
             <button type="button" class="btn btn--small" data-terminal-stop hidden>Stop session</button>
         </div>
     </div>
-    <p class="note">The terminal shows a local coding-host session. Its activity does not establish workflow progress or verification.</p>
+    <p class="note">A local interactive shell can run any installed CLI, including coding agents. Terminal activity does not establish governed workflow progress or verification.</p>
     <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
     <div data-terminal-start hidden>
-        <label for="terminal-host">Coding host</label>
+        <label for="terminal-host">Start terminal</label>
         <select id="terminal-host" data-terminal-host>
-            <option value="codex">Codex</option>
-            <option value="claude">Claude Code</option>
+            <option value="shell">Interactive shell (any CLI)</option>
+            <option value="codex">Codex shortcut</option>
+            <option value="claude">Claude Code shortcut</option>
         </select>
         <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
     </div>
-    <iframe title="Local coding-agent terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
+    <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
     <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
 </aside>
 <?php endif; ?>
