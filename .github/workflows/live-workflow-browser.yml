@@ -1,0 +1,44 @@
+name: Live workflow browser
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-workflow:
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest may advance sooner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install browser test dependency
+        working-directory: tools/rendered
+        run: |
+          npm init -y >/dev/null
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start an owner-backed fixture
+        run: |
+          php tools/rendered/workflow-live-fixture.php "$RUNNER_TEMP/workflow-project"
+          AGENT_UI_PROJECT_ROOT="$RUNNER_TEMP/workflow-project" php -S 127.0.0.1:8080 -t public public/index.php > "$RUNNER_TEMP/workflow-server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/task/UI-36/progress >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Check live workflow behavior
+        run: node tools/rendered/workflow-live-check.cjs http://127.0.0.1:8080
+      - name: Server log
+        if: always()
+        run: tail -30 "$RUNNER_TEMP/workflow-server.log" || true

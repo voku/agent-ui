@@ -22,8 +22,11 @@ final readonly class Response
         return new self($body, $status);
     }
 
-    /** @param array<string, mixed> $payload */
-    public static function json(array $payload, int $status = 200): self
+    /**
+     * @param array<string, mixed>  $payload
+     * @param array<string, string> $headers
+     */
+    public static function json(array $payload, int $status = 200, array $headers = []): self
     {
         try {
             $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -31,7 +34,7 @@ final readonly class Response
             throw new \RuntimeException('Unable to encode JSON response.', previous: $exception);
         }
 
-        return new self($body, $status, ['Content-Type' => 'application/json; charset=utf-8']);
+        return new self($body, $status, ['Content-Type' => 'application/json; charset=utf-8'] + $headers);
     }
 
     public static function redirect(string $location): self

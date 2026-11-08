@@ -363,7 +363,8 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
  * corresponding item in the step list. */
 (function () {
     var container = document.querySelector('[data-workflow-graph]');
-    if (!container || typeof window.cytoscape !== 'function') { return; }
+    if (!container) { return; }
+    if (typeof window.cytoscape !== 'function') { container.hidden = true; return; }
 
     var canvas = container.querySelector('[data-workflow-canvas]');
     var tools = container.querySelector('[data-workflow-tools]');
@@ -380,9 +381,9 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         return;
     }
 
-    if (!Array.isArray(elements) || elements.length === 0) { return; }
+    if (!Array.isArray(elements)) { return; }
 
-    if (tools) { tools.hidden = false; }
+    if (tools && elements.length > 0) { tools.hidden = false; }
 
     /* Canvas styles cannot read CSS custom properties, so resolve the design
        tokens once. Hard-coded hex values here drifted from the stylesheet the
@@ -545,6 +546,79 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         }
     }
 
+    /* Keep surviving nodes in place. A refresh updates owner data and edges,
+       without running a layout or selecting a different node for the reader. */
+    var nextLiveNode = 0;
+    document.addEventListener('agent-ui:workflow-progress', function (event) {
+        var steps = event.detail && event.detail.steps;
+        if (!Array.isArray(steps)) { return; }
+
+        var hadNodes = cy.nodes().length > 0;
+        var existing = Object.create(null);
+        var kept = Object.create(null);
+        var orderedNodeIds = [];
+        cy.nodes().forEach(function (node) { existing[node.data('step_id')] = node; });
+
+        container.hidden = steps.length === 0;
+        if (tools) { tools.hidden = steps.length === 0; }
+        cy.batch(function () {
+            steps.forEach(function (step, index) {
+                var node = existing[step.id];
+                var data = {
+                    step_id: step.id,
+                    index: index + 1,
+                    label: (index + 1) + '. ' + step.label,
+                    status: step.status,
+                    owner: step.owner,
+                    reason: step.reason || ''
+                };
+                if (node) {
+                    node.data(data);
+                } else {
+                    data.id = 'live_step_' + nextLiveNode++;
+                    node = cy.add({ group: 'nodes', data: data, position: { x: 100 + index * 190, y: 110 } });
+                }
+                kept[step.id] = true;
+                orderedNodeIds.push(node.id());
+            });
+            Object.keys(existing).forEach(function (id) {
+                if (!kept[id]) { existing[id].remove(); }
+            });
+            cy.edges().remove();
+            for (var index = 1; index < orderedNodeIds.length; index++) {
+                cy.add({
+                    group: 'edges',
+                    data: {
+                        id: 'live_edge_' + index,
+                        source: orderedNodeIds[index - 1],
+                        target: orderedNodeIds[index],
+                        status: steps[index - 1].status === 'done' ? 'done' : 'pending'
+                    }
+                });
+            }
+        });
+
+        if (steps.length === 0) {
+            if (inspector) { inspector.hidden = true; }
+            return;
+        }
+        if (!hadNodes) {
+            cy.resize();
+            var firstCurrent = cy.nodes('[status = "current"]');
+            if (firstCurrent.length === 0) { firstCurrent = cy.nodes('[status = "blocked"]'); }
+            if (firstCurrent.length > 0) { firstCurrent.select(); }
+            if (cy.width() < 600) {
+                cy.zoom(0.8);
+                cy.center(firstCurrent.length > 0 ? firstCurrent : cy.nodes().first());
+            } else {
+                cy.fit(null, 30);
+            }
+        }
+        var selected = cy.nodes(':selected');
+        if (selected.length > 0) { showInspector(selected[0]); }
+        else if (inspector) { inspector.hidden = true; }
+    });
+
     var currentNode = cy.nodes('[status = "current"]');
     if (currentNode.length === 0) {
         currentNode = cy.nodes('[status = "blocked"]');
@@ -552,6 +626,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     if (currentNode.length > 0) {
         currentNode.select();
         showInspector(currentNode[0]);
+    }
+    if (cy.width() < 600 && cy.nodes().length > 0) {
+        cy.zoom(0.8);
+        cy.center(currentNode.length > 0 ? currentNode : cy.nodes().first());
     }
 
     cy.on('tap', 'node', function (evt) {
@@ -583,8 +661,206 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
 
     window.addEventListener('resize', function () {
         cy.resize();
-        cy.fit(null, 30);
     });
+}());
+
+/* Refresh the Loop projection without navigating away from the current graph.
+ * A failed refresh leaves the last rendered state visible and labels it stale. */
+(function () {
+    var live = document.querySelector('[data-workflow-live]');
+    if (!live) { return; }
+    var url = live.getAttribute('data-progress-url');
+    var taskId = live.getAttribute('data-task-id');
+    var status = live.querySelector('[data-workflow-live-status]');
+    var retry = live.querySelector('[data-workflow-live-retry]');
+    var decision = document.querySelector('[data-workflow-decision]');
+    var empty = document.querySelector('[data-progress-empty]');
+    var details = document.querySelector('[data-progress-details]');
+    var list = document.querySelector('[data-progress-list]');
+    if (!url || !taskId || !status || !retry || !decision || !empty || !details || !list) { return; }
+
+    status.hidden = false;
+    status.textContent = 'Connecting to live workflow updates…';
+    if (typeof window.fetch !== 'function') {
+        status.textContent = 'Live updates are unavailable in this browser. Reload for the current workflow.';
+        return;
+    }
+
+    var timer = null;
+    var inFlight = false;
+    var failures = 0;
+    var currentState = '';
+    var lastSteps = null;
+
+    function text(selector, value) {
+        var element = document.querySelector(selector);
+        if (element) { element.textContent = value; }
+    }
+
+    function pill(selector, label, tone) {
+        var element = document.querySelector(selector);
+        if (!element) { return; }
+        if (['ok', 'attention', 'blocked', 'neutral'].indexOf(tone) === -1) { tone = 'neutral'; }
+        element.textContent = label;
+        element.className = 'pill pill--' + tone;
+    }
+
+    function validSnapshot(value) {
+        if (!value || value.schema_version !== 1 || value.task_id !== taskId ||
+            !Array.isArray(value.steps) || value.steps.length > 100 ||
+            typeof value.has_human_decision !== 'boolean' ||
+            typeof value.decision_html !== 'string' ||
+            typeof value.decision_digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.decision_digest) ||
+            (value.command_reference !== null && typeof value.command_reference !== 'string')) { return false; }
+        var fields = ['state', 'state_label', 'state_tone', 'next_action', 'next_action_kind',
+            'next_action_kind_label', 'next_action_kind_tone', 'next_action_hint'];
+        if (!fields.every(function (field) { return typeof value[field] === 'string'; })) { return false; }
+        var seen = Object.create(null);
+        return value.steps.every(function (step) {
+            if (!step || typeof step.id !== 'string' || step.id === '' || seen[step.id] ||
+                typeof step.label !== 'string' || typeof step.status !== 'string' ||
+                typeof step.status_label !== 'string' || typeof step.owner !== 'string' ||
+                (step.reason !== null && typeof step.reason !== 'string')) { return false; }
+            seen[step.id] = true;
+            return true;
+        });
+    }
+
+    function renderSteps(steps) {
+        empty.hidden = steps.length !== 0;
+        details.hidden = steps.length === 0;
+        var fragment = document.createDocumentFragment();
+        steps.forEach(function (step, index) {
+            var item = document.createElement('li');
+            item.id = 'step-panel-' + index;
+            item.className = 'panel' + (step.status === 'blocked' ? ' panel--danger' :
+                (step.status === 'current' ? ' panel--attention' : ''));
+            item.style.margin = '0';
+            var head = document.createElement('div');
+            head.className = 'action__head';
+            var left = document.createElement('div');
+            left.style.cssText = 'display:flex;gap:10px;align-items:center;min-width:0';
+            var number = document.createElement('span');
+            number.className = 'mono small faint';
+            number.textContent = String(index + 1);
+            var label = document.createElement('strong');
+            label.textContent = step.label;
+            var state = document.createElement('span');
+            var tone = step.status === 'done' ? 'ok' : (step.status === 'current' ? 'attention' :
+                (step.status === 'blocked' ? 'blocked' : 'neutral'));
+            state.className = 'pill pill--' + tone;
+            state.textContent = step.status_label;
+            left.append(number, label, state);
+            var owner = document.createElement('span');
+            owner.className = 'small faint';
+            owner.textContent = 'owner: ' + step.owner;
+            head.append(left, owner);
+            item.appendChild(head);
+            if (step.reason !== null) {
+                var reason = document.createElement('p');
+                reason.className = 'note';
+                reason.style.marginTop = '8px';
+                reason.textContent = step.reason;
+                item.appendChild(reason);
+            }
+            fragment.appendChild(item);
+        });
+        list.replaceChildren(fragment);
+    }
+
+    function applySnapshot(snapshot) {
+        pill('[data-progress-state]', snapshot.state_label, snapshot.state_tone);
+        pill('[data-task-workflow-state]', snapshot.state_label, snapshot.state_tone);
+        pill('[data-task-next-kind]', snapshot.next_action_kind_label, snapshot.next_action_kind_tone);
+        text('[data-task-next-hint]', snapshot.next_action_hint);
+        text('[data-task-next-action]', snapshot.next_action);
+
+        var decisionSlot = document.querySelector('[data-task-decision-slot]');
+        if (decisionSlot) {
+            var decisionLink = decisionSlot.querySelector('[data-task-decision-link]');
+            if (snapshot.has_human_decision && !decisionLink) {
+                decisionLink = document.createElement('p');
+                decisionLink.className = 'task-context__decision';
+                decisionLink.setAttribute('data-task-decision-link', '');
+                var decisionAnchor = document.createElement('a');
+                decisionAnchor.className = 'btn btn--primary';
+                decisionAnchor.setAttribute('href', '/task/' + encodeURIComponent(taskId));
+                decisionAnchor.hash = 'decision';
+                decisionAnchor.textContent = 'Go to the decision agent-loop is waiting for';
+                decisionLink.appendChild(decisionAnchor);
+                decisionSlot.appendChild(decisionLink);
+            } else if (!snapshot.has_human_decision && decisionLink) {
+                decisionLink.remove();
+            }
+        }
+        var reference = document.querySelector('[data-task-command-reference]');
+        var referenceLink = document.querySelector('[data-task-command-link]');
+        if (reference) { reference.hidden = snapshot.command_reference === null; }
+        if (referenceLink && snapshot.command_reference !== null) {
+            referenceLink.setAttribute('href', '/commands#' + encodeURIComponent(snapshot.command_reference));
+            text('[data-task-command-name]', snapshot.command_reference);
+        }
+
+        if (decision.getAttribute('data-decision-digest') !== snapshot.decision_digest) {
+            // This fragment is rendered and escaped by the same server template as the initial page.
+            decision.innerHTML = snapshot.decision_html;
+            decision.setAttribute('data-decision-digest', snapshot.decision_digest);
+        }
+
+        var serializedSteps = JSON.stringify(snapshot.steps);
+        if (serializedSteps !== lastSteps) {
+            renderSteps(snapshot.steps);
+            document.dispatchEvent(new CustomEvent('agent-ui:workflow-progress', { detail: { steps: snapshot.steps } }));
+            lastSteps = serializedSteps;
+        }
+        currentState = snapshot.state;
+    }
+
+    function schedule(delay) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(poll, delay);
+    }
+
+    function poll() {
+        if (inFlight) { return; }
+        inFlight = true;
+        var controller = typeof AbortController === 'function' ? new AbortController() : null;
+        var deadline = controller ? window.setTimeout(function () { controller.abort(); }, 10000) : null;
+        var options = { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } };
+        if (controller) { options.signal = controller.signal; }
+        window.fetch(url, options).then(function (response) {
+            if (!response.ok) { throw new Error('Workflow refresh failed.'); }
+            return response.json();
+        }).then(function (snapshot) {
+            if (!validSnapshot(snapshot)) { throw new Error('Invalid workflow projection.'); }
+            applySnapshot(snapshot);
+            failures = 0;
+            status.textContent = 'Live workflow updates connected.';
+            retry.hidden = true;
+        }).catch(function () {
+            failures++;
+            status.textContent = 'Live updates unavailable. Showing the last loaded workflow state.';
+            retry.hidden = false;
+        }).then(function () {
+            if (deadline !== null) { window.clearTimeout(deadline); }
+            inFlight = false;
+            var delay = document.hidden || currentState === 'complete'
+                ? 30000
+                : (failures > 0 ? Math.min(30000, 4000 * failures) : 4000);
+            schedule(delay);
+        });
+    }
+
+    retry.addEventListener('click', function () {
+        window.clearTimeout(timer);
+        poll();
+    });
+    document.addEventListener('visibilitychange', function () {
+        window.clearTimeout(timer);
+        if (document.hidden) { if (!inFlight) { schedule(30000); } }
+        else { poll(); }
+    });
+    poll();
 }());
 
 /*
