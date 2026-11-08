@@ -6,11 +6,12 @@ use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string} $model */
+/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string, brief_html: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $progress = $model['progress'];
 $decisionHtml = $model['decision_html'];
+$briefHtml = $model['brief_html'];
 $terminalTask = getenv('AGENT_UI_TERMINAL_TASK');
 $terminalOrigin = LocalTerminal::origin();
 $showTerminal = is_string($terminalTask) && $terminalTask === $card->id && $terminalOrigin !== null;
@@ -41,7 +42,9 @@ require __DIR__ . '/../layout/header.php';
         policy evaluation as the workflow progress below, so it is shown there once rather than twice here.</p>
 </section>
 
-<div data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
+<div id="workflow-overview" data-workflow-brief data-brief-digest="<?= hash('sha256', $briefHtml) ?>" aria-live="polite"><?= $briefHtml ?></div>
+
+<div id="workflow-approval" data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
 
 <p class="eyebrow">Task workflow</p>
 <section class="panel" data-progress-empty<?= $progress->steps !== [] ? ' hidden' : '' ?>>
@@ -81,7 +84,7 @@ require __DIR__ . '/../layout/header.php';
         }
     }
     ?>
-    <section class="panel workflow-graph-container" data-workflow-graph<?= $progress->steps === [] ? ' hidden' : '' ?> style="margin-bottom: 20px; padding: 16px;">
+    <section id="workflow-graph" class="panel workflow-graph-container" data-workflow-graph<?= $progress->steps === [] ? ' hidden' : '' ?> style="margin-bottom: 20px; padding: 16px;">
         <div class="action__head" style="margin-bottom: 12px;">
             <div>
                 <strong style="font-size: 14px;">Workflow Graph</strong>
@@ -111,7 +114,7 @@ require __DIR__ . '/../layout/header.php';
         </div>
     </section>
 
-    <div data-progress-details<?= $progress->steps === [] ? ' hidden' : '' ?>>
+    <div id="workflow-steps" data-progress-details<?= $progress->steps === [] ? ' hidden' : '' ?>>
     <p class="eyebrow" style="margin-top: 24px;">Workflow steps detail</p>
     <ol class="stack" data-progress-list style="list-style:none;padding:0;margin:0">
         <?php foreach ($progress->steps as $index => $step): ?>
@@ -142,7 +145,7 @@ require __DIR__ . '/../layout/header.php';
     </div>
 </div>
 <?php if ($showTerminal): ?>
-<aside class="workflow-cockpit__terminal panel" aria-label="Local terminal session" data-terminal-panel>
+<aside id="workflow-terminal" class="workflow-cockpit__terminal panel" aria-label="Local terminal session" data-terminal-panel>
     <div class="action__head">
         <strong>Local terminal session</strong>
         <div>
@@ -150,7 +153,8 @@ require __DIR__ . '/../layout/header.php';
             <button type="button" class="btn btn--small" data-terminal-stop hidden>Stop session</button>
         </div>
     </div>
-    <p class="note">A local interactive shell can run any installed CLI, including coding agents. Terminal activity does not establish governed workflow progress or verification.</p>
+    <p class="note">Use your preferred CLI in the task's project directory. Run <code>vendor/bin/agent-loop enter <?= TemplateRenderer::escape($card->id) ?> --format=json</code>, follow the owner-provided next action, and use <code>finish</code> to reconcile evidence. The workflow panel refreshes independently; terminal output is not authority.</p>
+    <p class="small"><strong>Task:</strong> <code><?= TemplateRenderer::escape($card->id) ?></code> · <strong>Project:</strong> <code>AGENT_UI_PROJECT_ROOT</code> · <strong>Context:</strong> <code>AGENT_LOOP_TASK_ID</code></p>
     <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
     <div data-terminal-start hidden>
         <label for="terminal-host">Start terminal</label>
