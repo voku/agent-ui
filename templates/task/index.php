@@ -90,8 +90,9 @@ require __DIR__ . '/../layout/header.php';
             <p class="note" role="status"><strong>Revision history matters:</strong>
                 This version of the UI compares with the immediately previous Contract revision,
                 which may not be the last human-approved one. The displayed delta may omit earlier
-                unapproved changes. Review the <a href="/task/<?= rawurlencode($card->id) ?>/history">full revision history</a>
-                before deciding. A complete owner-backed cumulative comparison is not yet available here.</p>
+                unapproved changes. The <a href="/task/<?= rawurlencode($card->id) ?>/history">revision event timeline</a>
+                shows proposals and approvals, not complete archived Contract contents. Check the archived
+                Contracts in the project before deciding; a complete cumulative comparison is not yet available here.</p>
         <?php endif; ?>
         <div class="btn-row">
             <a class="btn btn--primary" href="#decision">Review full terms &amp; decide</a>
