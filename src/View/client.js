@@ -872,7 +872,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     // actual workflow mutation. Progressive enhancement keeps no-JS POSTs.
     document.addEventListener('submit', function (event) {
         var form = event.target;
-        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-workflow-approval-form') ||
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-workflow-decision-form') ||
             typeof FormData !== 'function' || typeof URLSearchParams !== 'function') { return; }
         event.preventDefault();
         if (form.dataset.pending === '1') { return; }
@@ -880,7 +880,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         var button = form.querySelector('button[type="submit"]');
         var feedback = form.querySelector('[data-workflow-approval-status]');
         if (button) { button.disabled = true; }
-        if (feedback) { feedback.hidden = false; feedback.textContent = 'Recording this exact revision…'; }
+        if (feedback) { feedback.hidden = false; feedback.textContent = 'Recording this exact owner decision…'; }
         window.fetch(form.action, {
             method: 'POST',
             credentials: 'same-origin',
@@ -891,7 +891,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             var destination = new URL(response.url);
             if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
                 destination.pathname !== window.location.pathname) {
-                throw new Error('Approval was not confirmed. Reload the current Contract before retrying.');
+                throw new Error('Decision was not confirmed. Reload the current owner state before retrying.');
             }
             if (feedback) { feedback.textContent = 'Recorded by agent-loop. Refreshing owner state…'; }
             document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
