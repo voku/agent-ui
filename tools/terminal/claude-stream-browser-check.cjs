@@ -86,12 +86,19 @@ async function run() {
     await page.goto(stdout.match(/http:\/\/\S+/)[0]);
     await page.waitForURL('**/task/UI-36/progress');
     const panel = page.locator('[data-agent-activity]');
+    const pageErrors = [];
+    page.on('pageerror', (error) => { pageErrors.push(error.message); });
     await panel.locator('[data-agent-activity-provider]').selectOption('claude');
-    await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
-    const snapshotBefore = await page.evaluate(async () =>
-        (await (await fetch('/_local/agent-activity/claude')).json()));
-    assert.equal(snapshotBefore.provider, 'claude');
-    assert.equal(snapshotBefore.supports_decisions, false);
+    const snapshotBefore = await page.evaluate(async () => {
+        const response = await fetch('/_local/agent-activity/claude');
+        return { status: response.status, data: response.ok ? await response.json() : await response.text() };
+    });
+    assert.equal(snapshotBefore.status, 200, JSON.stringify(snapshotBefore));
+    assert.equal(snapshotBefore.data.state, 'stopped', JSON.stringify(snapshotBefore));
+    await until(async () => (await panel.locator('[data-codex-app-server-state]').textContent()).includes('stopped'),
+        'Claude selected provider view; errors=' + JSON.stringify(pageErrors));
+    assert.equal(snapshotBefore.data.provider, 'claude');
+    assert.equal(snapshotBefore.data.supports_decisions, false);
     const invalid = await page.evaluate(async () => (await fetch('/_local/agent-activity/claude/start', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json',
             'X-Agent-Ui-Csrf': 'incorrect' }, body: '{}',
