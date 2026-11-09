@@ -1,0 +1,40 @@
+name: Host-native workflow without Runner
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Install production dependencies only
+        run: composer install --no-dev --no-interaction --prefer-dist
+      - name: Assert optional Runner is absent
+        run: |
+          if composer show voku/agent-loop-runner --installed --no-ansi >/dev/null 2>&1; then
+            echo 'Unexpected optional Runner dependency in production graph.' >&2
+            exit 1
+          fi
+      - name: Exercise real agent-loop CLI and UI decision projection
+        run: php tools/dogfood/host-native-no-runner.php
+      - name: Upload owner-state report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: host-native-no-runner
+          path: var/host-native-no-runner.json
+          if-no-files-found: warn
+          retention-days: 7

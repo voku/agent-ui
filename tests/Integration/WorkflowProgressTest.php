@@ -7,9 +7,12 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
+use voku\AgentUi\View\TemplateRenderer;
 
 final class WorkflowProgressTest extends TestCase
 {
@@ -51,6 +54,11 @@ final class WorkflowProgressTest extends TestCase
         self::assertSame(200, $before->status);
         self::assertStringContainsString('Human decision required', $before->body);
         self::assertStringContainsString('Approve revision 1', $before->body);
+        self::assertStringContainsString('data-workflow-brief', $before->body);
+        self::assertStringContainsString('Developer briefing', $before->body);
+        self::assertStringContainsString('Not approved', $before->body);
+        self::assertStringContainsString('What this decision means', $before->body);
+        self::assertStringContainsString('href="#workflow-approval"', $before->body);
         self::assertStringContainsString('name="revision" value="1"', $before->body);
         self::assertStringContainsString('Show governed workflow progress without moving authority into agent-ui.', $before->body);
         self::assertStringContainsString('src/Feature/Task', $before->body);
@@ -84,6 +92,8 @@ final class WorkflowProgressTest extends TestCase
 
         $after = $app->handle(new Request('GET', '/task/UI-36/progress'));
         self::assertStringNotContainsString('Approve Contract</button>', $after->body);
+        self::assertStringContainsString('Approved revision 1', $after->body);
+        self::assertStringNotContainsString('href="#workflow-approval"', $after->body);
     }
 
     public function testRefreshReturnsCurrentOwnerProgressAndUpdatedDecision(): void
@@ -122,6 +132,11 @@ final class WorkflowProgressTest extends TestCase
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $payload['decision_html']);
         self::assertStringNotContainsString('<script>alert(1)</script>', $payload['decision_html']);
         self::assertSame(hash('sha256', $payload['decision_html']), $payload['decision_digest']);
+        self::assertIsString($payload['brief_html']);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $payload['brief_html']);
+        self::assertStringNotContainsString('<script>alert(1)</script>', $payload['brief_html']);
+        self::assertStringContainsString('Required validation (not a passing result)', $payload['brief_html']);
+        self::assertSame(hash('sha256', $payload['brief_html']), $payload['brief_digest']);
 
         $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
         self::assertIsString($csrf);
@@ -140,8 +155,52 @@ final class WorkflowProgressTest extends TestCase
         $current = (new WorkflowProgressGateway($this->root))->task('UI-36');
         self::assertSame($current->nextAction, $updated['next_action']);
         self::assertNotSame($payload['decision_digest'], $updated['decision_digest']);
+        self::assertNotSame($payload['brief_digest'], $updated['brief_digest']);
+        self::assertIsString($updated['brief_html']);
+        self::assertStringContainsString('Approved revision 1', $updated['brief_html']);
         self::assertIsString($updated['decision_html']);
         self::assertStringNotContainsString('Approve Contract</button>', $updated['decision_html']);
+    }
+
+    public function testExactOwnerReviewAndLearningDecisionsRenderAsHtmlForms(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $card = (new BoardProjectionGateway($this->root))->card('UI-36');
+        $digest = str_repeat('a', 64);
+        $review = $templates->render('task/_progress-decision', [
+            'card' => $card,
+            'human_decisions' => new WorkflowHumanDecisionProjection(
+                'UI-36',
+                [WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW],
+                $digest,
+            ),
+            'contract' => null,
+            'csrf_token' => 'test-csrf',
+        ]);
+
+        self::assertStringContainsString('Review the exact report before acknowledging', $review);
+        self::assertStringContainsString('action="/task/UI-36/review-ack"', $review);
+        self::assertStringContainsString('name="report_sha256" value="' . $digest . '"', $review);
+        self::assertStringContainsString('name="return_to" value="progress"', $review);
+        self::assertStringContainsString('data-workflow-decision-form', $review);
+
+        $learning = $templates->render('task/_progress-decision', [
+            'card' => $card,
+            'human_decisions' => new WorkflowHumanDecisionProjection(
+                'UI-36',
+                [WorkflowHumanDecisionProjection::RECORD_LEARNING],
+                null,
+            ),
+            'contract' => null,
+            'csrf_token' => 'test-csrf',
+        ]);
+
+        self::assertStringContainsString('Learning disposition', $learning);
+        self::assertSame(2, substr_count($learning, 'action="/task/UI-36/learning"'));
+        self::assertStringContainsString('name="decision" value="no_durable_learning"', $learning);
+        self::assertStringContainsString('name="decision" value="follow_up_required"', $learning);
+        self::assertStringContainsString('name="follow_up_ref"', $learning);
+        self::assertStringNotContainsString('action="/task/UI-36/approve"', $learning);
     }
 
     public function testRefreshOfUnknownTaskIsAnUncacheableJsonError(): void

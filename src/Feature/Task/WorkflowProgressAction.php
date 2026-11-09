@@ -14,6 +14,7 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
@@ -37,12 +38,16 @@ final readonly class WorkflowProgressAction
     {
         $card = $this->board->card($taskId);
         $decisions = $this->decisions->available($taskId);
-        $decisionHtml = $this->decisionHtml($card, $decisions, $this->decisions->contract($taskId));
+        $contract = $this->decisions->contract($taskId);
+        $progress = $this->progress->task($taskId);
+        $decisionHtml = $this->decisionHtml($card, $decisions, $contract);
+        $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract);
 
         return Response::html($this->templates->render('task/progress', [
             'card' => $card,
-            'progress' => $this->progress->task($taskId),
+            'progress' => $progress,
             'decision_html' => $decisionHtml,
+            'brief_html' => $briefHtml,
             'task_context' => $this->taskContext->forCard($card),
         ]));
     }
@@ -88,7 +93,9 @@ final readonly class WorkflowProgressAction
                 ];
             }
 
-            $decisionHtml = $this->decisionHtml($card, $decisions, $this->decisions->contract($taskId));
+            $contract = $this->decisions->contract($taskId);
+            $decisionHtml = $this->decisionHtml($card, $decisions, $contract);
+            $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract);
             $response = Response::json([
                 'schema_version' => 1,
                 'task_id' => $progress->taskId,
@@ -104,6 +111,8 @@ final readonly class WorkflowProgressAction
                 'has_human_decision' => $decisions->actions !== [],
                 'decision_html' => $decisionHtml,
                 'decision_digest' => hash('sha256', $decisionHtml),
+                'brief_html' => $briefHtml,
+                'brief_digest' => hash('sha256', $briefHtml),
                 'steps' => $steps,
             ], headers: $headers);
 
@@ -117,6 +126,20 @@ final readonly class WorkflowProgressAction
 
             return Response::json(['error' => 'Workflow projection unavailable.'], 503, $headers);
         }
+    }
+
+    private function briefHtml(
+        CardSnapshot $card,
+        WorkflowProgressSnapshot $progress,
+        WorkflowHumanDecisionProjection $decisions,
+        ?TaskContract $contract,
+    ): string {
+        return $this->templates->render('task/_workflow-brief', [
+            'card' => $card,
+            'progress' => $progress,
+            'human_decisions' => $decisions,
+            'contract' => $contract,
+        ]);
     }
 
     private function decisionHtml(

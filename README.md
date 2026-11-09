@@ -82,6 +82,93 @@ The Host/Origin guard uses PHP's server-provided request scheme. If TLS terminat
 
 The workflow progress view refreshes its Loop-owned projection while the page is open through the read-only, bounded `/task/{id}/progress.json` endpoint. It polls every four seconds while visible, less frequently in a background tab or after completion, and keeps the graph's position and selection. If refresh fails, the last rendered state stays visible with an unavailable notice and retry control. With JavaScript disabled, the server-rendered workflow and decision controls remain available on reload.
 
+### Unified browser workbench (live workflow + CLI + decisions)
+
+Start the cockpit with a task that already exists in the project's agent-kanban board:
+
+```bash
+vendor/bin/agent-ui session serve UI-145 --root=.
+```
+
+Open the printed local access URL. The task's **Workflow** view combines a
+server-rendered developer briefing, live Loop state and graph, the current exact
+canonical action, required human decisions, and a persistent terminal.
+Choose **Interactive shell (any CLI)** and **Start session**; the shell has
+`AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` available.
+
+Inside that browser terminal, use the installed coding host you already prefer
+(for example Codex, Claude, agy or OpenCode). That host, **not agent-ui**,
+continues the existing Loop lifecycle:
+
+```bash
+vendor/bin/agent-loop enter UI-145 --format=json
+# Follow next_action_kind and the exact owner-projected next_action.
+# Use your normal host tools to implement only after the owner permits mutation.
+vendor/bin/agent-loop finish UI-145 --format=json
+# Repeat until the owner reports completion or a genuine human decision.
+```
+
+The browser polls `progress.json`, updating the HTML briefing, visual graph and
+decision card without replaying a terminal transcript. The briefing names the
+Contract goal, active stage, authorization status, paths in scope, explicit
+non-goals and *planned* validation, and links to actual evidence/review.
+Those summaries are deliberately **owner projections, not generated claims
+about what the agent is thinking**. If an agent runs in PhpStorm or SSH instead,
+the same Workflow view still observes its Loop state without launching a shell.
+
+A human can inspect the exact Contract revision, then submit **Approve Contract**
+in the browser. The JavaScript enhancement sends the form to the existing
+revision-checked, CSRF-protected Loop service and refreshes the owner state
+without reloading the terminal; the no-JavaScript form still works normally.
+When available, the same workbench presents exact review-report acknowledgement
+and supported Learning disposition forms through the existing typed routes.
+A failed/stale decision shows an error, never simulated success. Approving a
+Contract does **not** approve the subsequent implementation, tests or review.
+
+This is a **local-only experimental** shell with the privileges of your OS user.
+Do not expose the access URL or bind it to public interfaces. The terminal and
+its optional image upload require independent security review and authenticated
+host end-to-end acceptance before production deployment.
+
+### Experimental local terminal cockpit
+
+The optional terminal prototype puts a persistent, generic interactive shell beside the workflow progress view. It is intended for a single user on a local POSIX machine, not remote or shared deployments. It requires Node.js 22+, `tmux`, `ttyd` 1.7.4+ and PHP. The shell is `/bin/sh`; coding agents are optional programs installed separately. The regular UI and external terminal workflows do not require any of these terminal tools.
+
+```bash
+# Open the task cockpit without starting a coding host.
+vendor/bin/agent-ui session serve UI-145 --root=.
+
+# Start a normal shell; run any installed terminal CLI inside it.
+vendor/bin/agent-ui session start UI-145 --root=.
+# Within the shell: agy, codex, claude, composer ci, git status, etc.
+
+# Optional backwards-compatible direct host shortcut.
+vendor/bin/agent-ui session start UI-145 --host=codex --root=.
+
+# Reopen, inspect, or explicitly stop the same task session.
+vendor/bin/agent-ui session attach UI-145 --root=.
+vendor/bin/agent-ui session status UI-145 --root=. --format=json
+vendor/bin/agent-ui session stop UI-145 --root=.
+```
+
+Open the access URL printed by the command on the same machine. Treat the URL as a password: its fragment grants access to a writable terminal with the coding host's OS permissions. The transport binds to `127.0.0.1`, requires a session-specific browser credential, checks Host and Origin, isolates the terminal frontend on a separate loopback origin, and uses a private Unix socket for `ttyd`. The cockpit also launches a second, private PHP development server on an ephemeral loopback port; every request to that backend requires a per-launch secret known only to the Node gateway and child PHP process. Requests directly to its port without the secret are rejected before PHP opens a session or reads task state, and browser-provided copies of the internal header are overwritten by the gateway. Ordinary standalone `agent-ui` launches remain unchanged. This controls direct HTTP bypass but is **not** a sandbox against other software running with the same OS-user privileges. It permits one browser terminal viewer per task. It intentionally exposes a full OS-user shell, but no unauthenticated command API; it never automatically accepts host prompts or Loop decisions. The task's canonical next action remains visible in the UI; follow the normal agent-loop workflow in the coding host.
+
+With `session serve`, choose **Interactive shell (any CLI)** and **Start session** in the page; optional direct Codex/Claude shortcuts remain available. Opening the page alone does not start one. The **Disconnect** button closes the browser viewer only; **Stop session** explicitly stops the coding host after confirmation and does not close the governed task. Reload or reconnect to return to the same tmux session. Stopping the local transport also leaves the coding host running. The command prints a `tmux attach-session` command for a normal terminal. The session exports `AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` for task-aware commands, but never automatically starts or completes an agent-loop lifecycle. To switch agents, start the generic shell and invoke whichever CLI is installed there; no vendor-specific `agent-ui` integration is required. A missing session is reported and `session attach` never starts a replacement. `session start` and the browser start control explicitly request a new host if none exists. The CLI and browser use the same session operations.
+
+The progress page also offers a **shared coding-agent activity** panel with an explicit **Codex App Server** or **Claude Code stream-json** provider selector. This is observational and separate from the canonical Loop lifecycle. Both provider modes start their **own separate process**, not an attachment to an already-running Codex/Claude TUI. Switching the UI selector does not migrate or merge sessions; only one structured provider session may be active at a time. Generic CLI/`agy` execution continues to work in the normal PTY, but provides no structured activity unless that CLI exposes a supported adapter.
+
+**Claude Code** mode requires a locally installed Claude CLI supporting documented print-mode `--input-format stream-json`, `--output-format stream-json` and `--permission-prompts none` (Claude Code v2.1.259 or later for that last flag), plus local authentication. Prompts are sent as stream-json user messages; only bounded session, tool-name and completion labels are exposed to the browser. Model text, tool inputs and results are not retained. Claude tool approvals are **not** handled in this mode: unanswered permission prompts are denied, and existing allow rules may still automatically permit some operations. We do not bypass host permissions or claim an SDK `canUseTool` bridge. Stop the Claude session to interrupt its work; a CLI that exits unexpectedly is reported as failed.
+
+The **Codex App Server** provider retains its existing approval interface. It requires the Codex CLI and an authenticated Codex account on the local host. It starts a separate App Server thread in the project directory with workspace-write sandboxing and on-request approvals; it does not attach to an existing Codex TUI. Prompts are sent to that thread, while the activity feed keeps only bounded event labels and timestamps. Message deltas, reasoning, and command output are not displayed or retained by agent-ui. Command and file-change approval requests require a deliberate **Allow once**, **Decline**, or offered **Cancel request** action; other request types remain unanswered and the session can be stopped. These events never update Loop workflow state. Reloading the page keeps the local App Server session available while the cockpit process is running; stopping that process ends the App Server child.
+
+### Image input in the local terminal
+
+With a running terminal session, choose an image file, drag it onto the attachment panel, or click **Paste image from clipboard** (browser clipboard permission required). The authenticated browser uploads PNG/JPEG/WebP/GIF only, up to 8 MiB each, into a private task-scoped temporary directory. The server validates the declared MIME type and file signature, uses generated filenames, limits stored images to 32, and types **only the image's absolute path** into the tmux PTY. It does **not** press Enter or execute a command. Whether a coding agent interprets that path as visual input depends on the agent; the developer remains responsible for invoking it correctly.
+
+The files survive stopping the browser transport so a still-running tmux session can use them, and are deleted on explicit task session stop. An uncleanly abandoned session can leave temporary files; review and remove stale `agent-ui-attachments-<uid>-<task-hash>` directories manually. Clipboard reads may be restricted by the browser; the file picker remains available. Direct Ctrl+V **inside the cross-origin terminal iframe** is not yet intercepted; use the clipboard button above it.
+
+This is a prototype: no workflow progress is inferred from terminal output, and a failed terminal transport is reported while workflow navigation remains available. `tmux` may retain the environment of its existing server, so environment changes made after that server started might not reach a new coding host. If the transport is killed uncleanly, its private lock directory can remain under `/tmp`; verify the PID in its `pid` file is no longer a live transport before removing that directory. No terminal transcript is stored in Loop projections.
+
 ## Setup
 
 `/setup` consumes `voku\AgentLoop\Init\RepositorySetupService` through a thin typed gateway. It does not shell out to `agent-loop init`, capture stdout, scan owner directories, or parse sync manifests.

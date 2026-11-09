@@ -32,6 +32,9 @@ const captureGraph = () => {
         await staticPage.goto(base + '/task/UI-36/progress');
         assert.ok(await staticPage.locator('[data-progress-list] > li').count() > 0);
         assert.equal(await staticPage.locator('[data-workflow-decision] button[type=submit]').count(), 1);
+        assert.equal(await staticPage.locator('[data-workflow-brief]').count(), 1);
+        await staticPage.locator('[data-workflow-brief]').getByText('Contract authority').waitFor();
+        assert.equal(await staticPage.locator('[data-workflow-brief]').getByText('Not approved · revision 1').count(), 1);
         assert.equal(await staticPage.locator('[data-workflow-live-status]').isVisible(), false);
         await staticContext.close();
 
@@ -68,6 +71,7 @@ const captureGraph = () => {
             return { step: node.data('step_id'), position: node.position(), zoom: graph.zoom(), pan: graph.pan() };
         });
         const originalDigest = await page.locator('[data-workflow-decision]').getAttribute('data-decision-digest');
+        const originalBriefDigest = await page.locator('[data-workflow-brief]').getAttribute('data-brief-digest');
         const originalAction = await page.locator('[data-task-next-action]').textContent();
         const csrf = await page.locator('[data-workflow-decision] input[name="_csrf"]').inputValue();
         const approval = await context.request.post(base + '/task/UI-36/approve', {
@@ -78,6 +82,9 @@ const captureGraph = () => {
         await page.waitForFunction((digest) => document.querySelector('[data-workflow-decision]').getAttribute('data-decision-digest') !== digest, originalDigest, { timeout: 15000 });
         assert.equal(await page.locator('[data-workflow-decision] button[type=submit]').count(), 0);
         assert.notEqual(await page.locator('[data-task-next-action]').textContent(), originalAction);
+        await page.waitForFunction((digest) => document.querySelector('[data-workflow-brief]').getAttribute('data-brief-digest') !== digest, originalBriefDigest);
+        assert.equal(await page.locator('[data-workflow-brief]').getByText('Approved revision 1').count(), 1);
+        assert.equal(await page.locator('[data-workflow-brief] a[href="#workflow-approval"]').count(), 0);
 
         const graphAfter = await page.evaluate((stepId) => {
             const graph = window.__workflowTestGraph;
