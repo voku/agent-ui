@@ -2,6 +2,7 @@
     "disagreements": [],
     "mode": "governed",
     "next_action": "none",
+    "next_action_invocation": null,
     "next_action_kind": "none",
     "references": {
         "approval": {
@@ -25,13 +26,13 @@
                     "sha256": "sha256:54fae0fbbfda6913afe7ece507e99231c83563b5361dee8f4877add7a2647712"
                 }
             },
-            "lane": "DOING",
+            "lane": "VERIFY",
             "observation_mode": "checked",
             "owner": "agent-kanban",
-            "revision": "bda03e95f1fa24d0932009a5ecc7bcafa5765271c3216c3494ea9466f18de4dc",
+            "revision": "2679024ee593ee826cc461d01ff67cd29156a8616d4200bfd8cd4dbd8002c36e",
             "source": {
                 "path": ".agent-loop/todo/cards/UI-1.md",
-                "sha256": "sha256:bda03e95f1fa24d0932009a5ecc7bcafa5765271c3216c3494ea9466f18de4dc"
+                "sha256": "sha256:2679024ee593ee826cc461d01ff67cd29156a8616d4200bfd8cd4dbd8002c36e"
             },
             "state": "linked",
             "status": "in_progress"
@@ -74,15 +75,15 @@
             "state": "not_required"
         },
         "learning": {
-            "decided_at": "2026-08-29T01:04:41+00:00",
-            "decided_by": "claude-code-agent",
-            "decision": "follow_up_required",
+            "decided_at": "2026-11-09T12:41:40+00:00",
+            "decided_by": "Lars Moelleken",
+            "decision": "no_durable_learning",
             "observation_mode": "checked",
             "owner": "agent-learning",
             "run_id": "run:UI-1:1b0c6845e53cd3aa",
             "source": {
                 "path": ".agent-loop/learning/history/run-learning/d2ab2e9cc8541d71ecf31c5dbdb104615aa907b28b7ffb2b5214432c3548e775.json",
-                "sha256": "sha256:7b3924d92971ceb59818e1fc2fa32d8712954e97e17920d61aee5b9ca327bb1a"
+                "sha256": "sha256:0d8332377c183c7631318a55c5de6912275666ab2cb035f50fd00ddc58338aa9"
             },
             "state": "decided"
         },
@@ -90,7 +91,12 @@
             "observation_mode": "checked",
             "owner": "agent-map",
             "path": ".agent-loop/map/php-symbols.json",
-            "state": "missing"
+            "snapshot": "sha256:78eadd9c13aa2713e4d3f3d53b44188ef9fc65161495a9974d2f93a7bc489c17",
+            "source": {
+                "path": ".agent-loop/map/php-symbols.json",
+                "sha256": "sha256:3a55746ca4375e0c31dabe44b4de889fcfebcbce089df6200a7fca709b4f8d8c"
+            },
+            "state": "ready"
         },
         "outcome_lineage": {
             "observation_mode": "checked",
@@ -99,14 +105,14 @@
             "state": "run_bound"
         },
         "recall": {
-            "bundle_sha256": "749798f0ea14fe198ced88c27f7b3cd6b3e39bdffe29eeccb7e68d90ca004c2a",
-            "compilation_id": "compilation.UI-1.2026-08-28-200012.4de8125f",
+            "bundle_sha256": "9cc488b82c17209314f327f3c6eb3c53243297efc06ed104b2a9707d6d9e5710",
+            "compilation_id": "compilation.UI-1.2026-11-09-124115.f2c5e147",
             "observation_mode": "checked",
             "owner": "agent-recall-compiler",
-            "snapshot_sha256": "1e858185b9dab28f082faf4395215831df3b26a3aea6164d626ddcb82a9aea38",
+            "snapshot_sha256": "09d69a835dad9d61ee55948decc91f76d34b73bf5dfa1d6f7e966257bfd2bbea",
             "source": {
                 "path": ".agent-loop/recall/UI-1/meta.json",
-                "sha256": "sha256:852999065ecbedb4741f589150a0472a5862514e279835090fd26392dcf2e4d2"
+                "sha256": "sha256:99a3bc99a0093071074d01e65807adf39b2b0cf81db7659c710880358e316d33"
             },
             "state": "compiled"
         },
@@ -115,7 +121,7 @@
             "owner": "agent-recall-compiler",
             "source": {
                 "path": ".agent-loop/recall/UI-1/reviews/UI-1.blindspots.json",
-                "sha256": "sha256:16815c7879de13195ab3f91871c959bb5b78db40992c0a5850d52c528b2ec41c"
+                "sha256": "sha256:441bbdffec4d77b7122c6e0a00828dd5444d782264bdab4edd169ec0f3f53282"
             },
             "state": "warn"
         },
@@ -123,7 +129,7 @@
             "observation_mode": "checked",
             "owner": "agent-map",
             "path": ".agent-loop/map/search.sqlite",
-            "state": "unavailable"
+            "state": "missing"
         },
         "session": {
             "base_commit": null,
@@ -133,20 +139,20 @@
             "session_id": "2026-08-28-ui-1-r1-ef0cbc23",
             "source": {
                 "path": ".agent-loop/sessions/2026-08-28-ui-1-r1-ef0cbc23/session.json",
-                "sha256": "sha256:2e94598a099f06db734ff32c2f2a2cd9db68cad89d55ce89a39e2f96e21c36ac"
+                "sha256": "sha256:f26a7642861f794b328a30659d51094e7404cd60df11326805d27e7078c4d852"
             },
             "state": "done",
             "task_id": "UI-1"
         },
         "verification": {
             "contract_revision": 1,
-            "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
+            "implementation_snapshot": "sha256:df5111c69f5eb98b7a93d05231c3d2e78ff36e5e1291a4a4c901e6f2137eb07f",
             "observation_mode": "checked",
             "owner": "agent-loop",
             "run_id": "run:UI-1:1b0c6845e53cd3aa",
             "source": {
                 "path": ".agent-loop/runs/UI-1/verification.json",
-                "sha256": "sha256:53c41cc0a050882179e333e64b333fd940cd9d7f55f5e0a386578dcecf021592"
+                "sha256": "sha256:0500776f6835dbf5042299e621558f7e8860741833aa565cd11ee7cdf53cd9ce"
             },
             "source_session_id": "2026-08-28-ui-1-r1-ef0cbc23",
             "state": "passed"
