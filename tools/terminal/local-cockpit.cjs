@@ -277,6 +277,10 @@ function appServerRequest(runtime, method, params) {
 function appServerNotification(runtime, method, params) {
     if (runtime !== codexAppServer || !params || typeof params !== 'object') return;
     if (params.threadId && runtime.threadId && params.threadId !== runtime.threadId) return;
+    // Unscoped item notifications must not alter human approval context, and
+    // unscoped resolved notifications must not dismiss pending decisions.
+    if (['item/started', 'item/completed', 'serverRequest/resolved'].includes(method) &&
+        params.threadId !== runtime.threadId) return;
     if (method === 'turn/started') {
         if (params.threadId && params.threadId !== runtime.threadId) return;
         runtime.currentTurnId = params.turn && typeof params.turn.id === 'string' ? params.turn.id : null;
@@ -650,8 +654,8 @@ async function submitCodexTurn(prompt) {
 function resolveCodexApproval(token, decision) {
     const runtime = codexAppServer;
     const entry = runtime && runtime.pendingRequests.get(token);
-    if (!runtime || !entry || !entry.supportedApproval || !runtime.process ||
-        (entry.turnId && runtime.currentTurnId && entry.turnId !== runtime.currentTurnId)) {
+    if (!runtime || !entry || !entry.supportedApproval || !runtime.process || !runtime.activeTurn ||
+        (entry.turnId && (!runtime.currentTurnId || entry.turnId !== runtime.currentTurnId))) {
         throw new Error('This Codex request is no longer available. Refresh the activity panel.');
     }
     if (!['accept', 'decline', 'cancel'].includes(decision) || (decision === 'accept' && !entry.public.can_accept) ||
