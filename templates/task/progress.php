@@ -165,20 +165,25 @@ require __DIR__ . '/../layout/header.php';
         </select>
         <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
     </div>
-    <section class="codex-app-server panel" data-codex-app-server aria-label="Codex App Server session">
+    <section class="codex-app-server panel" data-codex-app-server data-agent-activity aria-label="Structured coding-agent activity">
         <div class="action__head">
-            <strong>Codex App Server <span class="pill pill--neutral">observation</span></strong>
-            <button type="button" class="btn btn--small" data-codex-app-server-stop hidden>Stop Codex session</button>
+            <strong>Coding-agent activity <span class="pill pill--neutral">observation</span></strong>
+            <button type="button" class="btn btn--small" data-codex-app-server-stop hidden>Stop observed session</button>
         </div>
-        <p class="note">This is a separate browser-controlled Codex session using structured App Server events. It does not change agent-loop workflow state or answer requests automatically.</p>
-        <p class="small" data-codex-app-server-state aria-live="polite">Checking Codex App Server…</p>
+        <label for="agent-activity-provider">Structured agent</label>
+        <select id="agent-activity-provider" data-agent-activity-provider>
+            <option value="codex">Codex App Server</option>
+            <option value="claude">Claude Code stream-json</option>
+        </select>
+        <p class="note">The selected provider reports structured activity separately from the authoritative agent-loop workflow. Codex supports deliberate one-time HTML tool approvals. Claude stream-json activity supports prompts and observed tools, but tool permission prompts are denied until an Agent SDK permission bridge is available. Generic CLI tools remain usable in the terminal without structured observation.</p>
+        <p class="small" data-codex-app-server-state aria-live="polite">Checking coding-agent activity…</p>
         <p class="small muted" data-codex-app-server-message></p>
         <p class="small" data-codex-app-server-feedback aria-live="polite"></p>
         <div class="btn-row">
-            <button type="button" class="btn btn--primary btn--small" data-codex-app-server-start>Start Codex App Server</button>
+            <button type="button" class="btn btn--primary btn--small" data-codex-app-server-start>Start selected agent</button>
         </div>
         <form class="codex-app-server__prompt" data-codex-app-server-form hidden>
-            <label for="codex-app-server-prompt">Send a prompt to this Codex session</label>
+            <label for="codex-app-server-prompt">Send a prompt to this agent session</label>
             <textarea id="codex-app-server-prompt" data-codex-app-server-prompt rows="3" maxlength="12288" required></textarea>
             <button type="submit" class="btn btn--primary btn--small" data-codex-app-server-send>Send prompt</button>
             <p class="note">Prompts are sent directly to Codex and are not copied into this activity feed.</p>
@@ -189,7 +194,7 @@ require __DIR__ . '/../layout/header.php';
         </div>
         <div class="codex-app-server__activity">
             <h2>Recent structured activity</h2>
-            <ol data-codex-app-server-activity aria-live="off"><li class="muted">No Codex activity yet.</li></ol>
+            <ol data-codex-app-server-activity aria-live="off"><li class="muted">No observed activity yet.</li></ol>
         </div>
     </section>
     <div class="panel" data-terminal-attachment hidden>
