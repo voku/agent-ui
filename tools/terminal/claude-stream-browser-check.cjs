@@ -133,6 +133,11 @@ async function run() {
         assert.equal(publicText.includes(secret), false, 'no model/tool payload leak: ' + secret);
     }
     assert.equal(await page.locator('[data-workflow-live]').count(), 1, 'Loop visualization remains separate');
+    page.once('dialog', async (dialog) => {
+        assert.equal(dialog.type(), 'confirm');
+        assert.ok(dialog.message().includes('Stop the Claude structured session?'));
+        await dialog.accept();
+    });
     await panel.locator('[data-codex-app-server-stop]').click();
     await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
     console.log('Claude structured CLI browser: provider sharing, CSRF, prompts, events, bounded observation, explicit denied approvals, stop passed.');
