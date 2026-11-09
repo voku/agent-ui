@@ -75,6 +75,9 @@ function ensureAttachmentDirectory() {
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
+// Separate from browser credentials: only this process and the child PHP
+// backend know it. It never travels in browser traffic or JSON responses.
+const internalProxySecret = crypto.randomBytes(32).toString('base64url');
 const cookieName = 'agent_ui_terminal_' + crypto.randomBytes(8).toString('hex');
 const expectedHost = '127.0.0.1:' + port;
 const expectedOrigin = 'http://' + expectedHost;
@@ -284,7 +287,9 @@ function terminalRequest(req, res) {
 function proxy(req, res, terminal) {
     const headers = { ...req.headers };
     delete headers['proxy-authorization'];
+    delete headers['x-agent-ui-internal-secret'];
     if (terminal) delete headers.cookie;
+    else headers['x-agent-ui-internal-secret'] = internalProxySecret;
     const target = terminal ? { socketPath } : { host: '127.0.0.1', port: phpPort };
     const upstream = http.request({ ...target, path: req.url, method: req.method, headers }, (answer) => {
         const responseHeaders = { ...answer.headers };
@@ -339,7 +344,10 @@ async function waitFor(test, description) {
 }
 function getStatus(url) {
     return new Promise((resolve) => {
-        const request = http.get(url, (response) => { response.resume(); resolve(response.statusCode); });
+        const request = http.get(url, { headers: { 'X-Agent-Ui-Internal-Secret': internalProxySecret } }, (response) => {
+            response.resume();
+            resolve(response.statusCode);
+        });
         request.on('error', () => resolve(0));
         request.setTimeout(1000, () => request.destroy());
     });
@@ -472,6 +480,7 @@ async function main() {
         const timer = setTimeout(() => reject(new Error('The local UI did not start.')), 5000);
         child('php', ['-S', '127.0.0.1:0', '-t', path.join(packageRoot, 'public'), path.join(packageRoot, 'public/index.php')], {
             ...process.env, AGENT_UI_PROJECT_ROOT: root, AGENT_UI_COMPOSER_AUTOLOAD: autoload,
+            AGENT_UI_INTERNAL_PROXY_SECRET: internalProxySecret,
             AGENT_UI_TERMINAL_TASK: options.task, AGENT_UI_TERMINAL_ORIGIN: terminalOrigin,
         }, (data) => {
             startup = (startup + data).slice(-4096);
