@@ -288,12 +288,11 @@ function appServerNotification(runtime, method, params) {
         runtime.currentTurnId = null;
         // A resolved notification is normally sent by Codex. A turn can also
         // be interrupted: never retain clickable approvals for a finished turn.
-        for (const [token, request] of runtime.pendingRequests) {
-            if (!completedId || request.turnId === completedId) {
-                runtime.pendingRequests.delete(token);
-                runtime.protocolRequestTokens.delete(String(request.protocolId));
-            }
-        }
+        // Only one turn may be active in this cockpit. Once it ends, every
+        // outstanding approval token is stale, including requests whose
+        // protocol payload omitted turnId. Never leave those clickable.
+        runtime.pendingRequests.clear();
+        runtime.protocolRequestTokens.clear();
         runtime.pendingOverflow = false;
         runtime.commands.clear();
         runtime.fileChanges.clear();
