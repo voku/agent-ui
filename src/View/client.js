@@ -1083,10 +1083,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     refreshSession();
 }());
 
-/* Codex App Server activity is a separate structured observation channel. */
-(function enhanceCodexAppServer() {
+/* Provider-neutral structured activity; governed Loop state remains separate. */
+(function enhanceAgentActivity() {
     var panel = document.querySelector('[data-codex-app-server]');
     if (!panel || typeof window.fetch !== 'function') { return; }
+    var providerSelect = panel.querySelector('[data-agent-activity-provider]');
     var state = panel.querySelector('[data-codex-app-server-state]');
     var message = panel.querySelector('[data-codex-app-server-message]');
     var feedback = panel.querySelector('[data-codex-app-server-feedback]');
@@ -1098,12 +1099,15 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var requests = panel.querySelector('[data-codex-app-server-requests]');
     var requestList = panel.querySelector('[data-codex-app-server-request-list]');
     var activity = panel.querySelector('[data-codex-app-server-activity]');
-    if (!state || !message || !feedback || !start || !stop || !form || !prompt || !send || !requests || !requestList || !activity) { return; }
+    if (!providerSelect || !state || !message || !feedback || !start || !stop || !form || !prompt || !send || !requests || !requestList || !activity) { return; }
 
     var csrf = '';
     var timer;
     var generation = 0;
     var busy = false;
+    function provider() { return providerSelect.value === 'claude' ? 'claude' : 'codex'; }
+    function providerName() { return provider() === 'claude' ? 'Claude' : 'Codex'; }
+    function endpoint() { return '/_local/agent-activity/' + provider(); }
     start.disabled = true;
     stop.disabled = true;
     send.disabled = true;
@@ -1119,12 +1123,12 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         var pending = Array.isArray(snapshot.pending_requests) ? snapshot.pending_requests : [];
         requests.hidden = pending.length === 0 && snapshot.pending_overflow !== true;
         if (snapshot.pending_overflow === true) {
-            requestList.appendChild(element('p', 'note', 'Additional Codex requests could not fit in the bounded display. Stop the session if it cannot continue.'));
+            requestList.appendChild(element('p', 'note', 'Additional agent requests could not fit in the bounded display. Stop the session if it cannot continue.'));
         }
         pending.forEach(function (request) {
             if (!request || typeof request !== 'object') { return; }
             var card = element('article', 'codex-app-server__request');
-            card.appendChild(element('h4', '', typeof request.title === 'string' ? request.title : 'Codex request'));
+            card.appendChild(element('h4', '', typeof request.title === 'string' ? request.title : 'Agent request'));
             if (typeof request.summary === 'string' && request.summary) {
                 var summary = element('pre', '', request.summary);
                 card.appendChild(summary);
@@ -1169,7 +1173,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         while (activity.firstChild) { activity.removeChild(activity.firstChild); }
         var events = Array.isArray(snapshot.activity) ? snapshot.activity.slice(-40) : [];
         if (!events.length) {
-            activity.appendChild(element('li', 'muted', 'No Codex activity yet.'));
+            activity.appendChild(element('li', 'muted', 'No observed activity yet.'));
             return;
         }
         events.forEach(function (event) {
@@ -1192,7 +1196,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         if (typeof snapshot.last_updated === 'string') {
             state.textContent += ' · updated ' + new Date(snapshot.last_updated).toLocaleTimeString();
         }
-        message.textContent = typeof snapshot.message === 'string' ? snapshot.message : 'Codex App Server status is unavailable.';
+        message.textContent = typeof snapshot.message === 'string' ? snapshot.message : 'Coding-agent activity is unavailable.';
+        if (snapshot.supports_decisions === false && typeof snapshot.decision_message === 'string') {
+            message.textContent += ' ' + snapshot.decision_message;
+        }
+        start.textContent = 'Start ' + providerName() + ' session';
         start.hidden = sessionRunning;
         start.disabled = busy || snapshot.available !== true;
         stop.hidden = !sessionRunning;
@@ -1210,16 +1218,16 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     function refresh() {
         window.clearTimeout(timer);
         var requestGeneration = ++generation;
-        window.fetch('/_local/codex-app-server', { credentials: 'same-origin', cache: 'no-store' })
+        window.fetch(endpoint(), { credentials: 'same-origin', cache: 'no-store' })
             .then(function (response) {
-                if (!response.ok) { throw new Error('Codex App Server status is unavailable.'); }
+                if (!response.ok) { throw new Error('Structured agent status is unavailable.'); }
                 return response.json();
             })
             .then(function (snapshot) { if (requestGeneration === generation) { render(snapshot); } })
             .catch(function () {
                 if (requestGeneration === generation) {
                     state.textContent = 'Observed state: unavailable';
-                    message.textContent = 'Codex App Server status is unavailable.';
+                    message.textContent = 'Structured agent status is unavailable.';
                     start.disabled = true;
                     stop.hidden = true;
                     form.hidden = true;
@@ -1235,10 +1243,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         start.disabled = true;
         stop.disabled = true;
         send.disabled = true;
-        feedback.textContent = name === 'start' ? 'Starting Codex App Server…'
-            : name === 'stop' ? 'Stopping Codex App Server…'
-                : name === 'turn' ? 'Sending prompt to Codex…' : 'Recording your decision…';
-        return window.fetch('/_local/codex-app-server/' + name, {
+        var selectedProvider = provider();
+        feedback.textContent = name === 'start' ? 'Starting ' + providerName() + '…'
+            : name === 'stop' ? 'Stopping ' + providerName() + '…'
+                : name === 'turn' ? 'Sending prompt to ' + providerName() + '…' : 'Recording your decision…';
+        return window.fetch('/_local/agent-activity/' + selectedProvider + '/' + name, {
             method: 'POST', credentials: 'same-origin', cache: 'no-store',
             headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
             body: JSON.stringify(payload)
@@ -1247,10 +1256,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             return response.json();
         }).then(function (snapshot) {
             if (typeof afterSuccess === 'function') { afterSuccess(); }
-            feedback.textContent = name === 'start' ? 'Codex App Server started.'
-                : name === 'stop' ? 'Codex App Server stopped; the governed task remains open.'
-                    : name === 'turn' ? 'Prompt sent to Codex.' : 'Decision sent to Codex.';
-            render(snapshot);
+            feedback.textContent = name === 'start' ? 'Agent session started.'
+                : name === 'stop' ? 'Agent session stopped; the governed task remains open.'
+                    : name === 'turn' ? 'Prompt sent to agent.' : 'Decision sent to agent.';
+            if (selectedProvider === provider()) { render(snapshot); }
             return true;
         }).catch(function (error) {
             feedback.textContent = error.message || 'The Codex App Server action failed.';
@@ -1262,9 +1271,20 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         });
     }
 
+    providerSelect.addEventListener('change', function () {
+        generation++;
+        window.clearTimeout(timer);
+        feedback.textContent = '';
+        csrf = '';
+        start.disabled = true;
+        stop.hidden = true;
+        form.hidden = true;
+        state.textContent = 'Checking ' + providerName() + '…';
+        refresh();
+    });
     start.addEventListener('click', function () { action('start', {}); });
     stop.addEventListener('click', function () {
-        if (window.confirm('Stop the Codex App Server session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
+        if (window.confirm('Stop the selected agent session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
     });
     form.addEventListener('submit', function (event) {
         event.preventDefault();
