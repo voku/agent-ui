@@ -3,7 +3,6 @@
 // Real loopback gateway, PHP owner projection, Chromium controls and a
 // deterministic local JSON-RPC App Server fixture. Not authenticated Codex.
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
@@ -180,7 +179,7 @@ async function run() {
     await until(() => loggedDecisions().length === 1, 'explicit approval reaches fake server');
     assert.deepEqual(loggedDecisions()[0].result, { decision: 'accept' });
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
-    assert.equal((await panel.locator('[data-workflow-live]').count()), 1, 'owner workflow still independently rendered');
+    assert.equal((await page.locator('[data-workflow-live]').count()), 1, 'owner workflow still independently rendered');
 
     await panel.locator('[data-codex-app-server-prompt]').fill('decline-only');
     await panel.locator('[data-codex-app-server-send]').click();
@@ -191,8 +190,11 @@ async function run() {
     assert.deepEqual(loggedDecisions()[1].result, { decision: 'decline' });
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
 
+    const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
     await panel.locator('[data-codex-app-server-prompt]').fill('stale-turn');
     await panel.locator('[data-codex-app-server-send]').click();
+    await until(() => fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length === turnCountBeforeStale + 1,
+        'stale turn was actually dispatched');
     await until(async () => (await panel.locator('[data-codex-app-server-state]').textContent()).includes('idle'),
         'completed turn no longer needs approval');
     const stale = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
