@@ -63,6 +63,13 @@ async function stopTransport() {
 async function run() {
     const fixture = command('php', [path.join(repo, 'tools/rendered/workflow-live-fixture.php'), project]);
     assert.equal(fixture.status, 0, fixture.stderr);
+    // The real Loop front door inspects a real project, not just fake JSON.
+    // Give it a committed baseline and let its own CLI decide permission.
+    assert.equal(spawnSync('git', ['init', '-q'], { cwd: project }).status, 0);
+    assert.equal(spawnSync('git', ['-c', 'user.name=Browser Test', '-c', 'user.email=browser@example.invalid',
+        'add', '.'], { cwd: project }).status, 0);
+    assert.equal(spawnSync('git', ['-c', 'user.name=Browser Test', '-c', 'user.email=browser@example.invalid',
+        'commit', '-qm', 'test: task fixture baseline'], { cwd: project }).status, 0);
     fs.mkdirSync(path.join(project, 'bin'));
     fs.writeFileSync(path.join(project, 'bin/agy'),
         '#!/bin/sh\nprintf "GENERIC_CLI_TASK=%s\\n" "$AGENT_LOOP_TASK_ID"\n', { mode: 0o755 });
@@ -108,6 +115,54 @@ async function run() {
     await page.keyboard.type('./bin/agy');
     await page.keyboard.press('Enter');
     await until(() => pane('GENERIC_CLI_TASK=UI-36'), 'arbitrary CLI inside shell');
+    // Run the installed *real* agent-loop CLI via the browser's interactive
+    // shell. This is not a mocked CLI response or a managed Runner launch.
+    // Read the CLI's own JSON written from the PTY, never terminal text
+    // interpreted as workflow authority. The browser UI uses its own owner
+    // projection independently.
+    const loopCli = path.join(repo, 'vendor/bin/agent-loop');
+    assert.ok(fs.existsSync(loopCli), 'real agent-loop CLI installed by Composer');
+    const shellArg = (value) => "'" + value.replace(/'/g, "'\\''") + "'";
+    async function enterThroughBrowser(outputFile) {
+        await frame.locator('.xterm-helper-textarea').focus();
+        const input = 'php ' + shellArg(loopCli) + ' enter UI-36 --format=json > ' +
+            shellArg(outputFile) + ' 2> ' + shellArg(outputFile + '.stderr');
+        await page.keyboard.insertText(input);
+        await page.keyboard.press('Enter');
+        let payload;
+        await until(() => {
+            try {
+                payload = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
+                return typeof payload.next_action_kind === 'string';
+            } catch (_) { return false; }
+        }, 'real Loop CLI JSON from browser terminal');
+        return payload;
+    }
+
+    const before = await enterThroughBrowser(path.join(project, 'loop-before.json'));
+    assert.equal(before.mutation_ready, false, 'unapproved Contract cannot authorize implementation');
+    assert.equal(before.next_action_kind, 'decision_required', 'real Loop requests a human Contract decision');
+    const originalBrief = await page.locator('[data-workflow-brief]').getAttribute('data-brief-digest');
+    assert.ok((await page.locator('[data-workflow-brief]').textContent()).includes('Not approved'));
+    await page.evaluate(() => { window.__shellLifecycleMarker = 'same-document'; });
+    await page.locator('[data-workflow-approval-form] input[name="actor"]').fill('browser-fixture-reviewer');
+    await page.locator('[data-workflow-approval-form] button[type="submit"]').click();
+    await page.waitForFunction((digest) => {
+        const brief = document.querySelector('[data-workflow-brief]');
+        return brief && brief.getAttribute('data-brief-digest') !== digest &&
+            brief.textContent.includes('Approved revision 1');
+    }, originalBrief, { timeout: 15000 });
+    assert.equal(await page.evaluate(() => window.__shellLifecycleMarker), 'same-document');
+    assert.equal(await page.locator('[data-workflow-approval-form]').count(), 0);
+    assert.equal(pid(), originalPid, 'human decision does not restart the shell');
+
+    const after = await enterThroughBrowser(path.join(project, 'loop-after.json'));
+    assert.equal(after.mutation_ready, true, 'real Loop now authorizes in-scope host work');
+    assert.equal(after.next_action_kind, 'host_work', 'real Loop routes approved task back to coding host');
+    assert.equal(pid(), originalPid, 'both CLI invocations reused the exact shell process');
+    assert.ok((await page.locator('[data-workflow-brief]').textContent()).includes('Approved revision 1'));
+    assert.ok((await page.locator('[data-workflow-brief]').textContent()).includes('Required validation'));
+
 
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQaLj/HwAEwgJ/1iyXeQAAAABJRU5ErkJggg==', 'base64');
     const csrf = await page.evaluate(async () => (await (await fetch('/_local/session')).json()).csrf);
@@ -171,7 +226,7 @@ async function run() {
     await until(() => tmux(['has-session', '-t', '=' + session]).status !== 0, 'browser stops generic shell');
     assert.equal(fs.existsSync(imagePath), false, 'stopping the task cleans uploaded image');
     assert.equal(fs.existsSync(clipboardPath), false, 'stopping the task cleans pasted clipboard image');
-    console.log('Generic shell, arbitrary CLI, authenticated image upload, clipboard, reconnect and stop passed.');
+    console.log('Real Loop CLI before/after HTML approval, generic shell, arbitrary CLI, images, clipboard, reconnect and stop passed.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
