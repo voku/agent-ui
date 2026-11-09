@@ -232,6 +232,7 @@ function updateAppServerState(runtime) {
 function appServerFailure(runtime, message) {
     if (runtime !== codexAppServer) return;
     runtime.activeTurn = false;
+    runtime.currentTurnId = null;
     runtime.state = 'error';
     runtime.errorMessage = message;
     runtime.pendingRequests.clear();
@@ -274,10 +275,25 @@ function appServerRequest(runtime, method, params) {
 function appServerNotification(runtime, method, params) {
     if (runtime !== codexAppServer || !params || typeof params !== 'object') return;
     if (method === 'turn/started') {
+        if (params.threadId && params.threadId !== runtime.threadId) return;
+        runtime.currentTurnId = params.turn && typeof params.turn.id === 'string' ? params.turn.id : null;
         runtime.activeTurn = true;
         recordAppServerActivity(runtime, 'turn', 'Codex started a turn.');
     } else if (method === 'turn/completed') {
+        if (params.threadId && params.threadId !== runtime.threadId) return;
+        const completedId = params.turn && params.turn.id;
+        if (runtime.currentTurnId && completedId && completedId !== runtime.currentTurnId) return;
         runtime.activeTurn = false;
+        runtime.currentTurnId = null;
+        // A resolved notification is normally sent by Codex. A turn can also
+        // be interrupted: never retain clickable approvals for a finished turn.
+        for (const [token, request] of runtime.pendingRequests) {
+            if (!completedId || request.turnId === completedId) {
+                runtime.pendingRequests.delete(token);
+                runtime.protocolRequestTokens.delete(String(request.protocolId));
+            }
+        }
+        runtime.pendingOverflow = false;
         const status = params.turn && params.turn.status;
         recordAppServerActivity(runtime, 'turn', status === 'completed' ? 'Codex completed the turn.' : 'Codex turn ended (' + boundedAppText(status || 'unknown', 32) + ').');
     } else if (method === 'item/started' || method === 'item/completed') {
@@ -328,6 +344,15 @@ function receiveAppServerRequest(runtime, message) {
     if (!Number.isSafeInteger(message.id) && typeof message.id !== 'string') return;
     const method = message.method;
     const params = message.params && typeof message.params === 'object' ? message.params : {};
+    if (!runtime.threadId || params.threadId !== runtime.threadId) {
+        recordAppServerActivity(runtime, 'request', 'A request outside the active Codex thread was not offered for approval.');
+        return;
+    }
+    // JSON-RPC ids can be reused after a request resolves. Never leave the old
+    // one-time browser token usable for a different request sharing that id.
+    const previous = runtime.protocolRequestTokens.get(String(message.id));
+    if (previous) runtime.pendingRequests.delete(previous);
+    runtime.protocolRequestTokens.delete(String(message.id));
     const token = crypto.randomBytes(12).toString('base64url');
     const decisions = Array.isArray(params.availableDecisions) ? params.availableDecisions : null;
     let entry;
@@ -340,6 +365,7 @@ function receiveAppServerRequest(runtime, message) {
         entry = {
             supportedApproval: true,
             protocolId: message.id,
+            turnId: typeof params.turnId === 'string' ? params.turnId : null,
             public: {
                 token,
                 kind: 'command',
@@ -358,6 +384,7 @@ function receiveAppServerRequest(runtime, message) {
         entry = {
             supportedApproval: true,
             protocolId: message.id,
+            turnId: typeof params.turnId === 'string' ? params.turnId : null,
             public: {
                 token,
                 kind: 'file_change',
@@ -451,6 +478,7 @@ function createAppServerRuntime() {
         errorMessage: null,
         threadId: null,
         activeTurn: false,
+        currentTurnId: null,
         expectedStop: false,
         nextRpcId: 1,
         nextEventId: 1,
@@ -589,7 +617,10 @@ async function submitCodexTurn(prompt) {
 function resolveCodexApproval(token, decision) {
     const runtime = codexAppServer;
     const entry = runtime && runtime.pendingRequests.get(token);
-    if (!runtime || !entry || !entry.supportedApproval || !runtime.process) throw new Error('This Codex request is no longer available. Refresh the activity panel.');
+    if (!runtime || !entry || !entry.supportedApproval || !runtime.process ||
+        (entry.turnId && runtime.currentTurnId && entry.turnId !== runtime.currentTurnId)) {
+        throw new Error('This Codex request is no longer available. Refresh the activity panel.');
+    }
     if (!['accept', 'decline', 'cancel'].includes(decision) || (decision === 'accept' && !entry.public.can_accept) ||
         (decision === 'decline' && !entry.public.can_decline) || (decision === 'cancel' && !entry.public.can_cancel)) {
         throw new Error('That decision is unavailable for this Codex request.');
