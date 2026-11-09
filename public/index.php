@@ -17,6 +17,25 @@ if (!is_file($autoload)) {
 
 require $autoload;
 
+// The ttyd/tmux cockpit starts a second PHP server bound to an ephemeral
+// loopback port. Loopback alone is not authentication: other local processes
+// can connect directly and bypass the browser gateway entirely. In managed
+// cockpit mode, require a per-launch secret on *every* PHP request before
+// starting a session or touching any project state. Ordinary standalone
+// agent-ui launches leave this guard disabled by not setting the variable.
+$internalProxySecret = getenv('AGENT_UI_INTERNAL_PROXY_SECRET');
+if ($internalProxySecret !== false) {
+    $presentedSecret = $_SERVER['HTTP_X_AGENT_UI_INTERNAL_SECRET'] ?? null;
+    if (!is_string($internalProxySecret) || strlen($internalProxySecret) < 32
+        || !is_string($presentedSecret) || !hash_equals($internalProxySecret, $presentedSecret)) {
+        http_response_code(403);
+        header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
+        echo 'The internal agent-ui backend requires its private gateway.';
+        exit(1);
+    }
+}
+
 // DNS-rebinding guard: the control plane only answers for loopback host names
 // (plus AGENT_UI_ALLOWED_HOSTS, a comma-separated operator allowlist), and a
 // cross-origin browser POST is refused.
