@@ -115,7 +115,7 @@ async function run() {
     const unrelatedDecision = await page.evaluate(async (csrf) => (await fetch('/_local/agent-activity/claude/decision', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json',
             'X-Agent-Ui-Csrf': csrf }, body: JSON.stringify({ token: 'invented', decision: 'accept' }),
-    })).status, snapshotBefore.csrf);
+    })).status, snapshotBefore.data.csrf);
     assert.equal(unrelatedDecision, 409, 'Claude tool approvals cannot be fabricated through browser JSON');
     await panel.locator('[data-codex-app-server-prompt]').fill('Please inspect the owner-backed task');
     await panel.locator('[data-codex-app-server-send]').click();
