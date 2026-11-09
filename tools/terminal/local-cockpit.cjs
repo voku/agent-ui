@@ -363,6 +363,14 @@ function receiveAppServerRequest(runtime, message) {
         recordAppServerActivity(runtime, 'request', 'A request outside the active Codex thread was not offered for approval.');
         return;
     }
+    // Late requests from a completed turn must never become browser approval
+    // buttons, even when a JSON-RPC id is recycled. A missing turnId is
+    // tolerated only while an active turn exists.
+    if (!runtime.activeTurn || (typeof params.turnId === 'string' &&
+        (!runtime.currentTurnId || params.turnId !== runtime.currentTurnId))) {
+        recordAppServerActivity(runtime, 'request', 'A request outside the active Codex turn was not offered for approval.');
+        return;
+    }
     // JSON-RPC ids can be reused after a request resolves. Never leave the old
     // one-time browser token usable for a different request sharing that id.
     const previous = runtime.protocolRequestTokens.get(String(message.id));
