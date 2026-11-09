@@ -274,6 +274,7 @@ function appServerRequest(runtime, method, params) {
 }
 function appServerNotification(runtime, method, params) {
     if (runtime !== codexAppServer || !params || typeof params !== 'object') return;
+    if (params.threadId && runtime.threadId && params.threadId !== runtime.threadId) return;
     if (method === 'turn/started') {
         if (params.threadId && params.threadId !== runtime.threadId) return;
         runtime.currentTurnId = params.turn && typeof params.turn.id === 'string' ? params.turn.id : null;
@@ -294,6 +295,8 @@ function appServerNotification(runtime, method, params) {
             }
         }
         runtime.pendingOverflow = false;
+        runtime.commands.clear();
+        runtime.fileChanges.clear();
         const status = params.turn && params.turn.status;
         recordAppServerActivity(runtime, 'turn', status === 'completed' ? 'Codex completed the turn.' : 'Codex turn ended (' + boundedAppText(status || 'unknown', 32) + ').');
     } else if (method === 'item/started' || method === 'item/completed') {
@@ -310,6 +313,19 @@ function appServerNotification(runtime, method, params) {
         let verb = completed ? 'completed' : 'started';
         if (status === 'failed') verb = 'failed';
         else if (status === 'declined') verb = 'was declined';
+        if (item.type === 'commandExecution' && typeof item.id === 'string') {
+            if (completed) {
+                runtime.commands.delete(item.id);
+            } else {
+                const value = Array.isArray(item.command)
+                    ? item.command.filter((part) => typeof part === 'string').join(' ')
+                    : item.command;
+                if (typeof value === 'string' && value.trim()) {
+                    runtime.commands.set(item.id, boundedAppText(value, 480));
+                    while (runtime.commands.size > appServerEventLimit) runtime.commands.delete(runtime.commands.keys().next().value);
+                }
+            }
+        }
         if (item.type === 'fileChange' && typeof item.id === 'string') {
             if (completed) {
                 runtime.fileChanges.delete(item.id);
@@ -362,39 +378,46 @@ function receiveAppServerRequest(runtime, message) {
             ? 'Network access to ' + boundedAppText(network.host, 120) + (typeof network.protocol === 'string' ? ' (' + boundedAppText(network.protocol, 20) + ')' : '')
             : null;
         const command = Array.isArray(params.command) ? params.command.filter((part) => typeof part === 'string').join(' ') : params.command;
+        const observed = typeof params.itemId === 'string' ? runtime.commands.get(params.itemId) : null;
+        const preview = typeof command === 'string' && command.trim() ? boundedAppText(command, 480) : observed || '';
+        const hasApprovalContext = Boolean(networkTarget || preview);
         entry = {
-            supportedApproval: true,
+            supportedApproval: hasApprovalContext,
             protocolId: message.id,
             turnId: typeof params.turnId === 'string' ? params.turnId : null,
             public: {
                 token,
-                kind: 'command',
+                kind: hasApprovalContext ? 'command' : 'unsupported',
                 title: networkTarget ? 'Codex requests network access' : 'Codex requests command approval',
-                summary: networkTarget || (typeof command === 'string' ? 'Command: ' + boundedAppText(command, 480) : 'Codex requests permission to run a command.'),
+                summary: networkTarget || (preview ? 'Command: ' + preview :
+                    'Command details are unavailable. Approval is disabled; stop the session to cancel.'),
                 cwd: boundedAppText(params.cwd, 240),
                 reason: boundedAppText(params.reason, 240),
-                can_accept: decisions === null || decisions.includes('accept'),
-                can_decline: decisions === null || decisions.includes('decline'),
-                can_cancel: decisions !== null && decisions.includes('cancel'),
+                can_accept: hasApprovalContext && (decisions === null || decisions.includes('accept')),
+                can_decline: hasApprovalContext && (decisions === null || decisions.includes('decline')),
+                can_cancel: hasApprovalContext && decisions !== null && decisions.includes('cancel'),
             },
         };
     } else if (method === 'item/fileChange/requestApproval') {
         const changedFiles = typeof params.itemId === 'string' ? runtime.fileChanges.get(params.itemId) : null;
         const requestedChanges = changedFiles && changedFiles.length ? 'Requested changes:\n' + changedFiles.join('\n') : null;
+        const fileContext = requestedChanges || (typeof params.grantRoot === 'string' && params.grantRoot.trim()
+            ? 'Requested workspace root: ' + boundedAppText(params.grantRoot, 240) : null);
         entry = {
-            supportedApproval: true,
+            supportedApproval: Boolean(fileContext),
             protocolId: message.id,
             turnId: typeof params.turnId === 'string' ? params.turnId : null,
             public: {
                 token,
-                kind: 'file_change',
+                kind: fileContext ? 'file_change' : 'unsupported',
                 title: 'Codex requests file change approval',
-                summary: boundedAppText(requestedChanges || (typeof params.grantRoot === 'string' ? 'Requested workspace root: ' + boundedAppText(params.grantRoot, 240) : 'Codex requests permission to apply a file change.'), 900),
+                summary: fileContext ? boundedAppText(fileContext, 900) :
+                    'File details are unavailable. Approval is disabled; stop the session to cancel.',
                 cwd: '',
                 reason: boundedAppText(params.reason, 240),
-                can_accept: decisions === null || decisions.includes('accept'),
-                can_decline: decisions === null || decisions.includes('decline'),
-                can_cancel: decisions !== null && decisions.includes('cancel'),
+                can_accept: Boolean(fileContext) && (decisions === null || decisions.includes('accept')),
+                can_decline: Boolean(fileContext) && (decisions === null || decisions.includes('decline')),
+                can_cancel: Boolean(fileContext) && decisions !== null && decisions.includes('cancel'),
             },
         };
     } else {
@@ -486,6 +509,7 @@ function createAppServerRuntime() {
         pendingRequests: new Map(),
         protocolRequestTokens: new Map(),
         fileChanges: new Map(),
+        commands: new Map(),
         pendingOverflow: false,
         activity: [],
         lastUpdated: null,
