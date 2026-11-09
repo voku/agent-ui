@@ -10,6 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 const { StringDecoder } = require('node:string_decoder');
+const { ClaudeStreamActivity } = require('./claude-stream-activity.cjs');
 
 const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=shell|codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
 const fail = (message) => { console.error(message); process.exit(1); };
@@ -93,6 +94,7 @@ const upgradedSockets = new Set();
 let pendingSocket = null;
 let attachmentBusy = false;
 let codexAppServer = null;
+let claudeActivity = null;
 
 const appServerEventLimit = 40;
 const appServerPendingLimit = 8;
@@ -193,6 +195,13 @@ function recordAppServerActivity(runtime, kind, label) {
     if (runtime.activity.length > appServerEventLimit) runtime.activity.splice(0, runtime.activity.length - appServerEventLimit);
     runtime.lastUpdated = entry.at;
 }
+function isClaudeAvailable() {
+    try { hostExecutable('claude'); return true; } catch (_) { return false; }
+}
+function getClaudeActivity() {
+    if (!claudeActivity) claudeActivity = new ClaudeStreamActivity(isClaudeAvailable() ? hostExecutable('claude') : 'claude', root, options.task);
+    return claudeActivity;
+}
 function appServerSnapshot() {
     const available = codexAppServerAvailable();
     const runtime = codexAppServer;
@@ -209,6 +218,8 @@ function appServerSnapshot() {
         error: runtime && runtime.errorMessage ? runtime.errorMessage : 'Codex App Server could not start. Check the CLI and sign-in.',
     };
     return {
+        provider: 'codex',
+        supports_decisions: true,
         available,
         running: Boolean(runtime && runtime.process && runtime.process.exitCode === null && runtime.process.signalCode === null),
         state,
@@ -759,10 +770,16 @@ function requestHandler(req, res) {
             }
         });
     }
-    if (req.method === 'GET' && req.url === '/_local/codex-app-server') {
-        return json(res, 200, appServerSnapshot());
+    const selectedActivity = /^\/_local\/agent-activity\/(codex|claude)(?:\/(start|stop|turn|decision))?$/.exec(req.url);
+    const legacyCodex = /^\/_local\/codex-app-server(?:\/(start|stop|turn|decision))?$/.exec(req.url);
+    const activityProvider = selectedActivity ? selectedActivity[1] : legacyCodex ? 'codex' : null;
+    const activityAction = selectedActivity ? selectedActivity[2] : legacyCodex ? legacyCodex[1] : null;
+    function activitySnapshot() {
+        if (activityProvider === 'codex') return appServerSnapshot();
+        return { ...getClaudeActivity().snapshot(isClaudeAvailable()), csrf: csrfToken };
     }
-    const appServerAction = req.method === 'POST' ? /^\/_local\/codex-app-server\/(start|stop|turn|decision)$/.exec(req.url) : null;
+    if (req.method === 'GET' && activityProvider && !activityAction) return json(res, 200, activitySnapshot());
+    const appServerAction = req.method === 'POST' && activityProvider && activityAction ? [null, activityAction] : null;
     if (appServerAction) {
         if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
             !equal(req.headers['x-agent-ui-csrf'], csrfToken)) return deny(res, 403, 'Origin and CSRF token required.');
@@ -774,24 +791,35 @@ function requestHandler(req, res) {
                 if (action === 'start') {
                     const taskStatus = await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`);
                     if (taskStatus !== 200) return deny(res, 409, 'The task is unavailable in the selected project.');
-                    await startCodexAppServer();
+                    if (activityProvider === 'codex') {
+                        if (claudeActivity && claudeActivity.snapshot(true).running) throw new Error('Stop Claude before starting Codex.');
+                        await startCodexAppServer();
+                    } else {
+                        if (codexAppServer && appServerSnapshot().running) throw new Error('Stop Codex before starting Claude.');
+                        if (!isClaudeAvailable()) throw new Error('Claude CLI is unavailable on this host.');
+                        const activity = getClaudeActivity();
+                        activity.start();
+                        children.push(activity.process);
+                    }
                 } else if (action === 'stop') {
-                    await stopCodexAppServer();
+                    if (activityProvider === 'codex') await stopCodexAppServer();
+                    else await getClaudeActivity().stop();
                 } else if (action === 'turn') {
                     if (typeof body.prompt !== 'string' || Buffer.byteLength(body.prompt, 'utf8') > appServerInputLimit) {
                         return deny(res, 400, 'Prompt must be text under 12 KiB.');
                     }
                     const prompt = body.prompt.trim();
-                    if (prompt === '') return deny(res, 400, 'Prompt cannot be empty.');
-                    await submitCodexTurn(prompt);
+                    if (!prompt) return deny(res, 400, 'Prompt cannot be empty.');
+                    if (activityProvider === 'codex') await submitCodexTurn(prompt);
+                    else getClaudeActivity().sendPrompt(prompt);
                 } else {
+                    if (activityProvider !== 'codex') return deny(res, 409, 'Claude tool decisions require an Agent SDK permission callback.');
                     if (typeof body.token !== 'string' || typeof body.decision !== 'string') return deny(res, 400, 'Invalid Codex decision.');
                     resolveCodexApproval(body.token, body.decision);
                 }
-                return json(res, 200, appServerSnapshot());
+                return json(res, 200, activitySnapshot());
             } catch (error) {
-                const status = action === 'start' ? 503 : 409;
-                return deny(res, status, error instanceof Error ? error.message : 'The Codex App Server action failed.');
+                return deny(res, action === 'start' ? 503 : 409, error instanceof Error ? error.message : 'The structured agent action failed.');
             }
         });
     }
