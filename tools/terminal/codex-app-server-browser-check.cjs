@@ -193,7 +193,6 @@ async function run() {
     assert.deepEqual(loggedDecisions()[1].result, { decision: 'decline' });
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
 
-    const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
     await panel.locator('[data-codex-app-server-prompt]').fill('item-context');
     await panel.locator('[data-codex-app-server-send]').click();
     await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
@@ -203,6 +202,7 @@ async function run() {
     await until(() => loggedDecisions().length === 3, 'item-context decision');
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
 
+    const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
     await panel.locator('[data-codex-app-server-prompt]').fill('stale-turn');
     await panel.locator('[data-codex-app-server-send]').click();
     await until(() => fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length === turnCountBeforeStale + 1,
