@@ -70,6 +70,8 @@ final readonly class Response
             header($name . ': ' . $value);
         }
 
-        echo $this->body;
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'HEAD') {
+            echo $this->body;
+        }
     }
 }

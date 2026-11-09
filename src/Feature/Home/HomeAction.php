@@ -17,6 +17,8 @@ use voku\AgentUi\View\TemplateRenderer;
 
 final readonly class HomeAction
 {
+    public const MAXIMUM_CURRENT_WORK = 10;
+
     public function __construct(
         private BoardProjectionGateway $board,
         private WorkflowProjectionGateway $workflow,
@@ -33,17 +35,22 @@ final readonly class HomeAction
         $board = $this->board->board();
         $attention = [];
         $work = [];
+        $totalWorkCount = 0;
 
         $snapshots = $this->workflow->tasks(array_map(static fn(CardSnapshot $card): string => $card->id, $board->cards));
         foreach ($board->cards as $card) {
             $snapshot = $snapshots[$card->id] ?? null;
-            if ($snapshot === null) {
+            if ($snapshot === null || $snapshot->state === 'complete' || $snapshot->nextActionKind === 'none') {
                 continue;
             }
 
-            $work[] = $snapshot;
             if ($snapshot->nextActionKind === 'decision_required') {
                 $attention[] = $snapshot;
+            }
+
+            $totalWorkCount++;
+            if (count($work) < self::MAXIMUM_CURRENT_WORK) {
+                $work[] = $snapshot;
             }
         }
 
@@ -105,6 +112,7 @@ final readonly class HomeAction
             'board' => $board,
             'attention' => $attention,
             'work' => $work,
+            'total_work_count' => $totalWorkCount,
             'setup' => $setup,
             'setup_error' => $setupError,
             'learning' => $learning,

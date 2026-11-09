@@ -13,6 +13,7 @@ use voku\AgentUi\View\TemplateRenderer;
  *     board: BoardSnapshot,
  *     attention: list<WorkflowSnapshot>,
  *     work: list<WorkflowSnapshot>,
+ *     total_work_count?: int,
  *     setup: RepositorySetupProjection|null,
  *     setup_error: string|null,
  *     learning: LearningOverview|null,
@@ -26,6 +27,7 @@ use voku\AgentUi\View\TemplateRenderer;
 $board = $model['board'];
 $attention = $model['attention'];
 $work = $model['work'];
+$totalWorkCount = (int) ($model['total_work_count'] ?? count($work));
 $setup = $model['setup'];
 $setupError = $model['setup_error'];
 $learning = $model['learning'];
@@ -131,6 +133,9 @@ foreach ($work as $item) {
                 </details>
             </div>
         <?php endforeach; ?>
+        <?php if ($totalWorkCount > count($work)): ?>
+            <p class="note" style="margin-top:12px">Showing <?= count($work) ?> of <?= $totalWorkCount ?> active tasks. <a href="/board">View all tasks on the Board →</a></p>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
 
