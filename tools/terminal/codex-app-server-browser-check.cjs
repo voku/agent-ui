@@ -60,7 +60,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
                 threadId, turnId, reason: 'Cannot approve in this UI' } });
         } else {
             write({ id, method: 'item/commandExecution/requestApproval', params: {
-                threadId, turnId,
+                threadId, ...(!prompt.includes('stale-no-turn-id') ? { turnId } : {}),
                 ...(!prompt.includes('no-context') ? { itemId: 'cmd-1' } : {}),
                 ...(!prompt.includes('no-context') && !prompt.includes('item-context') ? { command: 'echo secret' } : {}),
                 cwd: process.cwd(),
@@ -213,6 +213,17 @@ async function run() {
     const stale = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
     assert.equal(stale.pending_requests.length, 0, 'completed turn clears one-time approval tokens');
     assert.equal(loggedDecisions().length, 3, 'no automatic approval after completion');
+
+    // Some server requests omit turnId. Completion still invalidates them:
+    // a request from a finished turn must never remain actionable.
+    await panel.locator('[data-codex-app-server-prompt]').fill('stale-no-turn-id');
+    await panel.locator('[data-codex-app-server-send]').click();
+    await until(async () => {
+        const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+        return snapshot.state === 'idle' && snapshot.pending_requests.length === 0 &&
+            snapshot.activity.some((entry) => entry.label.includes('interrupted'));
+    }, 'missing-turn-id stale approval is cleared');
+    assert.equal(loggedDecisions().length, 3, 'missing-turn-id request cannot auto-approve');
 
     await panel.locator('[data-codex-app-server-prompt]').fill('no-context');
     await panel.locator('[data-codex-app-server-send]').click();
