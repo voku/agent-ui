@@ -230,7 +230,9 @@ function updateAppServerState(runtime) {
     }
 }
 function appServerFailure(runtime, message) {
-    if (runtime !== codexAppServer) return;
+    // A deliberate Stop will close the child pipes. Late EPIPE/errors from
+    // those pipes must not turn a successful shutdown into a failed session.
+    if (runtime !== codexAppServer || runtime.expectedStop) return;
     runtime.activeTurn = false;
     runtime.currentTurnId = null;
     runtime.state = 'error';
