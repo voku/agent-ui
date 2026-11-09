@@ -9,6 +9,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
+const { StringDecoder } = require('node:string_decoder');
 
 const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=shell|codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
 const fail = (message) => { console.error(message); process.exit(1); };
@@ -91,6 +92,12 @@ let quitting = false;
 const upgradedSockets = new Set();
 let pendingSocket = null;
 let attachmentBusy = false;
+let codexAppServer = null;
+
+const appServerEventLimit = 40;
+const appServerPendingLimit = 8;
+const appServerInputLimit = 12 * 1024;
+const appServerLineLimit = 256 * 1024;
 async function cleanup(exitCode) {
     if (quitting) return;
     quitting = true;
@@ -160,6 +167,475 @@ function json(res, code, value) {
     res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(JSON.stringify(value));
 }
+function boundedAppText(value, maximum = 240) {
+    if (typeof value !== 'string') return '';
+    const clean = value
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/(authorization\s*:\s*bearer\s+)[^\s,'";]+/gi, '$1[redacted]')
+        .replace(/(\bbearer\s+)[^\s,'";]+/gi, '$1[redacted]')
+        .replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16})\b/g, '[redacted]')
+        .replace(/((?:api[_-]?key|token|secret|password)\s*[:=]\s*["']?)[^\s,'";&]+/gi, '$1[redacted]')
+        .replace(/((?:--)?(?:api[_-]?key|token|secret|password)\s+["']?)[^\s,'";&]+/gi, '$1[redacted]')
+        .trim();
+    return clean.length > maximum ? clean.slice(0, maximum - 1) + '…' : clean;
+}
+function codexAppServerAvailable() {
+    try { hostExecutable('codex'); return true; } catch (_) { return false; }
+}
+function recordAppServerActivity(runtime, kind, label) {
+    const entry = {
+        id: runtime.nextEventId++,
+        at: new Date().toISOString(),
+        kind: boundedAppText(kind, 32),
+        label: boundedAppText(label, 160),
+    };
+    runtime.activity.push(entry);
+    if (runtime.activity.length > appServerEventLimit) runtime.activity.splice(0, runtime.activity.length - appServerEventLimit);
+    runtime.lastUpdated = entry.at;
+}
+function appServerSnapshot() {
+    const available = codexAppServerAvailable();
+    const runtime = codexAppServer;
+    const state = runtime ? runtime.state : (available ? 'stopped' : 'unavailable');
+    const messages = {
+        stopped: 'No Codex App Server session is running.',
+        unavailable: 'Codex CLI is unavailable on this host.',
+        starting: 'Starting Codex App Server and checking local sign-in…',
+        idle: 'Codex is ready for a prompt. This activity feed is observational.',
+        running: 'Codex is working. This activity feed is observational.',
+        waiting_approval: 'Codex is waiting for a deliberate approval decision.',
+        waiting_input: 'Codex is waiting for a request this panel cannot answer.',
+        stopping: 'Stopping the Codex App Server session…',
+        error: runtime && runtime.errorMessage ? runtime.errorMessage : 'Codex App Server could not start. Check the CLI and sign-in.',
+    };
+    return {
+        available,
+        running: Boolean(runtime && runtime.process && runtime.process.exitCode === null && runtime.process.signalCode === null),
+        state,
+        message: messages[state] || 'Codex App Server status is unavailable.',
+        last_updated: runtime ? runtime.lastUpdated : null,
+        activity: runtime ? runtime.activity.slice(-appServerEventLimit) : [],
+        pending_requests: runtime ? Array.from(runtime.pendingRequests.values(), (entry) => entry.public) : [],
+        pending_overflow: Boolean(runtime && runtime.pendingOverflow),
+        csrf: csrfToken,
+    };
+}
+function updateAppServerState(runtime) {
+    if (runtime !== codexAppServer || ['starting', 'stopping', 'stopped', 'unavailable', 'error'].includes(runtime.state)) return;
+    if (runtime.pendingRequests.size > 0 || runtime.pendingOverflow) {
+        const supportedApproval = Array.from(runtime.pendingRequests.values()).some((entry) => entry.supportedApproval);
+        runtime.state = supportedApproval ? 'waiting_approval' : 'waiting_input';
+    } else {
+        runtime.state = runtime.activeTurn ? 'running' : 'idle';
+    }
+}
+function appServerFailure(runtime, message) {
+    if (runtime !== codexAppServer) return;
+    runtime.activeTurn = false;
+    runtime.state = 'error';
+    runtime.errorMessage = message;
+    runtime.pendingRequests.clear();
+    runtime.protocolRequestTokens.clear();
+    runtime.pendingOverflow = false;
+    recordAppServerActivity(runtime, 'error', 'Codex App Server session encountered an error.');
+    for (const pending of runtime.pendingRpc.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error('Codex App Server request failed.'));
+    }
+    runtime.pendingRpc.clear();
+}
+function sendAppServerMessage(runtime, message) {
+    if (!runtime.process || runtime.process.stdin.destroyed || runtime.process.stdin.writableEnded) return false;
+    try {
+        runtime.process.stdin.write(JSON.stringify(message) + '\n');
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+function appServerRequest(runtime, method, params) {
+    if (runtime !== codexAppServer || !runtime.process || runtime.process.exitCode !== null || runtime.process.signalCode !== null) {
+        return Promise.reject(new Error('Codex App Server is not running.'));
+    }
+    const id = runtime.nextRpcId++;
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            runtime.pendingRpc.delete(String(id));
+            reject(new Error('Codex App Server did not respond.'));
+        }, 30000);
+        runtime.pendingRpc.set(String(id), { resolve, reject, timer, method });
+        if (!sendAppServerMessage(runtime, { id, method, params })) {
+            clearTimeout(timer);
+            runtime.pendingRpc.delete(String(id));
+            reject(new Error('Codex App Server request could not be sent.'));
+        }
+    });
+}
+function appServerNotification(runtime, method, params) {
+    if (runtime !== codexAppServer || !params || typeof params !== 'object') return;
+    if (method === 'turn/started') {
+        runtime.activeTurn = true;
+        recordAppServerActivity(runtime, 'turn', 'Codex started a turn.');
+    } else if (method === 'turn/completed') {
+        runtime.activeTurn = false;
+        const status = params.turn && params.turn.status;
+        recordAppServerActivity(runtime, 'turn', status === 'completed' ? 'Codex completed the turn.' : 'Codex turn ended (' + boundedAppText(status || 'unknown', 32) + ').');
+    } else if (method === 'item/started' || method === 'item/completed') {
+        const item = params.item;
+        if (!item || typeof item.type !== 'string') return;
+        const labels = {
+            agentMessage: 'response', plan: 'plan', reasoning: 'reasoning', commandExecution: 'command', fileChange: 'file change',
+            mcpToolCall: 'integration', dynamicToolCall: 'tool', webSearch: 'web search', imageView: 'image view', collabToolCall: 'sub-agent',
+        };
+        const kind = Object.hasOwn(labels, item.type) ? labels[item.type] : null;
+        if (kind === null) return;
+        const completed = method === 'item/completed';
+        const status = completed && typeof item.status === 'string' ? item.status : null;
+        let verb = completed ? 'completed' : 'started';
+        if (status === 'failed') verb = 'failed';
+        else if (status === 'declined') verb = 'was declined';
+        if (item.type === 'fileChange' && typeof item.id === 'string') {
+            if (completed) {
+                runtime.fileChanges.delete(item.id);
+            } else if (Array.isArray(item.changes)) {
+                const changes = item.changes.slice(0, 12).map((change) => {
+                    if (!change || typeof change !== 'object') return null;
+                    const operation = boundedAppText(change.kind, 24);
+                    const file = boundedAppText(change.path, 160);
+                    return file ? (operation ? operation + ' ' : '') + file : null;
+                }).filter((change) => change !== null);
+                runtime.fileChanges.set(item.id, changes);
+                while (runtime.fileChanges.size > appServerEventLimit) {
+                    const oldest = runtime.fileChanges.keys().next().value;
+                    if (typeof oldest !== 'string') break;
+                    runtime.fileChanges.delete(oldest);
+                }
+            }
+        }
+        recordAppServerActivity(runtime, kind, 'Codex ' + kind + ' ' + verb + '.');
+    } else if (method === 'serverRequest/resolved') {
+        const requestId = params.requestId;
+        const token = runtime.protocolRequestTokens.get(String(requestId));
+        if (token) {
+            runtime.pendingRequests.delete(token);
+            runtime.protocolRequestTokens.delete(String(requestId));
+            recordAppServerActivity(runtime, 'request', 'A Codex request was resolved.');
+        }
+    }
+    updateAppServerState(runtime);
+}
+function receiveAppServerRequest(runtime, message) {
+    if (!Number.isSafeInteger(message.id) && typeof message.id !== 'string') return;
+    const method = message.method;
+    const params = message.params && typeof message.params === 'object' ? message.params : {};
+    const token = crypto.randomBytes(12).toString('base64url');
+    const decisions = Array.isArray(params.availableDecisions) ? params.availableDecisions : null;
+    let entry;
+    if (method === 'item/commandExecution/requestApproval') {
+        const network = params.networkApprovalContext;
+        const networkTarget = network && typeof network.host === 'string'
+            ? 'Network access to ' + boundedAppText(network.host, 120) + (typeof network.protocol === 'string' ? ' (' + boundedAppText(network.protocol, 20) + ')' : '')
+            : null;
+        const command = Array.isArray(params.command) ? params.command.filter((part) => typeof part === 'string').join(' ') : params.command;
+        entry = {
+            supportedApproval: true,
+            protocolId: message.id,
+            public: {
+                token,
+                kind: 'command',
+                title: networkTarget ? 'Codex requests network access' : 'Codex requests command approval',
+                summary: networkTarget || (typeof command === 'string' ? 'Command: ' + boundedAppText(command, 480) : 'Codex requests permission to run a command.'),
+                cwd: boundedAppText(params.cwd, 240),
+                reason: boundedAppText(params.reason, 240),
+                can_accept: decisions === null || decisions.includes('accept'),
+                can_decline: decisions === null || decisions.includes('decline'),
+                can_cancel: decisions !== null && decisions.includes('cancel'),
+            },
+        };
+    } else if (method === 'item/fileChange/requestApproval') {
+        const changedFiles = typeof params.itemId === 'string' ? runtime.fileChanges.get(params.itemId) : null;
+        const requestedChanges = changedFiles && changedFiles.length ? 'Requested changes:\n' + changedFiles.join('\n') : null;
+        entry = {
+            supportedApproval: true,
+            protocolId: message.id,
+            public: {
+                token,
+                kind: 'file_change',
+                title: 'Codex requests file change approval',
+                summary: boundedAppText(requestedChanges || (typeof params.grantRoot === 'string' ? 'Requested workspace root: ' + boundedAppText(params.grantRoot, 240) : 'Codex requests permission to apply a file change.'), 900),
+                cwd: '',
+                reason: boundedAppText(params.reason, 240),
+                can_accept: decisions === null || decisions.includes('accept'),
+                can_decline: decisions === null || decisions.includes('decline'),
+                can_cancel: decisions !== null && decisions.includes('cancel'),
+            },
+        };
+    } else {
+        const titles = {
+            'item/permissions/requestApproval': 'Codex requests additional permissions',
+            'tool/requestUserInput': 'Codex is waiting for user input',
+            'mcpServer/elicitation/request': 'An integration requests user input',
+        };
+        entry = {
+            supportedApproval: false,
+            protocolId: message.id,
+            public: {
+                token,
+                kind: 'unsupported',
+                title: Object.hasOwn(titles, method) ? titles[method] : 'Codex sent an unsupported request',
+                summary: 'This request cannot be answered in the cockpit. Stop this App Server session to cancel it.',
+                cwd: '',
+                reason: boundedAppText(params.reason || params.message, 240),
+                can_accept: false,
+                can_decline: false,
+                can_cancel: false,
+            },
+        };
+    }
+    if (runtime.pendingRequests.size >= appServerPendingLimit) {
+        runtime.pendingOverflow = true;
+        recordAppServerActivity(runtime, 'request', 'Codex sent more simultaneous requests than the cockpit can display.');
+        updateAppServerState(runtime);
+        return;
+    }
+    runtime.pendingRequests.set(token, entry);
+    runtime.protocolRequestTokens.set(String(message.id), token);
+    recordAppServerActivity(runtime, 'request', entry.public.title + '.');
+    updateAppServerState(runtime);
+}
+function handleAppServerMessage(runtime, line) {
+    let message;
+    try { message = JSON.parse(line); } catch (_) {
+        appServerFailure(runtime, 'Codex App Server sent an unreadable event. Stop and restart the session.');
+        if (runtime.process) runtime.process.kill('SIGTERM');
+        return;
+    }
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return;
+    if (typeof message.method === 'string') {
+        if (Object.hasOwn(message, 'id')) receiveAppServerRequest(runtime, message);
+        else appServerNotification(runtime, message.method, message.params);
+        return;
+    }
+    if (Object.hasOwn(message, 'id')) {
+        const pending = runtime.pendingRpc.get(String(message.id));
+        if (!pending) return;
+        runtime.pendingRpc.delete(String(message.id));
+        clearTimeout(pending.timer);
+        if (message.error) pending.reject(new Error('Codex App Server request failed.'));
+        else pending.resolve(message.result || {});
+    }
+}
+function readAppServerOutput(runtime, chunk) {
+    runtime.lineBuffer += runtime.decoder.write(chunk);
+    if (runtime.lineBuffer.length > appServerLineLimit && !runtime.lineBuffer.includes('\n')) {
+        appServerFailure(runtime, 'Codex App Server sent an oversized event. Stop and restart the session.');
+        if (runtime.process) runtime.process.kill('SIGTERM');
+        return;
+    }
+    let newline;
+    while ((newline = runtime.lineBuffer.indexOf('\n')) !== -1) {
+        const line = runtime.lineBuffer.slice(0, newline).replace(/\r$/, '');
+        runtime.lineBuffer = runtime.lineBuffer.slice(newline + 1);
+        if (line.length > appServerLineLimit) {
+            appServerFailure(runtime, 'Codex App Server sent an oversized event. Stop and restart the session.');
+            if (runtime.process) runtime.process.kill('SIGTERM');
+            return;
+        }
+        if (line) handleAppServerMessage(runtime, line);
+    }
+}
+function createAppServerRuntime() {
+    return {
+        process: null,
+        state: 'starting',
+        errorMessage: null,
+        threadId: null,
+        activeTurn: false,
+        expectedStop: false,
+        nextRpcId: 1,
+        nextEventId: 1,
+        pendingRpc: new Map(),
+        pendingRequests: new Map(),
+        protocolRequestTokens: new Map(),
+        fileChanges: new Map(),
+        pendingOverflow: false,
+        activity: [],
+        lastUpdated: null,
+        lineBuffer: '',
+        decoder: new StringDecoder('utf8'),
+    };
+}
+async function startCodexAppServer() {
+    if (codexAppServer && ['starting', 'idle', 'running', 'waiting_approval', 'waiting_input', 'stopping'].includes(codexAppServer.state)) {
+        throw new Error('A Codex App Server session is already active.');
+    }
+    let executable;
+    try { executable = hostExecutable('codex'); }
+    catch (_) { throw new Error('Codex CLI is not available on this host.'); }
+    const runtime = createAppServerRuntime();
+    codexAppServer = runtime;
+    recordAppServerActivity(runtime, 'session', 'Starting Codex App Server.');
+    let processChild;
+    try {
+        processChild = spawn(executable, ['app-server'], {
+            cwd: root,
+            env: { ...process.env, AGENT_LOOP_TASK_ID: options.task, AGENT_UI_PROJECT_ROOT: root },
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+    } catch (_) {
+        appServerFailure(runtime, 'Codex App Server could not start. Check the CLI and sign-in.');
+        throw new Error('Codex App Server could not start. Check the CLI and sign-in.');
+    }
+    runtime.process = processChild;
+    children.push(processChild);
+    processChild.stdout.on('data', (data) => readAppServerOutput(runtime, data));
+    // stderr may contain authentication or provider diagnostics; never relay it to the browser or logs.
+    processChild.stderr.on('data', () => {});
+    processChild.stdin.on('error', () => appServerFailure(runtime, 'Codex App Server connection closed. Stop and restart the session.'));
+    processChild.on('error', () => appServerFailure(runtime, 'Codex App Server could not start. Check the CLI and sign-in.'));
+    processChild.on('exit', () => {
+        if (runtime !== codexAppServer) return;
+        for (const pending of runtime.pendingRpc.values()) {
+            clearTimeout(pending.timer);
+            pending.reject(new Error('Codex App Server stopped.'));
+        }
+        runtime.pendingRpc.clear();
+        runtime.process = null;
+        runtime.activeTurn = false;
+        runtime.pendingRequests.clear();
+        runtime.protocolRequestTokens.clear();
+        runtime.pendingOverflow = false;
+        if (runtime.expectedStop) {
+            if (runtime.state !== 'stopped') {
+                runtime.state = 'stopped';
+                runtime.errorMessage = null;
+                recordAppServerActivity(runtime, 'session', 'Codex App Server stopped.');
+            }
+        } else {
+            appServerFailure(runtime, 'Codex App Server exited. Check the CLI and sign-in, then start a new session.');
+        }
+    });
+    try {
+        await appServerRequest(runtime, 'initialize', {
+            clientInfo: { name: 'voku_agent_ui', title: 'voku/agent-ui local cockpit', version: '0.1.0' },
+            capabilities: { optOutNotificationMethods: ['item/agentMessage/delta', 'item/commandExecution/outputDelta', 'item/reasoning/summaryTextDelta', 'item/reasoning/textDelta', 'item/plan/delta', 'item/fileChange/outputDelta'] },
+        });
+        if (!sendAppServerMessage(runtime, { method: 'initialized', params: {} })) throw new Error('Codex App Server connection closed.');
+        const threadResult = await appServerRequest(runtime, 'thread/start', {
+            cwd: root,
+            approvalPolicy: 'on-request',
+            sandbox: 'workspace-write',
+        });
+        if (!threadResult.thread || typeof threadResult.thread.id !== 'string') throw new Error('Codex App Server did not start a thread.');
+        runtime.threadId = threadResult.thread.id;
+        runtime.state = 'idle';
+        runtime.errorMessage = null;
+        recordAppServerActivity(runtime, 'session', 'Codex App Server is ready for a prompt.');
+        return appServerSnapshot();
+    } catch (_) {
+        appServerFailure(runtime, 'Codex App Server could not initialize. Check the CLI version and sign-in.');
+        if (runtime.process && runtime.process.exitCode === null && runtime.process.signalCode === null) runtime.process.kill('SIGTERM');
+        throw new Error('Codex App Server could not initialize. Check the CLI version and sign-in.');
+    }
+}
+async function stopCodexAppServer() {
+    const runtime = codexAppServer;
+    if (!runtime || !runtime.process) {
+        if (runtime) runtime.state = 'stopped';
+        return;
+    }
+    const processChild = runtime.process;
+    runtime.expectedStop = true;
+    runtime.state = 'stopping';
+    await new Promise((resolve) => {
+        if (processChild.exitCode !== null || processChild.signalCode !== null) return resolve();
+        const timeout = setTimeout(resolve, 1500);
+        processChild.once('exit', () => { clearTimeout(timeout); resolve(); });
+        processChild.kill('SIGTERM');
+    });
+    const stopEventAlreadyRecorded = runtime.state === 'stopped';
+    if (processChild.exitCode === null && processChild.signalCode === null) processChild.kill('SIGKILL');
+    runtime.process = null;
+    runtime.activeTurn = false;
+    runtime.pendingRequests.clear();
+    runtime.protocolRequestTokens.clear();
+    runtime.pendingOverflow = false;
+    runtime.state = 'stopped';
+    runtime.errorMessage = null;
+    if (!stopEventAlreadyRecorded) recordAppServerActivity(runtime, 'session', 'Codex App Server stopped.');
+}
+async function submitCodexTurn(prompt) {
+    const runtime = codexAppServer;
+    if (!runtime || runtime.state !== 'idle' || !runtime.threadId || runtime.pendingRequests.size || runtime.pendingOverflow) {
+        throw new Error('Codex is not ready for a new turn.');
+    }
+    runtime.activeTurn = true;
+    runtime.state = 'running';
+    recordAppServerActivity(runtime, 'turn', 'A prompt was sent to Codex.');
+    try {
+        await appServerRequest(runtime, 'turn/start', {
+            threadId: runtime.threadId,
+            input: [{ type: 'text', text: prompt }],
+        });
+    } catch (_) {
+        if (runtime === codexAppServer) {
+            appServerFailure(runtime, 'Codex could not confirm the requested turn. Stop and restart the session before sending another prompt.');
+            if (runtime.process && runtime.process.exitCode === null && runtime.process.signalCode === null) runtime.process.kill('SIGTERM');
+        }
+        throw new Error('Codex could not confirm the requested turn. Stop and restart the session before sending another prompt.');
+    }
+    return appServerSnapshot();
+}
+function resolveCodexApproval(token, decision) {
+    const runtime = codexAppServer;
+    const entry = runtime && runtime.pendingRequests.get(token);
+    if (!runtime || !entry || !entry.supportedApproval || !runtime.process) throw new Error('This Codex request is no longer available. Refresh the activity panel.');
+    if (!['accept', 'decline', 'cancel'].includes(decision) || (decision === 'accept' && !entry.public.can_accept) ||
+        (decision === 'decline' && !entry.public.can_decline) || (decision === 'cancel' && !entry.public.can_cancel)) {
+        throw new Error('That decision is unavailable for this Codex request.');
+    }
+    const response = { id: entry.protocolId, result: { decision } };
+    if (!sendAppServerMessage(runtime, response)) throw new Error('The Codex decision could not be sent.');
+    runtime.pendingRequests.delete(token);
+    runtime.protocolRequestTokens.delete(String(entry.protocolId));
+    recordAppServerActivity(runtime, 'approval', decision === 'accept' ? 'A human approved a Codex request once.' : 'A human declined or canceled a Codex request.');
+    updateAppServerState(runtime);
+    return appServerSnapshot();
+}
+function readJsonBody(req, res, maximumBytes) {
+    return new Promise((resolve) => {
+        let body = '';
+        let receivedBytes = 0;
+        let settled = false;
+        req.on('data', (chunk) => {
+            if (settled) return;
+            receivedBytes += chunk.length;
+            if (receivedBytes > maximumBytes) {
+                settled = true;
+                deny(res, 413, 'Request is too large.');
+                req.resume();
+                resolve(null);
+                return;
+            }
+            body += chunk;
+        });
+        req.on('end', () => {
+            if (settled) return;
+            try {
+                const value = JSON.parse(body);
+                if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid');
+                settled = true;
+                resolve(value);
+            } catch (_) {
+                settled = true;
+                deny(res, 400, 'Invalid request.');
+                resolve(null);
+            }
+        });
+        req.on('aborted', () => { if (!settled) { settled = true; resolve(null); } });
+        req.on('error', () => { if (!settled) { settled = true; resolve(null); } });
+    });
+}
 const loginScript = `const token=location.hash.slice(1);history.replaceState(null,'',location.pathname);fetch('/_local/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>{if(!r.ok)throw Error();location.replace(${JSON.stringify('/task/' + encodeURIComponent(options.task) + '/progress')})}).catch(()=>{document.body.textContent='Access denied. Start a new local cockpit.'});`;
 const loginHash = crypto.createHash('sha256').update(loginScript).digest('base64');
 function requestHandler(req, res) {
@@ -212,6 +688,42 @@ function requestHandler(req, res) {
                 return json(res, 200, { state: 'session_not_found' });
             } catch (error) {
                 return deny(res, 409, error.message || 'The session action failed.');
+            }
+        });
+    }
+    if (req.method === 'GET' && req.url === '/_local/codex-app-server') {
+        return json(res, 200, appServerSnapshot());
+    }
+    const appServerAction = req.method === 'POST' ? /^\/_local\/codex-app-server\/(start|stop|turn|decision)$/.exec(req.url) : null;
+    if (appServerAction) {
+        if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
+            !equal(req.headers['x-agent-ui-csrf'], csrfToken)) return deny(res, 403, 'Origin and CSRF token required.');
+        if (Number(req.headers['content-length'] || 0) > appServerInputLimit + 1024) return deny(res, 413, 'Request is too large.');
+        return readJsonBody(req, res, appServerInputLimit + 1024).then(async (body) => {
+            if (body === null || res.writableEnded) return;
+            const action = appServerAction[1];
+            try {
+                if (action === 'start') {
+                    const taskStatus = await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`);
+                    if (taskStatus !== 200) return deny(res, 409, 'The task is unavailable in the selected project.');
+                    await startCodexAppServer();
+                } else if (action === 'stop') {
+                    await stopCodexAppServer();
+                } else if (action === 'turn') {
+                    if (typeof body.prompt !== 'string' || Buffer.byteLength(body.prompt, 'utf8') > appServerInputLimit) {
+                        return deny(res, 400, 'Prompt must be text under 12 KiB.');
+                    }
+                    const prompt = body.prompt.trim();
+                    if (prompt === '') return deny(res, 400, 'Prompt cannot be empty.');
+                    await submitCodexTurn(prompt);
+                } else {
+                    if (typeof body.token !== 'string' || typeof body.decision !== 'string') return deny(res, 400, 'Invalid Codex decision.');
+                    resolveCodexApproval(body.token, body.decision);
+                }
+                return json(res, 200, appServerSnapshot());
+            } catch (error) {
+                const status = action === 'start' ? 503 : 409;
+                return deny(res, status, error instanceof Error ? error.message : 'The Codex App Server action failed.');
             }
         });
     }

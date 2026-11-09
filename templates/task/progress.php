@@ -165,6 +165,33 @@ require __DIR__ . '/../layout/header.php';
         </select>
         <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
     </div>
+    <section class="codex-app-server panel" data-codex-app-server aria-label="Codex App Server session">
+        <div class="action__head">
+            <strong>Codex App Server <span class="pill pill--neutral">observation</span></strong>
+            <button type="button" class="btn btn--small" data-codex-app-server-stop hidden>Stop Codex session</button>
+        </div>
+        <p class="note">This is a separate browser-controlled Codex session using structured App Server events. It does not change agent-loop workflow state or answer requests automatically.</p>
+        <p class="small" data-codex-app-server-state aria-live="polite">Checking Codex App Server…</p>
+        <p class="small muted" data-codex-app-server-message></p>
+        <p class="small" data-codex-app-server-feedback aria-live="polite"></p>
+        <div class="btn-row">
+            <button type="button" class="btn btn--primary btn--small" data-codex-app-server-start>Start Codex App Server</button>
+        </div>
+        <form class="codex-app-server__prompt" data-codex-app-server-form hidden>
+            <label for="codex-app-server-prompt">Send a prompt to this Codex session</label>
+            <textarea id="codex-app-server-prompt" data-codex-app-server-prompt rows="3" maxlength="12288" required></textarea>
+            <button type="submit" class="btn btn--primary btn--small" data-codex-app-server-send>Send prompt</button>
+            <p class="note">Prompts are sent directly to Codex and are not copied into this activity feed.</p>
+        </form>
+        <div class="codex-app-server__requests" data-codex-app-server-requests hidden>
+            <h3>Requests waiting for a human</h3>
+            <div data-codex-app-server-request-list></div>
+        </div>
+        <div class="codex-app-server__activity">
+            <h3>Recent structured activity</h3>
+            <ol data-codex-app-server-activity aria-live="off"><li class="muted">No Codex activity yet.</li></ol>
+        </div>
+    </section>
     <div class="panel" data-terminal-attachment hidden>
         <label for="terminal-image-file">Attach screenshot or image (PNG, JPEG, WebP, GIF; max 8 MiB)</label>
         <input type="file" id="terminal-image-file" data-terminal-image-file accept="image/png,image/jpeg,image/webp,image/gif">

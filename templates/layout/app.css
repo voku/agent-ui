@@ -1137,6 +1137,18 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .workflow-cockpit__progress { min-width: 0; }
 .workflow-cockpit__terminal { position: sticky; top: 18px; min-width: 0; }
 .workflow-cockpit__terminal iframe { display: block; width: 100%; height: min(68vh, 720px); min-height: 360px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #111; }
+.codex-app-server { margin: 14px 0; }
+.codex-app-server__prompt { display: grid; gap: 8px; margin-top: 12px; }
+.codex-app-server__prompt textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); padding: 9px 10px; color: var(--ink); background: var(--surface); font: inherit; }
+.codex-app-server__requests, .codex-app-server__activity { margin-top: 14px; }
+.codex-app-server__requests h3, .codex-app-server__activity h3 { margin: 0 0 8px; font-size: 14px; }
+.codex-app-server__request { border: 1px solid var(--attention); border-radius: var(--radius-sm); background: var(--attention-soft); padding: 10px; margin-top: 8px; overflow-wrap: anywhere; }
+.codex-app-server__request h4 { margin: 0 0 6px; font-size: 13px; }
+.codex-app-server__request p { margin: 6px 0; }
+.codex-app-server__request pre { max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 var(--mono); }
+.codex-app-server__activity ol { max-height: 220px; overflow: auto; margin: 0; padding: 0 0 0 22px; }
+.codex-app-server__activity li { padding: 4px 0; color: var(--ink-soft); font-size: 12px; }
+.codex-app-server__activity time { color: var(--ink-faint); font-family: var(--mono); margin-right: 8px; }
 @media (max-width: 860px) {
     .workflow-cockpit { grid-template-columns: minmax(0, 1fr); }
     .workflow-cockpit__terminal { position: static; grid-row: 1; }

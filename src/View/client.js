@@ -1083,6 +1083,209 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     refreshSession();
 }());
 
+/* Codex App Server activity is a separate structured observation channel. */
+(function enhanceCodexAppServer() {
+    var panel = document.querySelector('[data-codex-app-server]');
+    if (!panel || typeof window.fetch !== 'function') { return; }
+    var state = panel.querySelector('[data-codex-app-server-state]');
+    var message = panel.querySelector('[data-codex-app-server-message]');
+    var feedback = panel.querySelector('[data-codex-app-server-feedback]');
+    var start = panel.querySelector('[data-codex-app-server-start]');
+    var stop = panel.querySelector('[data-codex-app-server-stop]');
+    var form = panel.querySelector('[data-codex-app-server-form]');
+    var prompt = panel.querySelector('[data-codex-app-server-prompt]');
+    var send = panel.querySelector('[data-codex-app-server-send]');
+    var requests = panel.querySelector('[data-codex-app-server-requests]');
+    var requestList = panel.querySelector('[data-codex-app-server-request-list]');
+    var activity = panel.querySelector('[data-codex-app-server-activity]');
+    if (!state || !message || !feedback || !start || !stop || !form || !prompt || !send || !requests || !requestList || !activity) { return; }
+
+    var csrf = '';
+    var timer;
+    var generation = 0;
+    var busy = false;
+    start.disabled = true;
+    stop.disabled = true;
+    send.disabled = true;
+
+    function element(tag, className, value) {
+        var node = document.createElement(tag);
+        if (className) { node.className = className; }
+        if (typeof value === 'string') { node.textContent = value; }
+        return node;
+    }
+    function renderRequests(snapshot) {
+        while (requestList.firstChild) { requestList.removeChild(requestList.firstChild); }
+        var pending = Array.isArray(snapshot.pending_requests) ? snapshot.pending_requests : [];
+        requests.hidden = pending.length === 0 && snapshot.pending_overflow !== true;
+        if (snapshot.pending_overflow === true) {
+            requestList.appendChild(element('p', 'note', 'Additional Codex requests could not fit in the bounded display. Stop the session if it cannot continue.'));
+        }
+        pending.forEach(function (request) {
+            if (!request || typeof request !== 'object') { return; }
+            var card = element('article', 'codex-app-server__request');
+            card.appendChild(element('h4', '', typeof request.title === 'string' ? request.title : 'Codex request'));
+            if (typeof request.summary === 'string' && request.summary) {
+                var summary = element('pre', '', request.summary);
+                card.appendChild(summary);
+            }
+            if (typeof request.cwd === 'string' && request.cwd) { card.appendChild(element('p', 'small', 'Working directory: ' + request.cwd)); }
+            if (typeof request.reason === 'string' && request.reason) { card.appendChild(element('p', 'small', 'Reason: ' + request.reason)); }
+            if (request.kind === 'unsupported') {
+                card.appendChild(element('p', 'note', 'This request remains unanswered. Stop the App Server session to cancel it.'));
+            } else if (typeof request.token === 'string') {
+                var buttons = element('div', 'btn-row');
+                if (request.can_accept === true) {
+                    var accept = element('button', 'btn btn--small', 'Allow once');
+                    accept.type = 'button';
+                    accept.dataset.codexRequestToken = request.token;
+                    accept.dataset.codexRequestDecision = 'accept';
+                    accept.disabled = busy;
+                    buttons.appendChild(accept);
+                }
+                if (request.can_decline === true) {
+                    var decline = element('button', 'btn btn--small', 'Decline');
+                    decline.type = 'button';
+                    decline.dataset.codexRequestToken = request.token;
+                    decline.dataset.codexRequestDecision = 'decline';
+                    decline.disabled = busy;
+                    buttons.appendChild(decline);
+                }
+                if (request.can_cancel === true) {
+                    var cancel = element('button', 'btn btn--small', 'Cancel request');
+                    cancel.type = 'button';
+                    cancel.dataset.codexRequestToken = request.token;
+                    cancel.dataset.codexRequestDecision = 'cancel';
+                    cancel.disabled = busy;
+                    buttons.appendChild(cancel);
+                }
+                if (buttons.childNodes.length) { card.appendChild(buttons); }
+                else { card.appendChild(element('p', 'note', 'No one-time decision is available for this request. Stop the session if it cannot continue.')); }
+            }
+            requestList.appendChild(card);
+        });
+    }
+    function renderActivity(snapshot) {
+        while (activity.firstChild) { activity.removeChild(activity.firstChild); }
+        var events = Array.isArray(snapshot.activity) ? snapshot.activity.slice(-40) : [];
+        if (!events.length) {
+            activity.appendChild(element('li', 'muted', 'No Codex activity yet.'));
+            return;
+        }
+        events.forEach(function (event) {
+            if (!event || typeof event.label !== 'string') { return; }
+            var row = element('li');
+            if (typeof event.at === 'string') {
+                var time = element('time', '', new Date(event.at).toLocaleTimeString());
+                time.dateTime = event.at;
+                row.appendChild(time);
+            }
+            row.appendChild(document.createTextNode(event.label));
+            activity.appendChild(row);
+        });
+    }
+    function render(snapshot) {
+        csrf = typeof snapshot.csrf === 'string' ? snapshot.csrf : csrf;
+        var sessionRunning = snapshot.running === true;
+        var stateName = typeof snapshot.state === 'string' ? snapshot.state.replace(/_/g, ' ') : 'unavailable';
+        state.textContent = 'Observed state: ' + stateName;
+        if (typeof snapshot.last_updated === 'string') {
+            state.textContent += ' · updated ' + new Date(snapshot.last_updated).toLocaleTimeString();
+        }
+        message.textContent = typeof snapshot.message === 'string' ? snapshot.message : 'Codex App Server status is unavailable.';
+        start.hidden = sessionRunning;
+        start.disabled = busy || snapshot.available !== true;
+        stop.hidden = !sessionRunning;
+        stop.disabled = busy;
+        form.hidden = snapshot.state !== 'idle';
+        prompt.disabled = busy || snapshot.state !== 'idle';
+        send.disabled = busy || snapshot.state !== 'idle' || !prompt.value.trim();
+        renderRequests(snapshot);
+        renderActivity(snapshot);
+    }
+    function schedule() {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(refresh, document.hidden ? 30000 : 2500);
+    }
+    function refresh() {
+        window.clearTimeout(timer);
+        var requestGeneration = ++generation;
+        window.fetch('/_local/codex-app-server', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (response) {
+                if (!response.ok) { throw new Error('Codex App Server status is unavailable.'); }
+                return response.json();
+            })
+            .then(function (snapshot) { if (requestGeneration === generation) { render(snapshot); } })
+            .catch(function () {
+                if (requestGeneration === generation) {
+                    state.textContent = 'Observed state: unavailable';
+                    message.textContent = 'Codex App Server status is unavailable.';
+                    start.disabled = true;
+                    stop.hidden = true;
+                    form.hidden = true;
+                }
+            })
+            .then(function () { if (requestGeneration === generation) { schedule(); } });
+    }
+    function action(name, payload, afterSuccess) {
+        if (busy || !csrf) { return Promise.resolve(false); }
+        busy = true;
+        generation++;
+        window.clearTimeout(timer);
+        start.disabled = true;
+        stop.disabled = true;
+        send.disabled = true;
+        feedback.textContent = name === 'start' ? 'Starting Codex App Server…'
+            : name === 'stop' ? 'Stopping Codex App Server…'
+                : name === 'turn' ? 'Sending prompt to Codex…' : 'Recording your decision…';
+        return window.fetch('/_local/codex-app-server/' + name, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
+            body: JSON.stringify(payload)
+        }).then(function (response) {
+            if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            return response.json();
+        }).then(function (snapshot) {
+            if (typeof afterSuccess === 'function') { afterSuccess(); }
+            feedback.textContent = name === 'start' ? 'Codex App Server started.'
+                : name === 'stop' ? 'Codex App Server stopped; the governed task remains open.'
+                    : name === 'turn' ? 'Prompt sent to Codex.' : 'Decision sent to Codex.';
+            render(snapshot);
+            return true;
+        }).catch(function (error) {
+            feedback.textContent = error.message || 'The Codex App Server action failed.';
+            return false;
+        }).then(function (succeeded) {
+            busy = false;
+            refresh();
+            return succeeded;
+        });
+    }
+
+    start.addEventListener('click', function () { action('start', {}); });
+    stop.addEventListener('click', function () {
+        if (window.confirm('Stop the Codex App Server session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
+    });
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var value = prompt.value.trim();
+        if (!value) { return; }
+        action('turn', { prompt: value }, function () { prompt.value = ''; });
+    });
+    prompt.addEventListener('input', function () { send.disabled = busy || prompt.value.trim() === ''; });
+    requestList.addEventListener('click', function (event) {
+        var target = event.target && typeof event.target.closest === 'function' ? event.target : null;
+        var button = target ? target.closest('button[data-codex-request-token]') : null;
+        if (!button) { return; }
+        action('decision', { token: button.dataset.codexRequestToken, decision: button.dataset.codexRequestDecision });
+    });
+    document.addEventListener('visibilitychange', function () {
+        window.clearTimeout(timer);
+        if (document.hidden) { schedule(); } else { refresh(); }
+    });
+    refresh();
+}());
+
 /*
  * Optional shortcut: "/" moves focus to the header search, as on most developer
  * tools. The form is a plain GET form and works without this; the hint glyph
