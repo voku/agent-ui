@@ -57,7 +57,7 @@ $csrf = $model['csrf_token'];
             </div>
         <?php endif; ?>
 
-        <form class="form" method="post" data-workflow-approval-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve" style="margin-top:16px">
+        <form class="form" method="post" data-workflow-approval-form data-workflow-decision-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve" style="margin-top:16px">
             <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
             <input type="hidden" name="return_to" value="progress">
             <input type="hidden" name="revision" value="<?= (int) $contract->revision ?>">
@@ -70,11 +70,63 @@ $csrf = $model['csrf_token'];
             <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
         </form>
     </section>
+<?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
+    <p class="eyebrow">Human review acknowledgement</p>
+    <section class="panel panel--attention">
+        <div class="action__head">
+            <strong>Review the exact report before acknowledging</strong>
+            <span class="pill pill--attention">Owner decision available</span>
+        </div>
+        <p class="note">This decision is bound to the current report's SHA-256. Open the full review to inspect its findings; acknowledging does not declare the implementation correct or waive other workflow gates.</p>
+        <p class="mono small" style="overflow-wrap:anywhere"><strong>Report SHA-256:</strong> <?= TemplateRenderer::escape($decisions->reviewReportSha256) ?></p>
+        <form class="form" method="post" data-workflow-decision-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/review-ack">
+            <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+            <input type="hidden" name="return_to" value="progress">
+            <input type="hidden" name="report_sha256" value="<?= TemplateRenderer::escape($decisions->reviewReportSha256) ?>">
+            <div class="form__row">
+                <label class="field"><span>Reviewed by</span><input required maxlength="200" name="actor" autocomplete="name"></label>
+                <button class="btn btn--primary" type="submit">Acknowledge exact report</button>
+                <a class="btn" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Inspect work &amp; review</a>
+            </div>
+            <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
+        </form>
+    </section>
+<?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::RECORD_LEARNING)): ?>
+    <p class="eyebrow">Learning disposition</p>
+    <section class="panel panel--attention">
+        <strong>Record the outcome of this run</strong>
+        <p class="note">Choose from the currently supported owner actions. No durable learning means there was no reusable finding; a follow-up requires a concrete reference. This is not a substitute for validation or review.</p>
+        <form class="form" method="post" data-workflow-decision-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning">
+            <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+            <input type="hidden" name="return_to" value="progress">
+            <input type="hidden" name="decision" value="no_durable_learning">
+            <h3>No durable learning</h3>
+            <div class="form__row">
+                <label class="field"><span>Decided by</span><input required maxlength="200" name="actor" autocomplete="name"></label>
+                <label class="field field--wide"><span>Reason</span><textarea required maxlength="2000" name="reason"></textarea></label>
+                <button class="btn" type="submit">Record no durable learning</button>
+            </div>
+            <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
+        </form>
+        <form class="form" method="post" data-workflow-decision-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/learning" style="margin-top:18px">
+            <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+            <input type="hidden" name="return_to" value="progress">
+            <input type="hidden" name="decision" value="follow_up_required">
+            <h3>Follow-up required</h3>
+            <div class="form__row">
+                <label class="field"><span>Decided by</span><input required maxlength="200" name="actor" autocomplete="name"></label>
+                <label class="field"><span>Follow-up reference</span><input required maxlength="500" name="follow_up_ref"></label>
+                <label class="field field--wide"><span>Reason</span><textarea required maxlength="2000" name="reason"></textarea></label>
+                <button class="btn" type="submit">Record follow-up</button>
+            </div>
+            <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
+        </form>
+        <p class="small note">Validated Finding content still belongs to the Learning owner. Use the full task decision page for any other projected action.</p>
+    </section>
 <?php elseif ($decisions->actions !== []): ?>
     <p class="eyebrow">Human decision available</p>
     <section class="panel panel--attention">
-        <p style="margin:0">agent-loop projects a recordable human action for this task.</p>
-        <p class="note">Only Contract approval is rendered on this workflow surface in this slice. Other typed decisions remain available on the task detail view rather than being inferred here.</p>
-        <p style="margin:12px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>">Open task decision controls →</a></p>
+        <p class="note">The owner projects another recordable decision. Its details are available on the full task page; this cockpit will not invent a generic approval.</p>
+        <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>#decision">Open exact owner decision</a>
     </section>
 <?php endif; ?>
