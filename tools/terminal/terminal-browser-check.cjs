@@ -121,6 +121,13 @@ async function run() {
     assert.notEqual(terminalPort, port, 'terminal has a separate browser origin');
     const sessionResponse = await request(port, '/_local/session', { Cookie: cookie });
     assert.equal(sessionResponse.status, 200);
+    const injectedHeader = await request(port, '/task/UI-36/progress', {
+        Cookie: cookie, 'X-Agent-Ui-Internal-Secret': 'attacker-controlled',
+    });
+    assert.equal(injectedHeader.status, 200, 'browser cannot override the private gateway credential');
+    assert.ok(injectedHeader.body.includes('Workflow progress'));
+    assert.equal(injectedHeader.headers['x-agent-ui-internal-secret'], undefined);
+
     const csrf = JSON.parse(sessionResponse.body).csrf;
     const actionHeaders = { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf };
     assert.equal((await request(port, '/_local/session/start', { ...actionHeaders, 'X-Agent-Ui-Csrf': 'wrong' }, 'POST', '{"host":"codex"}')).status, 403);
