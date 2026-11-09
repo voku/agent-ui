@@ -254,7 +254,7 @@ async function run() {
         await dialog.accept();
     });
     const [stopResponse] = await Promise.all([
-        page.waitForResponse((response) => response.url().endsWith('/_local/codex-app-server/stop') &&
+        page.waitForResponse((response) => response.url().endsWith('/_local/agent-activity/codex/stop') &&
             response.request().method() === 'POST', { timeout: 15000 }),
         panel.locator('[data-codex-app-server-stop]').click(),
     ]);
