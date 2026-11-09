@@ -12,6 +12,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 - Display the project prefix in the masthead meta across Knowledge pages (`index`, `finding`, `proposal`, `guidance`, `dream`, `task`) via `BoardProjectionGateway` (UI-14).
 - Bound the home overview "Current work" listing to at most 10 active tasks, filtering out completed/terminal items, and provide a direct link to the full Board when additional tasks are active (UI-14).
 - Archive completed backlog card `UI-14`.
+- Acknowledge UI review, record learning, and archive completed blindspot card `UI-1`.
+- Archive workflow cards `UI-18` and `UI-19` with resolution handoff notes (upstream owner boundaries and proxy bootstrap documentation), clearing the active Kanban board.
 
 ## [0.19.0] - 2026-11-09
 
