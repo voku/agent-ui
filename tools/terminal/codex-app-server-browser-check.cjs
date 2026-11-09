@@ -50,6 +50,10 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         write({ method: 'item/agentMessage/delta', params: { threadId, turnId, delta: 'PRIVATE-DELTA-NOT-EXPOSED' } });
         write({ method: 'item/started', params: { threadId, turnId,
             item: { type: 'commandExecution', id: 'cmd-1', command: 'echo secret', status: 'inProgress' } } });
+        if (prompt.includes('item-context')) {
+            write({ method: 'item/started', params: { turnId,
+                item: { type: 'commandExecution', id: 'cmd-1', command: 'UNSCOPED-COMMAND', status: 'inProgress' } } });
+        }
         const id = ++requestId;
         if (prompt.includes('cross-thread')) {
             write({ id: 999, method: 'item/commandExecution/requestApproval', params: {
@@ -67,6 +71,9 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
                 ...(!prompt.includes('no-context') && !prompt.includes('item-context') ? { command: 'echo secret' } : {}),
                 cwd: process.cwd(),
                 reason: 'fixture asks permission', availableDecisions: prompt.includes('decline-only') ? ['decline'] : ['accept', 'decline'] } });
+            if (prompt.includes('cross-thread')) {
+                write({ method: 'serverRequest/resolved', params: { requestId: id } });
+            }
         }
         if (prompt.includes('stale')) {
             write({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'interrupted' } } });
@@ -200,7 +207,9 @@ async function run() {
     await panel.locator('[data-codex-app-server-send]').click();
     await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
     assert.ok((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('Command: echo secret'),
-        'command from item/started supplies the review context when the request omits it');
+        'same-thread item supplies the command context when the request omits it');
+    assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('UNSCOPED-COMMAND'), false,
+        'unscoped item cannot change the human approval prompt');
     await panel.locator('button[data-codex-request-decision="decline"]').click();
     await until(() => loggedDecisions().length === 3, 'item-context decision');
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
@@ -244,11 +253,19 @@ async function run() {
         assert.ok(dialog.message().includes('Stop the Codex App Server session?'));
         await dialog.accept();
     });
-    const [stopResponse] = await Promise.all([
-        page.waitForResponse((response) => response.url().endsWith('/_local/codex-app-server/stop') &&
-            response.request().method() === 'POST', { timeout: 15000 }),
-        panel.locator('[data-codex-app-server-stop]').click(),
-    ]);
+    // Playwright dismisses unhandled confirm dialogs. Explicitly approve the
+    // destructive Stop action rather than bypassing its human confirmation.
+    const stopConfirmation = page.waitForEvent('dialog');
+    const stopResponsePromise = page.waitForResponse((response) =>
+        response.url().endsWith('/_local/codex-app-server/stop') &&
+        response.request().method() === 'POST', { timeout: 15000 });
+    const stopClick = panel.locator('[data-codex-app-server-stop]').click();
+    const stopDialog = await stopConfirmation;
+    assert.equal(stopDialog.type(), 'confirm');
+    assert.ok(stopDialog.message().includes('Stop the Codex App Server session?'));
+    await stopDialog.accept();
+    await stopClick;
+    const stopResponse = await stopResponsePromise;
     assert.equal(stopResponse.status(), 200, 'Stop endpoint must acknowledge deliberate session termination');
     try {
         await until(async () => {
