@@ -194,6 +194,10 @@ async function run() {
     assert.equal(fs.readFileSync(pidFile, 'utf8'), initialPid, 'HTML approval never restarts the coding host');
     assert.equal(await page.locator('[data-terminal-frame]').getAttribute('src'), terminalUrl.origin + '/_terminal/',
         'HTML approval keeps the terminal connected');
+    if (process.env.WORKBENCH_SCREENSHOT) {
+        await page.locator('[data-workflow-brief]').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: process.env.WORKBENCH_SCREENSHOT, animations: 'disabled' });
+    }
 
     const secondViewer = await websocketAttempt(terminalPort, { Cookie: cookie, Origin: terminalUrl.origin });
     assert.notEqual(secondViewer, 101, 'only one writable browser viewer is accepted');
