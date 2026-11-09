@@ -184,11 +184,11 @@ require __DIR__ . '/../layout/header.php';
             <p class="note">Prompts are sent directly to Codex and are not copied into this activity feed.</p>
         </form>
         <div class="codex-app-server__requests" data-codex-app-server-requests hidden>
-            <h3>Requests waiting for a human</h3>
+            <h2>Requests waiting for a human</h2>
             <div data-codex-app-server-request-list></div>
         </div>
         <div class="codex-app-server__activity">
-            <h3>Recent structured activity</h3>
+            <h2>Recent structured activity</h2>
             <ol data-codex-app-server-activity aria-live="off"><li class="muted">No Codex activity yet.</li></ol>
         </div>
     </section>
