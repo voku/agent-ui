@@ -19,6 +19,21 @@ agent-ui          = lets a developer understand and control it
 
 `agent-ui` presents owner state and invokes owner capabilities. It owns **no** workflow, setup, board, context selection, approval, execution, verification, review, or Learning truth.
 
+## Where to work in this repository
+
+`agent-ui` presents owner truth; it must not reimplement it. These paths identify where a UI change belongs:
+
+| Concern | Source of truth |
+| --- | --- |
+| HTTP input, routing and security | [`src/Http/`](src/Http/) and [`src/Security/`](src/Security/) |
+| Owner-backed integration/adapters | [`src/Integration/`](src/Integration/) |
+| Task views and application models | [`src/Feature/`](src/Feature/), [`src/Application/`](src/Application/) and [`src/View/`](src/View/) |
+| Server-rendered pages and styling | [`templates/`](templates/) and [`templates/layout/app.css`](templates/layout/app.css) |
+| Local entry point and browser assets | [`public/`](public/) and [`bin/`](bin/) |
+| Regression and security contracts | [`tests/`](tests/) and [`composer.json`](composer.json) |
+
+A browser control never grants authority by itself: mutation must use the appropriate owner API and POST/CSRF path, while Runner observation stays separate from Loop decisions.
+
 ## Status
 
 The v0.1 → v0.10 control-plane roadmap is implemented:
