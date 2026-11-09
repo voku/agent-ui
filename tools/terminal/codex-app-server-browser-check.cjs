@@ -202,6 +202,7 @@ async function run() {
     await until(() => loggedDecisions().length === 3, 'item-context decision');
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
 
+
     const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
     await panel.locator('[data-codex-app-server-prompt]').fill('stale-turn');
     await panel.locator('[data-codex-app-server-send]').click();
