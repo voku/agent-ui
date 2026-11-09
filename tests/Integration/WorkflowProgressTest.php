@@ -7,9 +7,12 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
+use voku\AgentUi\View\TemplateRenderer;
 
 final class WorkflowProgressTest extends TestCase
 {
@@ -157,6 +160,47 @@ final class WorkflowProgressTest extends TestCase
         self::assertStringContainsString('Approved revision 1', $updated['brief_html']);
         self::assertIsString($updated['decision_html']);
         self::assertStringNotContainsString('Approve Contract</button>', $updated['decision_html']);
+    }
+
+    public function testExactOwnerReviewAndLearningDecisionsRenderAsHtmlForms(): void
+    {
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $card = (new BoardProjectionGateway($this->root))->card('UI-36');
+        $digest = str_repeat('a', 64);
+        $review = $templates->render('task/_progress-decision', [
+            'card' => $card,
+            'human_decisions' => new WorkflowHumanDecisionProjection(
+                'UI-36',
+                [WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW],
+                $digest,
+            ),
+            'contract' => null,
+            'csrf_token' => 'test-csrf',
+        ]);
+
+        self::assertStringContainsString('Review the exact report before acknowledging', $review);
+        self::assertStringContainsString('action="/task/UI-36/review-ack"', $review);
+        self::assertStringContainsString('name="report_sha256" value="' . $digest . '"', $review);
+        self::assertStringContainsString('name="return_to" value="progress"', $review);
+        self::assertStringContainsString('data-workflow-decision-form', $review);
+
+        $learning = $templates->render('task/_progress-decision', [
+            'card' => $card,
+            'human_decisions' => new WorkflowHumanDecisionProjection(
+                'UI-36',
+                [WorkflowHumanDecisionProjection::RECORD_LEARNING],
+                null,
+            ),
+            'contract' => null,
+            'csrf_token' => 'test-csrf',
+        ]);
+
+        self::assertStringContainsString('Learning disposition', $learning);
+        self::assertSame(2, substr_count($learning, 'action="/task/UI-36/learning"'));
+        self::assertStringContainsString('name="decision" value="no_durable_learning"', $learning);
+        self::assertStringContainsString('name="decision" value="follow_up_required"', $learning);
+        self::assertStringContainsString('name="follow_up_ref"', $learning);
+        self::assertStringNotContainsString('action="/task/UI-36/approve"', $learning);
     }
 
     public function testRefreshOfUnknownTaskIsAnUncacheableJsonError(): void
