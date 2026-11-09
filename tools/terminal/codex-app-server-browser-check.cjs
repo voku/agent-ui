@@ -255,16 +255,23 @@ async function run() {
     });
     // Playwright dismisses unhandled confirm dialogs. Explicitly approve the
     // destructive Stop action rather than bypassing its human confirmation.
-    const stopConfirmation = page.waitForEvent('dialog');
+    const stopConfirmation = new Promise((resolve, reject) => {
+        // Register a real listener before clicking: a one-off waitForEvent
+        // does not prevent Playwright from auto-dismissing the dialog.
+        page.once('dialog', async (dialog) => {
+            try {
+                assert.equal(dialog.type(), 'confirm');
+                assert.ok(dialog.message().includes('Stop the Codex App Server session?'));
+                await dialog.accept();
+                resolve();
+            } catch (error) { reject(error); }
+        });
+    });
     const stopResponsePromise = page.waitForResponse((response) =>
         response.url().endsWith('/_local/codex-app-server/stop') &&
         response.request().method() === 'POST', { timeout: 15000 });
-    const stopClick = panel.locator('[data-codex-app-server-stop]').click();
-    const stopDialog = await stopConfirmation;
-    assert.equal(stopDialog.type(), 'confirm');
-    assert.ok(stopDialog.message().includes('Stop the Codex App Server session?'));
-    await stopDialog.accept();
-    await stopClick;
+    await panel.locator('[data-codex-app-server-stop]').click();
+    await stopConfirmation;
     const stopResponse = await stopResponsePromise;
     assert.equal(stopResponse.status(), 200, 'Stop endpoint must acknowledge deliberate session termination');
     try {
