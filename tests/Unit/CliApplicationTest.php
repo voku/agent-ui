@@ -181,6 +181,27 @@ final class CliApplicationTest extends TestCase
             ], $arguments);
             self::assertFileDoesNotExist($temporaryRoot . '/PWNED');
 
+            // Antigravity (agy) is also supported as an explicit direct host.
+            $agyProcess = proc_open(
+                [PHP_BINARY, $bin, 'session', 'start', 'UI-145', '--root=' . $project, '--host=agy', '--port=18090'],
+                [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $agyPipes,
+                $temporaryRoot,
+                $environment,
+            );
+            self::assertIsResource($agyProcess);
+            foreach ($agyPipes as $pipe) {
+                fclose($pipe);
+            }
+            self::assertSame(23, proc_close($agyProcess));
+            self::assertSame([
+                dirname(__DIR__, 2) . '/tools/terminal/local-cockpit.cjs',
+                '--root=' . $project,
+                '--task=UI-145',
+                '--start=agy',
+                '--port=18090',
+            ], file($capture, FILE_IGNORE_NEW_LINES));
+
             // The default is now a real interactive shell, not a vendor-specific host.
             $shellProcess = proc_open(
                 [PHP_BINARY, $bin, 'session', 'start', 'UI-145', '--root=' . $project, '--port=18090'],
