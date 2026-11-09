@@ -237,6 +237,13 @@ async function run() {
     assert.equal(unknown.pending_requests[0].kind, 'unsupported');
     assert.equal(loggedDecisions().length, 3, 'unknown command is not approved automatically');
 
+    // Playwright dismisses native confirm dialogs unless the test explicitly
+    // accepts them. No confirmation means no Stop request by design.
+    page.once('dialog', async (dialog) => {
+        assert.equal(dialog.type(), 'confirm');
+        assert.ok(dialog.message().includes('Stop the Codex App Server session?'));
+        await dialog.accept();
+    });
     const [stopResponse] = await Promise.all([
         page.waitForResponse((response) => response.url().endsWith('/_local/codex-app-server/stop') &&
             response.request().method() === 'POST', { timeout: 15000 }),
