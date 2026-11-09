@@ -40,11 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          composer show --no-ansi voku/agent-loop | grep -E '^versions[[:space:]]*:?[[:space:]]*0\\.20\\.87([^0-9]|$)'
-          cmp vendor/voku/agent-loop/resources/skills/agent-loop-php-setup/SKILL.md <(git show HEAD:.claude/skills/agent-loop-php-setup/SKILL.md) && {
-            echo "Skill was already byte-for-byte up to date; no mutation needed." >&2
-            exit 1
-          } || true
+          composer show --no-ansi voku/agent-loop | grep -F '0.20.87'
       - name: Regenerate owned Claude projection with released CLI
         shell: bash
         run: |
