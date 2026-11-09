@@ -17,6 +17,7 @@ final class RouterTest extends TestCase
     {
         yield 'health' => [new Request('GET', '/__agent-ui/health'), ['route' => 'health']];
         yield 'home' => [new Request('GET', '/'), ['route' => 'home']];
+        yield 'home head' => [new Request('HEAD', '/'), ['route' => 'home']];
         yield 'setup' => [new Request('GET', '/setup'), ['route' => 'setup']];
         yield 'prompts' => [new Request('GET', '/prompts'), ['route' => 'prompts']];
         yield 'commands' => [new Request('GET', '/commands'), ['route' => 'commands']];

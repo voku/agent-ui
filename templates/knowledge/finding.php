@@ -8,7 +8,7 @@ $finding = $model['finding'];
 $promotion = $model['promotion'];
 $title = $finding->id . ' · Finding · agent-ui';
 $nav = 'knowledge';
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/knowledge">Knowledge</a><span>/</span>Finding</p>

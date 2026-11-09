@@ -110,8 +110,8 @@ final readonly class Application
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->commands = new CommandsAction($commandCatalog, $templates);
         $this->board = new BoardAction($board, $mutation, $workflow, $csrf, $templates);
-        $this->knowledge = new KnowledgeAction($learning, $taskContext, new DeliveredPrecedentComposer($context, $learning), $templates);
-        $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates);
+        $this->knowledge = new KnowledgeAction($learning, $taskContext, new DeliveredPrecedentComposer($context, $learning), $templates, $board);
+        $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates, board: $board);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);
         $this->search = new SearchAction(
             new GlobalSearch($board, $learning, $map, $codeSearch, $promptCatalog),
@@ -155,6 +155,16 @@ final readonly class Application
     }
 
     public function handle(Request $request): Response
+    {
+        $response = $this->dispatch($request);
+        if ($request->method === 'HEAD') {
+            return new Response('', $response->status, $response->headers);
+        }
+
+        return $response;
+    }
+
+    private function dispatch(Request $request): Response
     {
         try {
             $route = $this->router->match($request);

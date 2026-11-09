@@ -6,7 +6,7 @@ use voku\AgentUi\View\TemplateRenderer;
 $proposal = $model['proposal'];
 $title = $proposal->id . ' · Proposal · agent-ui';
 $nav = 'knowledge';
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/knowledge">Knowledge</a><span>/</span>Proposal</p>

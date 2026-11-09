@@ -6,6 +6,13 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Fixed
+
+- Support HTTP `HEAD` requests across all routes complying with RFC 9110 by matching read routes and suppressing response bodies while preserving status codes and headers (UI-14).
+- Display the project prefix in the masthead meta across Knowledge pages (`index`, `finding`, `proposal`, `guidance`, `dream`, `task`) via `BoardProjectionGateway` (UI-14).
+- Bound the home overview "Current work" listing to at most 10 active tasks, filtering out completed/terminal items, and provide a direct link to the full Board when additional tasks are active (UI-14).
+- Archive completed backlog card `UI-14`.
+
 ## [0.19.0] - 2026-11-09
 
 ### Added

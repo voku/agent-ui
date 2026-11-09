@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Knowledge;
 
 use InvalidArgumentException;
+use Throwable;
 use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentLearning\Catalog\ProposalProjection;
 use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLearning\LearningCatalogGateway;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -20,6 +22,7 @@ final readonly class KnowledgeAction
         private TaskContextComposer $taskContext,
         private DeliveredPrecedentComposer $delivered,
         private TemplateRenderer $templates,
+        private ?BoardProjectionGateway $board = null,
     ) {
     }
 
@@ -61,6 +64,7 @@ final readonly class KnowledgeAction
             'current_status' => $status,
             'promotion_candidates' => $this->learning->promotionCandidates(),
             'corpus_analytics' => $this->learning->corpusAnalytics(),
+            'project_label' => $this->projectPrefix(),
         ]));
     }
 
@@ -74,6 +78,7 @@ final readonly class KnowledgeAction
         return Response::html($this->templates->render('knowledge/finding', [
             'finding' => $finding,
             'promotion' => $this->learning->promotionReadiness($findingId),
+            'project_label' => $this->projectPrefix(),
         ]));
     }
 
@@ -86,6 +91,7 @@ final readonly class KnowledgeAction
 
         return Response::html($this->templates->render('knowledge/proposal', [
             'proposal' => $proposal,
+            'project_label' => $this->projectPrefix(),
         ]));
     }
 
@@ -98,6 +104,7 @@ final readonly class KnowledgeAction
 
         return Response::html($this->templates->render('knowledge/guidance', [
             'guidance' => $guidance,
+            'project_label' => $this->projectPrefix(),
         ]));
     }
 
@@ -108,6 +115,16 @@ final readonly class KnowledgeAction
             'precedents' => $this->learning->taskPrecedents($taskId),
             'delivered' => $this->delivered->forTask($taskId),
             'task_context' => $this->taskContext->forTask($taskId),
+            'project_label' => $this->projectPrefix(),
         ]));
+    }
+
+    private function projectPrefix(): ?string
+    {
+        try {
+            return $this->board?->board()->projectPrefix;
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
