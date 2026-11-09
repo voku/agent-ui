@@ -153,6 +153,7 @@ final class WorkflowProgressTest extends TestCase
         self::assertSame($current->nextAction, $updated['next_action']);
         self::assertNotSame($payload['decision_digest'], $updated['decision_digest']);
         self::assertNotSame($payload['brief_digest'], $updated['brief_digest']);
+        self::assertIsString($updated['brief_html']);
         self::assertStringContainsString('Approved revision 1', $updated['brief_html']);
         self::assertIsString($updated['decision_html']);
         self::assertStringNotContainsString('Approve Contract</button>', $updated['decision_html']);
