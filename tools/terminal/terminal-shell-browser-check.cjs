@@ -63,6 +63,9 @@ async function stopTransport() {
 async function run() {
     const fixture = command('php', [path.join(repo, 'tools/rendered/workflow-live-fixture.php'), project]);
     assert.equal(fixture.status, 0, fixture.stderr);
+    fs.mkdirSync(path.join(project, 'bin'));
+    fs.writeFileSync(path.join(project, 'bin/agy'),
+        '#!/bin/sh\nprintf "GENERIC_CLI_TASK=%s\\n" "$AGENT_LOOP_TASK_ID"\n', { mode: 0o755 });
     // The real Loop front door inspects a real project, not just fake JSON.
     // Give it a committed baseline and let its own CLI decide permission.
     assert.equal(spawnSync('git', ['init', '-q'], { cwd: project }).status, 0);
@@ -70,9 +73,7 @@ async function run() {
         'add', '.'], { cwd: project }).status, 0);
     assert.equal(spawnSync('git', ['-c', 'user.name=Browser Test', '-c', 'user.email=browser@example.invalid',
         'commit', '-qm', 'test: task fixture baseline'], { cwd: project }).status, 0);
-    fs.mkdirSync(path.join(project, 'bin'));
-    fs.writeFileSync(path.join(project, 'bin/agy'),
-        '#!/bin/sh\nprintf "GENERIC_CLI_TASK=%s\\n" "$AGENT_LOOP_TASK_ID"\n', { mode: 0o755 });
+
 
     const port = await freePort();
     transport = spawn(process.execPath, [script, '--root=' + project, '--task=UI-36', '--serve', '--port=' + port],
@@ -139,7 +140,7 @@ async function run() {
         return payload;
     }
 
-    const before = await enterThroughBrowser(path.join(project, 'loop-before.json'));
+    const before = await enterThroughBrowser(path.join(temp, 'loop-before.json'));
     assert.equal(before.mutation_ready, false, 'unapproved Contract cannot authorize implementation');
     assert.equal(before.next_action_kind, 'decision_required', 'real Loop requests a human Contract decision');
     const originalBrief = await page.locator('[data-workflow-brief]').getAttribute('data-brief-digest');
@@ -156,7 +157,7 @@ async function run() {
     assert.equal(await page.locator('[data-workflow-approval-form]').count(), 0);
     assert.equal(pid(), originalPid, 'human decision does not restart the shell');
 
-    const after = await enterThroughBrowser(path.join(project, 'loop-after.json'));
+    const after = await enterThroughBrowser(path.join(temp, 'loop-after.json'));
     assert.equal(after.mutation_ready, true, 'real Loop now authorizes in-scope host work');
     assert.equal(after.next_action_kind, 'host_work', 'real Loop routes approved task back to coding host');
     assert.equal(pid(), originalPid, 'both CLI invocations reused the exact shell process');
