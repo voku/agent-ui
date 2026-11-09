@@ -43,6 +43,7 @@ jobs:
           mkdir -p var
           COCKPIT_TEST_BROWSER_START=1 COCKPIT_TEST_USE_CLI=1 WORKBENCH_SCREENSHOT=var/workbench-preview.png node tools/terminal/terminal-browser-check.cjs
           node tools/terminal/terminal-shell-browser-check.cjs
+          node tools/terminal/codex-app-server-browser-check.cjs
       - name: Upload synthetic HTML workbench preview
         if: always()
         uses: actions/upload-artifact@v7
