@@ -43,7 +43,7 @@ $taskNavId = $taskContext->taskId;
         <div class="task-context__fact">
             <dt class="provenance provenance--authority">agent-loop · run state</dt>
             <dd class="task-context__value">
-                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->workflowState)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->workflowState)) ?></span>
+                <span data-task-workflow-state class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->workflowState)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->workflowState)) ?></span>
             </dd>
         </div>
     </dl>
@@ -51,25 +51,23 @@ $taskNavId = $taskContext->taskId;
     <div class="task-context__next">
         <p class="provenance provenance--authority">
             agent-loop · canonical next action
-            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->nextActionKind)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->nextActionKind)) ?></span>
+            <span data-task-next-kind class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($taskContext->nextActionKind)) ?>"><?= TemplateRenderer::escape(Presentation::label($taskContext->nextActionKind)) ?></span>
         </p>
-        <p class="task-context__hint"><?= TemplateRenderer::escape(Presentation::nextActionKindHint($taskContext->nextActionKind)) ?></p>
-        <?php if ($taskContext->awaitsHumanDecision): ?>
-            <?php // agent-loop's human-decision projection lists a recordable action for this
-                  // task. The controls live on the task overview; this is the way there from
-                  // any view, and it states a fact the owner projected, not a state name. ?>
-            <p class="task-context__decision"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($taskContext->taskId) ?>#decision">Go to the decision agent-loop is waiting for</a></p>
-        <?php endif; ?>
+        <p class="task-context__hint" data-task-next-hint><?= TemplateRenderer::escape(Presentation::nextActionKindHint($taskContext->nextActionKind)) ?></p>
+        <div data-task-decision-slot>
+            <?php if ($taskContext->awaitsHumanDecision): ?>
+                <?php // The decision link follows the typed owner projection, not the next-action kind. ?>
+                <p class="task-context__decision" data-task-decision-link><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($taskContext->taskId) ?>#decision">Go to the decision agent-loop is waiting for</a></p>
+            <?php endif; ?>
+        </div>
         <div class="codeblock">
-            <pre id="task-context-next"><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
+            <pre id="task-context-next" data-task-next-action><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
             <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button>
         </div>
         <?php $cmdRef = Presentation::commandReference($taskContext->nextAction); ?>
-        <?php if ($cmdRef !== null): ?>
-            <p class="small note" style="margin-top:6px">
-                <a href="/commands#<?= TemplateRenderer::escape($cmdRef) ?>">View command reference: <code><?= TemplateRenderer::escape($cmdRef) ?></code> →</a>
-            </p>
-        <?php endif; ?>
+        <p class="small note" data-task-command-reference<?= $cmdRef === null ? ' hidden' : '' ?> style="margin-top:6px">
+            <a data-task-command-link href="/commands#<?= TemplateRenderer::escape($cmdRef ?? '') ?>">View command reference: <code data-task-command-name><?= TemplateRenderer::escape($cmdRef ?? '') ?></code> →</a>
+        </p>
     </div>
 </section>
 

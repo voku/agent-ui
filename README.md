@@ -80,6 +80,8 @@ The Host/Origin guard uses PHP's server-provided request scheme. If TLS terminat
 
 `/search` is a read-only global search over what the owners publish (tasks, Findings, Proposals and Guidance, symbols and code, prompt recipes), reachable from a form in every page's header; `/` focuses it when scripts are on. It keeps each owner's results apart, in the owner's order, with no score, and reports an owner it could not ask as unavailable rather than as "no matches". The primary navigation groups existing destinations by developer intent: **Work** (Overview and Tasks), **Knowledge**, **Code** (Map), and **Tools** (Prompts, Commands, and Setup). The current page is marked in the navigation, and all links work without JavaScript. Task views are `/task/{id}`, `/task/{id}/progress`, `/task/{id}/contract`, `/task/{id}/context`, `/task/{id}/work`, `/task/{id}/evidence`, `/task/{id}/history`, `/task/{id}/prompts`, `/task/{id}/learning`, and `/task/{id}/edit`; `/task/{id}/handoff` redirects to the task's Prompt Workbench. Every task view carries the same grouped navigation. Human, Runner, and Setup state changes are POST-only and CSRF-protected.
 
+The workflow progress view refreshes its Loop-owned projection while the page is open through the read-only, bounded `/task/{id}/progress.json` endpoint. It polls every four seconds while visible, less frequently in a background tab or after completion, and keeps the graph's position and selection. If refresh fails, the last rendered state stays visible with an unavailable notice and retry control. With JavaScript disabled, the server-rendered workflow and decision controls remain available on reload.
+
 ## Setup
 
 `/setup` consumes `voku\AgentLoop\Init\RepositorySetupService` through a thin typed gateway. It does not shell out to `agent-loop init`, capture stdout, scan owner directories, or parse sync manifests.
@@ -180,11 +182,10 @@ The task page opens with an owner-reference ribbon: every artifact agent-loop pr
 state its owning package reports for it. It reads as a lifecycle at a glance, and none of it is
 derived here.
 
-Light and dark themes follow the operating system. Commands and prompts carry copy buttons, which
-are the only JavaScript in the project and which every page works completely without. That script is
-inlined and named in the Content-Security-Policy by hash, so `src/View/ClientScript.php` is the single
-place both the shipped script and the policy that admits it come from; the buttons stay hidden until
-it runs, rather than rendering as controls that do nothing.
+Light and dark themes follow the operating system. JavaScript enhances copy, search, graphs and live
+workflow refresh; the server-rendered pages remain usable without it. The script is inlined and named
+in the Content-Security-Policy by hash, so `src/View/ClientScript.php` is the single place both the
+shipped script and the policy that admits it come from; enhanced controls stay hidden until it runs.
 
 The board is read through `agent-loop`'s `ProjectLayout::boardRoot()` rather than a path spelled here,
 so a repository scaffolded by `agent-loop init scaffold` — which keeps its board below the state root —

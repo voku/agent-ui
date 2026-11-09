@@ -9,6 +9,7 @@ use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
 
 final class WorkflowProgressTest extends TestCase
 {
@@ -83,6 +84,100 @@ final class WorkflowProgressTest extends TestCase
 
         $after = $app->handle(new Request('GET', '/task/UI-36/progress'));
         self::assertStringNotContainsString('Approve Contract</button>', $after->body);
+    }
+
+    public function testRefreshReturnsCurrentOwnerProgressAndUpdatedDecision(): void
+    {
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create(
+            'UI-36',
+            '<script>alert(1)</script> workflow goal',
+            ['src/Feature/Task'],
+            [],
+            ['composer ci'],
+            'planner',
+        );
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $app->handle(new Request('GET', '/task/UI-36/progress'));
+
+        $before = $app->handle(new Request('GET', '/task/UI-36/progress.json'));
+        self::assertSame(200, $before->status);
+        self::assertSame('no-store', $before->headers['Cache-Control'] ?? null);
+        self::assertSame('application/json; charset=utf-8', $before->headers['Content-Type'] ?? null);
+        $payload = json_decode($before->body, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame(1, $payload['schema_version']);
+        self::assertSame('UI-36', $payload['task_id']);
+        $owner = (new WorkflowProgressGateway($this->root))->task('UI-36');
+        self::assertSame($owner->state, $payload['state']);
+        self::assertSame($owner->nextAction, $payload['next_action']);
+        self::assertSame($owner->nextActionKind, $payload['next_action_kind']);
+        self::assertIsArray($payload['steps']);
+        self::assertSame(
+            array_map(static fn($step): string => $step->status, $owner->steps),
+            array_column($payload['steps'], 'status'),
+        );
+        self::assertTrue($payload['has_human_decision']);
+        self::assertIsString($payload['decision_html']);
+        self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $payload['decision_html']);
+        self::assertStringNotContainsString('<script>alert(1)</script>', $payload['decision_html']);
+        self::assertSame(hash('sha256', $payload['decision_html']), $payload['decision_digest']);
+
+        $csrf = $_SESSION['_agent_ui_csrf'] ?? null;
+        self::assertIsString($csrf);
+        $approval = $app->handle(new Request('POST', '/task/UI-36/approve', body: [
+            '_csrf' => $csrf,
+            'actor' => 'human-reviewer',
+            'return_to' => 'progress',
+            'revision' => '1',
+        ]));
+        self::assertSame(303, $approval->status);
+
+        $after = $app->handle(new Request('GET', '/task/UI-36/progress.json'));
+        self::assertSame(200, $after->status);
+        $updated = json_decode($after->body, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($updated);
+        $current = (new WorkflowProgressGateway($this->root))->task('UI-36');
+        self::assertSame($current->nextAction, $updated['next_action']);
+        self::assertNotSame($payload['decision_digest'], $updated['decision_digest']);
+        self::assertIsString($updated['decision_html']);
+        self::assertStringNotContainsString('Approve Contract</button>', $updated['decision_html']);
+    }
+
+    public function testRefreshOfUnknownTaskIsAnUncacheableJsonError(): void
+    {
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $response = $app->handle(new Request('GET', '/task/UI-999/progress.json'));
+
+        self::assertSame(404, $response->status);
+        self::assertSame('no-store', $response->headers['Cache-Control'] ?? null);
+        self::assertSame(['error' => 'Task not found.'], json_decode($response->body, true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testRefreshReportsAnUnavailableOwnerProjection(): void
+    {
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-36', 'A task.', ['src'], [], ['composer ci'], 'planner');
+        file_put_contents($contracts->path('UI-36'), '{invalid json');
+
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+        $response = $app->handle(new Request('GET', '/task/UI-36/progress.json'));
+
+        self::assertSame(503, $response->status);
+        self::assertSame('no-store', $response->headers['Cache-Control'] ?? null);
+        self::assertSame(['error' => 'Workflow projection unavailable.'], json_decode($response->body, true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testRefreshEndpointDoesNotAcceptMutations(): void
+    {
+        $contracts = new TaskContractStore($this->root);
+        $contracts->create('UI-36', 'A task.', ['src'], [], ['composer ci'], 'planner');
+        $app = new Application($this->root, dirname(__DIR__, 2) . '/templates');
+
+        $response = $app->handle(new Request('POST', '/task/UI-36/progress.json', body: ['actor' => 'unexpected']));
+
+        self::assertSame(400, $response->status);
+        self::assertSame(TaskContract::CANDIDATE, $contracts->find('UI-36')?->status);
     }
 
     public function testUnknownDecisionReturnTargetFailsBeforeRecordingApproval(): void

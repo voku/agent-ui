@@ -183,6 +183,7 @@ final readonly class Application
                 'knowledge_guidance' => $this->knowledge->guidance($route['knowledge_id'] ?? ''),
                 'task' => ($this->task)($route['task_id'] ?? ''),
                 'task_progress' => ($this->progress)($route['task_id'] ?? ''),
+                'task_progress_json' => $this->progress->json($route['task_id'] ?? ''),
                 'task_edit' => $this->task->edit($route['task_id'] ?? ''),
                 'task_update' => $this->task->update($route['task_id'] ?? '', $request),
                 'task_move' => $this->task->move($route['task_id'] ?? '', $request),
