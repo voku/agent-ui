@@ -60,7 +60,10 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
                 threadId, turnId, reason: 'Cannot approve in this UI' } });
         } else {
             write({ id, method: 'item/commandExecution/requestApproval', params: {
-                threadId, turnId, command: 'echo secret', cwd: process.cwd(),
+                threadId, turnId,
+                ...(!prompt.includes('no-context') ? { itemId: 'cmd-1' } : {}),
+                ...(!prompt.includes('no-context') && !prompt.includes('item-context') ? { command: 'echo secret' } : {}),
+                cwd: process.cwd(),
                 reason: 'fixture asks permission', availableDecisions: prompt.includes('decline-only') ? ['decline'] : ['accept', 'decline'] } });
         }
         if (prompt.includes('stale')) {
@@ -191,6 +194,15 @@ async function run() {
     await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
 
     const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
+    await panel.locator('[data-codex-app-server-prompt]').fill('item-context');
+    await panel.locator('[data-codex-app-server-send]').click();
+    await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
+    assert.ok((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('Command: echo secret'),
+        'command from item/started supplies the review context when the request omits it');
+    await panel.locator('button[data-codex-request-decision="decline"]').click();
+    await until(() => loggedDecisions().length === 3, 'item-context decision');
+    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
+
     await panel.locator('[data-codex-app-server-prompt]').fill('stale-turn');
     await panel.locator('[data-codex-app-server-send]').click();
     await until(() => fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length === turnCountBeforeStale + 1,
@@ -199,12 +211,21 @@ async function run() {
         'completed turn no longer needs approval');
     const stale = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
     assert.equal(stale.pending_requests.length, 0, 'completed turn clears one-time approval tokens');
-    assert.equal(loggedDecisions().length, 2, 'no automatic approval after completion');
+    assert.equal(loggedDecisions().length, 3, 'no automatic approval after completion');
+
+    await panel.locator('[data-codex-app-server-prompt]').fill('no-context');
+    await panel.locator('[data-codex-app-server-send]').click();
+    await panel.locator('[data-codex-app-server-state]').getByText('waiting input', { exact: false }).waitFor();
+    assert.equal(await panel.locator('button[data-codex-request-decision="accept"]').count(), 0,
+        'the UI must not approve an unidentifiable command');
+    const unknown = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+    assert.equal(unknown.pending_requests[0].kind, 'unsupported');
+    assert.equal(loggedDecisions().length, 3, 'unknown command is not approved automatically');
 
     await panel.locator('[data-codex-app-server-stop]').click();
     await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
     assert.ok(fs.readFileSync(protocolLog, 'utf8').includes('"method":"turn/start"'));
-    console.log('Codex App Server JSON-RPC browser: auth/CSRF, startup, activity, scoped approval, decline-only, stale cleanup and stop passed.');
+    console.log('Codex App Server JSON-RPC browser: auth/CSRF, startup, activity, context-bound approvals, scoped decisions, stale cleanup and stop passed.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
     if (browser) await browser.close();
