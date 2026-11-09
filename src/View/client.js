@@ -1284,7 +1284,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     });
     start.addEventListener('click', function () { action('start', {}); });
     stop.addEventListener('click', function () {
-        if (window.confirm('Stop the selected agent session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
+        if (window.confirm('' + (provider() === 'codex' ? 'Codex App Server' : 'Claude structured') + ' session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
     });
     form.addEventListener('submit', function (event) {
         event.preventDefault();
