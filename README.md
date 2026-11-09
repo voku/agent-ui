@@ -29,10 +29,11 @@ agent-ui          = lets a developer understand and control it
 | Owner-backed integration/adapters | [`src/Integration/`](src/Integration/) |
 | Task views and application models | [`src/Feature/`](src/Feature/), [`src/Application/`](src/Application/) and [`src/View/`](src/View/) |
 | Server-rendered pages and styling | [`templates/`](templates/) and [`templates/layout/app.css`](templates/layout/app.css) |
-| Local entry point and browser assets | [`public/`](public/) and [`bin/`](bin/) |
+| Local entry point and browser assets | [`public/`](public/), [`bin/`](bin/) and [`src/View/client.js`](src/View/client.js) (loaded by [`ClientScript.php`](src/View/ClientScript.php)) |
+| Experimental local terminal transport | [`tools/terminal/local-cockpit.cjs`](tools/terminal/local-cockpit.cjs) (session start/stop, not workflow authority) |
 | Regression and security contracts | [`tests/`](tests/) and [`composer.json`](composer.json) |
 
-A browser control never grants authority by itself: mutation must use the appropriate owner API and POST/CSRF path, while Runner observation stays separate from Loop decisions.
+A browser control never grants governed workflow authority by itself. Owner-state mutations use the appropriate typed owner API and CSRF-protected POST routes; the experimental local terminal has a separate authenticated session-transport boundary. Runner observations remain separate from Loop decisions.
 
 ## Status
 
