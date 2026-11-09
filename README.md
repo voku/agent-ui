@@ -82,6 +82,54 @@ The Host/Origin guard uses PHP's server-provided request scheme. If TLS terminat
 
 The workflow progress view refreshes its Loop-owned projection while the page is open through the read-only, bounded `/task/{id}/progress.json` endpoint. It polls every four seconds while visible, less frequently in a background tab or after completion, and keeps the graph's position and selection. If refresh fails, the last rendered state stays visible with an unavailable notice and retry control. With JavaScript disabled, the server-rendered workflow and decision controls remain available on reload.
 
+### Unified browser workbench (live workflow + CLI + decisions)
+
+Start the cockpit with a task that already exists in the project's agent-kanban board:
+
+```bash
+vendor/bin/agent-ui session serve UI-145 --root=.
+```
+
+Open the printed local access URL. The task's **Workflow** view combines a
+server-rendered developer briefing, live Loop state and graph, the current exact
+canonical action, required human decisions, and a persistent terminal.
+Choose **Interactive shell (any CLI)** and **Start session**; the shell has
+`AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` available.
+
+Inside that browser terminal, use the installed coding host you already prefer
+(for example Codex, Claude, agy or OpenCode). That host, **not agent-ui**,
+continues the existing Loop lifecycle:
+
+```bash
+vendor/bin/agent-loop enter UI-145 --format=json
+# Follow next_action_kind and the exact owner-projected next_action.
+# Use your normal host tools to implement only after the owner permits mutation.
+vendor/bin/agent-loop finish UI-145 --format=json
+# Repeat until the owner reports completion or a genuine human decision.
+```
+
+The browser polls `progress.json`, updating the HTML briefing, visual graph and
+decision card without replaying a terminal transcript. The briefing names the
+Contract goal, active stage, authorization status, paths in scope, explicit
+non-goals and *planned* validation, and links to actual evidence/review.
+Those summaries are deliberately **owner projections, not generated claims
+about what the agent is thinking**. If an agent runs in PhpStorm or SSH instead,
+the same Workflow view still observes its Loop state without launching a shell.
+
+A human can inspect the exact Contract revision, then submit **Approve Contract**
+in the browser. The JavaScript enhancement sends the form to the existing
+revision-checked, CSRF-protected Loop service and refreshes the owner state
+without reloading the terminal; the no-JavaScript form still works normally.
+When available, the same workbench presents exact review-report acknowledgement
+and supported Learning disposition forms through the existing typed routes.
+A failed/stale decision shows an error, never simulated success. Approving a
+Contract does **not** approve the subsequent implementation, tests or review.
+
+This is a **local-only experimental** shell with the privileges of your OS user.
+Do not expose the access URL or bind it to public interfaces. The terminal and
+its optional image upload require independent security review and authenticated
+host end-to-end acceptance before production deployment.
+
 ### Experimental local terminal cockpit
 
 The optional terminal prototype puts a persistent, generic interactive shell beside the workflow progress view. It is intended for a single user on a local POSIX machine, not remote or shared deployments. It requires Node.js 22+, `tmux`, `ttyd` 1.7.4+ and PHP. The shell is `/bin/sh`; coding agents are optional programs installed separately. The regular UI and external terminal workflows do not require any of these terminal tools.
