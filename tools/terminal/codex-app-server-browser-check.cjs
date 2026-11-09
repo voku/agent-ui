@@ -54,6 +54,8 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         if (prompt.includes('cross-thread')) {
             write({ id: 999, method: 'item/commandExecution/requestApproval', params: {
                 threadId: 'some-other-thread', turnId, command: 'wrong thread', availableDecisions: ['accept'] } });
+            write({ id: 998, method: 'item/commandExecution/requestApproval', params: {
+                threadId, turnId: 'old-turn', command: 'wrong turn', availableDecisions: ['accept'] } });
         }
         if (prompt.includes('unsupported')) {
             write({ id, method: 'item/permissions/requestApproval', params: {
@@ -174,6 +176,7 @@ async function run() {
     await until(async () => (await panel.locator('button[data-codex-request-decision="accept"]').count()) === 1,
         'one scoped approval button');
     assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('wrong thread'), false);
+    assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('wrong turn'), false);
     const summary = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
     assert.equal(summary.pending_requests.length, 1, 'foreign-thread request cannot become a decision');
     assert.equal(JSON.stringify(summary).includes('PRIVATE-DELTA-NOT-EXPOSED'), false, 'model text is never exposed');
