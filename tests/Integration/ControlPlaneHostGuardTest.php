@@ -139,6 +139,7 @@ final class ControlPlaneHostGuardTest extends TestCase
             $socket = @stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $errorMessage, 0.1);
             if (is_resource($socket)) {
                 fclose($socket);
+                usleep(100_000);
                 return;
             }
             usleep(100_000);

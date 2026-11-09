@@ -1,22 +1,30 @@
 {
     "contract_revision": 1,
     "contract_sha256": "sha256:0b06f330ebd4b7adbc21499a343ffb4c6104b48c819e0c988db132525f41fb0b",
-    "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
+    "implementation_snapshot": "sha256:df5111c69f5eb98b7a93d05231c3d2e78ff36e5e1291a4a4c901e6f2137eb07f",
     "kind": "run_verification_receipt",
     "obligations": [
         {
             "command": "composer ci",
-            "duration_ms": 4072,
-            "executed_at": "2026-08-29T01:02:07+00:00",
+            "duration_ms": 11451,
+            "executed_at": "2026-11-09T12:41:30+00:00",
             "exit_code": 0,
-            "recorded_by": "claude-code-agent",
+            "recorded_by": "agent-loop.finish",
             "status": "passed"
         }
     ],
     "run_id": "run:UI-1:1b0c6845e53cd3aa",
-    "schema_version": "1.1",
+    "schema_version": "1.2",
     "source_session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+    "supersedes": [
+        {
+            "implementation_snapshot": "sha256:cec29487d16abc488a99537f6cb16323072de04cea0ab6095c8836785516ece2",
+            "source_session_id": "2026-08-28-ui-1-r1-ef0cbc23",
+            "verdict": "satisfied",
+            "verified_at": "2026-08-29T01:04:41+00:00"
+        }
+    ],
     "task_id": "UI-1",
     "verdict": "satisfied",
-    "verified_at": "2026-08-29T01:04:41+00:00"
+    "verified_at": "2026-11-09T12:41:41+00:00"
 }

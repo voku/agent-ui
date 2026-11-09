@@ -674,10 +674,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var status = live.querySelector('[data-workflow-live-status]');
     var retry = live.querySelector('[data-workflow-live-retry]');
     var decision = document.querySelector('[data-workflow-decision]');
+    var brief = document.querySelector('[data-workflow-brief]');
     var empty = document.querySelector('[data-progress-empty]');
     var details = document.querySelector('[data-progress-details]');
     var list = document.querySelector('[data-progress-list]');
-    if (!url || !taskId || !status || !retry || !decision || !empty || !details || !list) { return; }
+    if (!url || !taskId || !status || !retry || !decision || !brief || !empty || !details || !list) { return; }
 
     status.hidden = false;
     status.textContent = 'Connecting to live workflow updates…';
@@ -711,6 +712,8 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             typeof value.has_human_decision !== 'boolean' ||
             typeof value.decision_html !== 'string' ||
             typeof value.decision_digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.decision_digest) ||
+            typeof value.brief_html !== 'string' ||
+            typeof value.brief_digest !== 'string' || !/^[a-f0-9]{64}$/.test(value.brief_digest) ||
             (value.command_reference !== null && typeof value.command_reference !== 'string')) { return false; }
         var fields = ['state', 'state_label', 'state_tone', 'next_action', 'next_action_kind',
             'next_action_kind_label', 'next_action_kind_tone', 'next_action_hint'];
@@ -801,6 +804,13 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             text('[data-task-command-name]', snapshot.command_reference);
         }
 
+        if (brief.getAttribute('data-brief-digest') !== snapshot.brief_digest) {
+            // The Loop-backed briefing is server-rendered. No agent transcript
+            // or client-derived lifecycle state is introduced by this refresh.
+            brief.innerHTML = snapshot.brief_html;
+            brief.setAttribute('data-brief-digest', snapshot.brief_digest);
+        }
+
         if (decision.getAttribute('data-decision-digest') !== snapshot.decision_digest) {
             // This fragment is rendered and escaped by the same server template as the initial page.
             decision.innerHTML = snapshot.decision_html;
@@ -851,6 +861,48 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         });
     }
 
+    document.addEventListener('agent-ui:workflow-refresh-request', function () {
+        window.clearTimeout(timer);
+        if (inFlight) { schedule(500); }
+        else { poll(); }
+    });
+
+    // One deliberate human click; never infer approval from terminal output.
+    // The existing server route owns CSRF, exact revision checks and the
+    // actual workflow mutation. Progressive enhancement keeps no-JS POSTs.
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-workflow-decision-form') ||
+            typeof FormData !== 'function' || typeof URLSearchParams !== 'function') { return; }
+        event.preventDefault();
+        if (form.dataset.pending === '1') { return; }
+        form.dataset.pending = '1';
+        var button = form.querySelector('button[type="submit"]');
+        var feedback = form.querySelector('[data-workflow-approval-status]');
+        if (button) { button.disabled = true; }
+        if (feedback) { feedback.hidden = false; feedback.textContent = 'Recording this exact owner decision…'; }
+        window.fetch(form.action, {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(new FormData(form)).toString()
+        }).then(function (response) {
+            var destination = new URL(response.url);
+            if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
+                destination.pathname !== window.location.pathname) {
+                throw new Error('Decision was not confirmed. Reload the current owner state before retrying.');
+            }
+            if (feedback) { feedback.textContent = 'Recorded by agent-loop. Refreshing owner state…'; }
+            document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
+        }).catch(function (error) {
+            if (feedback) { feedback.textContent = error.message || 'Could not record the decision.'; }
+        }).then(function () {
+            delete form.dataset.pending;
+            if (button && form.isConnected) { button.disabled = false; }
+        });
+    });
+
     retry.addEventListener('click', function () {
         window.clearTimeout(timer);
         poll();
@@ -861,6 +913,407 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         else { poll(); }
     });
     poll();
+}());
+
+/* Local process observation and explicit session controls stay separate from Loop state. */
+(function enhanceLocalTerminal() {
+    var panel = document.querySelector('[data-terminal-panel]');
+    if (!panel) { return; }
+    var frame = panel.querySelector('[data-terminal-frame]');
+    var toggle = panel.querySelector('[data-terminal-toggle]');
+    var stop = panel.querySelector('[data-terminal-stop]');
+    var start = panel.querySelector('[data-terminal-start]');
+    var startButton = panel.querySelector('[data-terminal-start-button]');
+    var host = panel.querySelector('[data-terminal-host]');
+    var message = panel.querySelector('[data-terminal-message]');
+    var state = panel.querySelector('[data-terminal-state]');
+    var attachment = panel.querySelector('[data-terminal-attachment]');
+    var imageFile = panel.querySelector('[data-terminal-image-file]');
+    var pasteClipboard = panel.querySelector('[data-terminal-image-clipboard]');
+    var attachNote = panel.querySelector('[data-terminal-attach-note]');
+    var attachCmd = panel.querySelector('[data-terminal-attach-cmd]');
+    if (!frame || !toggle || !stop || !start || !startButton || !host || !message || !state ||
+        !attachment || !imageFile || !pasteClipboard) { return; }
+    var terminalUrl = frame.getAttribute('data-terminal-url');
+    var connected = true;
+    var viewerWanted = true;
+    var csrf = '';
+    var timer;
+    var busy = false;
+    var generation = 0;
+
+    function setViewer(wanted) {
+        viewerWanted = wanted;
+        if (connected !== wanted) { frame.src = wanted ? terminalUrl : 'about:blank'; }
+        connected = wanted;
+        toggle.textContent = wanted ? 'Disconnect' : 'Reconnect';
+        message.textContent = wanted
+            ? 'Connection status appears in the terminal. Disconnecting leaves the session running.'
+            : 'Viewer disconnected. The tmux session was not stopped.';
+    }
+    toggle.addEventListener('click', function () { setViewer(!viewerWanted); });
+    if (typeof window.fetch !== 'function') { return; }
+    state.textContent = 'Checking local session…';
+    function refreshSession() {
+        window.clearTimeout(timer);
+        var requestGeneration = ++generation;
+        window.fetch('/_local/session', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (response) { if (!response.ok) { throw new Error('Unavailable'); } return response.json(); })
+            .then(function (snapshot) {
+                if (requestGeneration !== generation) { return; }
+                csrf = snapshot.csrf;
+                var running = snapshot.state === 'session_running';
+                var missing = snapshot.state === 'session_not_found';
+                var available = snapshot.terminal_available === true;
+                state.textContent = running ? 'tmux session running (' + snapshot.host + ')'
+                    : missing ? 'tmux session not found' : 'Local session status unavailable';
+                if (!available) { state.textContent += ' · terminal transport unavailable'; }
+                toggle.hidden = !running || !available;
+                stop.hidden = !running;
+                start.hidden = !missing;
+                frame.hidden = !running || !available;
+                attachment.hidden = !running || !available;
+                imageFile.disabled = busy || !running || !available;
+                pasteClipboard.disabled = busy || !running || !available ||
+                    !navigator.clipboard || typeof navigator.clipboard.read !== 'function';
+                if (!running || !available) {
+                    if (connected) { frame.src = 'about:blank'; connected = false; }
+                } else if (viewerWanted && !connected) {
+                    setViewer(true);
+                }
+                Array.prototype.forEach.call(host.options, function (option) {
+                    option.disabled = !snapshot.hosts || snapshot.hosts[option.value] !== true;
+                });
+                if (host.selectedOptions.length && host.selectedOptions[0].disabled) {
+                    var first = Array.prototype.find.call(host.options, function (option) { return !option.disabled; });
+                    if (first) { host.value = first.value; }
+                }
+                startButton.disabled = busy || !available || !host.selectedOptions.length || host.selectedOptions[0].disabled;
+                stop.disabled = busy;
+                if (attachNote && attachCmd) {
+                    if (running && snapshot.attach_command) {
+                        attachCmd.textContent = snapshot.attach_command;
+                        attachNote.hidden = false;
+                    } else {
+                        attachNote.hidden = true;
+                    }
+                }
+            })
+            .catch(function () {
+                if (requestGeneration === generation) { state.textContent = 'Local session status unavailable'; start.hidden = true; stop.hidden = true; }
+            })
+            .then(function () { if (requestGeneration === generation) { timer = window.setTimeout(refreshSession, document.hidden ? 30000 : 5000); } });
+    }
+    function action(name, payload) {
+        if (busy || !csrf) { return; }
+        busy = true;
+        generation++;
+        window.clearTimeout(timer);
+        startButton.disabled = true;
+        stop.disabled = true;
+        message.textContent = name === 'start' ? 'Starting the selected coding host…' : 'Stopping the local session…';
+        window.fetch('/_local/session/' + name, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
+            body: JSON.stringify(payload)
+        }).then(function (response) {
+            if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            if (name === 'start') { viewerWanted = true; }
+            message.textContent = name === 'start' ? 'Session started.' : 'Session stopped. The governed task was not closed.';
+        }).catch(function (error) {
+            message.textContent = error.message || 'The local session action failed.';
+        }).then(function () { busy = false; refreshSession(); });
+    }
+    function uploadImage(blob) {
+        if (busy || !csrf) { return; }
+        if (!blob || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(blob.type)) {
+            message.textContent = 'Choose a PNG, JPEG, WebP or GIF image.';
+            return;
+        }
+        if (blob.size > 8 * 1024 * 1024) {
+            message.textContent = 'Image exceeds 8 MiB.';
+            return;
+        }
+        busy = true;
+        imageFile.disabled = true;
+        pasteClipboard.disabled = true;
+        message.textContent = 'Uploading image to the local task session…';
+        window.fetch('/_local/attachment', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': blob.type, 'X-Agent-Ui-Csrf': csrf },
+            body: blob
+        }).then(function (response) {
+            if (!response.ok) {
+                return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); });
+            }
+            return response.json();
+        }).then(function (result) {
+            message.textContent = 'Image path pasted (not submitted): ' + result.path;
+        }).catch(function (error) {
+            message.textContent = error.message || 'Image upload failed.';
+        }).then(function () {
+            busy = false;
+            refreshSession();
+        });
+    }
+    imageFile.addEventListener('change', function () {
+        if (imageFile.files && imageFile.files.length) { uploadImage(imageFile.files[0]); }
+        imageFile.value = '';
+    });
+    pasteClipboard.addEventListener('click', function () {
+        if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+            message.textContent = 'Clipboard images are unavailable; choose a file instead.';
+            return;
+        }
+        navigator.clipboard.read().then(function (items) {
+            var types = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+            for (var i = 0; i < items.length; i++) {
+                for (var j = 0; j < types.length; j++) {
+                    if (items[i].types.indexOf(types[j]) !== -1) { return items[i].getType(types[j]); }
+                }
+            }
+            throw new Error('Clipboard contains no supported image.');
+        }).then(uploadImage).catch(function (error) {
+            message.textContent = error.message || 'Clipboard access denied; choose a file instead.';
+        });
+    });
+    attachment.addEventListener('dragover', function (event) {
+        event.preventDefault();
+    });
+    attachment.addEventListener('drop', function (event) {
+        event.preventDefault();
+        if (event.dataTransfer && event.dataTransfer.files.length) {
+            uploadImage(event.dataTransfer.files[0]);
+        }
+    });
+    startButton.addEventListener('click', function () { action('start', { host: host.value }); });
+    stop.addEventListener('click', function () {
+        if (window.confirm('Stop this coding-host session? This can interrupt its work and does not close the task.')) { action('stop', {}); }
+    });
+    refreshSession();
+}());
+
+/* Provider-neutral structured activity; governed Loop state remains separate. */
+(function enhanceAgentActivity() {
+    var panel = document.querySelector('[data-codex-app-server]');
+    if (!panel || typeof window.fetch !== 'function') { return; }
+    var providerSelect = panel.querySelector('[data-agent-activity-provider]');
+    var state = panel.querySelector('[data-codex-app-server-state]');
+    var message = panel.querySelector('[data-codex-app-server-message]');
+    var feedback = panel.querySelector('[data-codex-app-server-feedback]');
+    var start = panel.querySelector('[data-codex-app-server-start]');
+    var stop = panel.querySelector('[data-codex-app-server-stop]');
+    var form = panel.querySelector('[data-codex-app-server-form]');
+    var prompt = panel.querySelector('[data-codex-app-server-prompt]');
+    var send = panel.querySelector('[data-codex-app-server-send]');
+    var requests = panel.querySelector('[data-codex-app-server-requests]');
+    var requestList = panel.querySelector('[data-codex-app-server-request-list]');
+    var activity = panel.querySelector('[data-codex-app-server-activity]');
+    if (!providerSelect || !state || !message || !feedback || !start || !stop || !form || !prompt || !send || !requests || !requestList || !activity) { return; }
+
+    var csrf = '';
+    var timer;
+    var generation = 0;
+    var busy = false;
+    function provider() { return providerSelect.value === 'claude' ? 'claude' : 'codex'; }
+    function providerName() { return provider() === 'claude' ? 'Claude' : 'Codex'; }
+    function endpoint() { return '/_local/agent-activity/' + provider(); }
+    start.disabled = true;
+    stop.disabled = true;
+    send.disabled = true;
+
+    function element(tag, className, value) {
+        var node = document.createElement(tag);
+        if (className) { node.className = className; }
+        if (typeof value === 'string') { node.textContent = value; }
+        return node;
+    }
+    function renderRequests(snapshot) {
+        while (requestList.firstChild) { requestList.removeChild(requestList.firstChild); }
+        var pending = Array.isArray(snapshot.pending_requests) ? snapshot.pending_requests : [];
+        requests.hidden = pending.length === 0 && snapshot.pending_overflow !== true;
+        if (snapshot.pending_overflow === true) {
+            requestList.appendChild(element('p', 'note', 'Additional agent requests could not fit in the bounded display. Stop the session if it cannot continue.'));
+        }
+        pending.forEach(function (request) {
+            if (!request || typeof request !== 'object') { return; }
+            var card = element('article', 'codex-app-server__request');
+            card.appendChild(element('h4', '', typeof request.title === 'string' ? request.title : 'Agent request'));
+            if (typeof request.summary === 'string' && request.summary) {
+                var summary = element('pre', '', request.summary);
+                card.appendChild(summary);
+            }
+            if (typeof request.cwd === 'string' && request.cwd) { card.appendChild(element('p', 'small', 'Working directory: ' + request.cwd)); }
+            if (typeof request.reason === 'string' && request.reason) { card.appendChild(element('p', 'small', 'Reason: ' + request.reason)); }
+            if (request.kind === 'unsupported') {
+                card.appendChild(element('p', 'note', 'This request remains unanswered. Stop the App Server session to cancel it.'));
+            } else if (typeof request.token === 'string') {
+                var buttons = element('div', 'btn-row');
+                if (request.can_accept === true) {
+                    var accept = element('button', 'btn btn--small', 'Allow once');
+                    accept.type = 'button';
+                    accept.dataset.codexRequestToken = request.token;
+                    accept.dataset.codexRequestDecision = 'accept';
+                    accept.disabled = busy;
+                    buttons.appendChild(accept);
+                }
+                if (request.can_decline === true) {
+                    var decline = element('button', 'btn btn--small', 'Decline');
+                    decline.type = 'button';
+                    decline.dataset.codexRequestToken = request.token;
+                    decline.dataset.codexRequestDecision = 'decline';
+                    decline.disabled = busy;
+                    buttons.appendChild(decline);
+                }
+                if (request.can_cancel === true) {
+                    var cancel = element('button', 'btn btn--small', 'Cancel request');
+                    cancel.type = 'button';
+                    cancel.dataset.codexRequestToken = request.token;
+                    cancel.dataset.codexRequestDecision = 'cancel';
+                    cancel.disabled = busy;
+                    buttons.appendChild(cancel);
+                }
+                if (buttons.childNodes.length) { card.appendChild(buttons); }
+                else { card.appendChild(element('p', 'note', 'No one-time decision is available for this request. Stop the session if it cannot continue.')); }
+            }
+            requestList.appendChild(card);
+        });
+    }
+    function renderActivity(snapshot) {
+        while (activity.firstChild) { activity.removeChild(activity.firstChild); }
+        var events = Array.isArray(snapshot.activity) ? snapshot.activity.slice(-40) : [];
+        if (!events.length) {
+            activity.appendChild(element('li', 'muted', 'No observed activity yet.'));
+            return;
+        }
+        events.forEach(function (event) {
+            if (!event || typeof event.label !== 'string') { return; }
+            var row = element('li');
+            if (typeof event.at === 'string') {
+                var time = element('time', '', new Date(event.at).toLocaleTimeString());
+                time.dateTime = event.at;
+                row.appendChild(time);
+            }
+            row.appendChild(document.createTextNode(event.label));
+            activity.appendChild(row);
+        });
+    }
+    function render(snapshot) {
+        csrf = typeof snapshot.csrf === 'string' ? snapshot.csrf : csrf;
+        var sessionRunning = snapshot.running === true;
+        var stateName = typeof snapshot.state === 'string' ? snapshot.state.replace(/_/g, ' ') : 'unavailable';
+        state.textContent = 'Observed state: ' + stateName;
+        if (typeof snapshot.last_updated === 'string') {
+            state.textContent += ' · updated ' + new Date(snapshot.last_updated).toLocaleTimeString();
+        }
+        message.textContent = typeof snapshot.message === 'string' ? snapshot.message : 'Coding-agent activity is unavailable.';
+        if (snapshot.supports_decisions === false && typeof snapshot.decision_message === 'string') {
+            message.textContent += ' ' + snapshot.decision_message;
+        }
+        start.textContent = 'Start ' + providerName() + ' session';
+        start.hidden = sessionRunning;
+        start.disabled = busy || snapshot.available !== true;
+        stop.hidden = !sessionRunning;
+        stop.disabled = busy;
+        form.hidden = snapshot.state !== 'idle';
+        prompt.disabled = busy || snapshot.state !== 'idle';
+        send.disabled = busy || snapshot.state !== 'idle' || !prompt.value.trim();
+        renderRequests(snapshot);
+        renderActivity(snapshot);
+    }
+    function schedule() {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(refresh, document.hidden ? 30000 : 2500);
+    }
+    function refresh() {
+        window.clearTimeout(timer);
+        var requestGeneration = ++generation;
+        window.fetch(endpoint(), { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (response) {
+                if (!response.ok) { throw new Error('Structured agent status is unavailable.'); }
+                return response.json();
+            })
+            .then(function (snapshot) { if (requestGeneration === generation) { render(snapshot); } })
+            .catch(function () {
+                if (requestGeneration === generation) {
+                    state.textContent = 'Observed state: unavailable';
+                    message.textContent = 'Structured agent status is unavailable.';
+                    start.disabled = true;
+                    stop.hidden = true;
+                    form.hidden = true;
+                }
+            })
+            .then(function () { if (requestGeneration === generation) { schedule(); } });
+    }
+    function action(name, payload, afterSuccess) {
+        if (busy || !csrf) { return Promise.resolve(false); }
+        busy = true;
+        generation++;
+        window.clearTimeout(timer);
+        start.disabled = true;
+        stop.disabled = true;
+        send.disabled = true;
+        var selectedProvider = provider();
+        feedback.textContent = name === 'start' ? 'Starting ' + providerName() + '…'
+            : name === 'stop' ? 'Stopping ' + providerName() + '…'
+                : name === 'turn' ? 'Sending prompt to ' + providerName() + '…' : 'Recording your decision…';
+        return window.fetch('/_local/agent-activity/' + selectedProvider + '/' + name, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
+            body: JSON.stringify(payload)
+        }).then(function (response) {
+            if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            return response.json();
+        }).then(function (snapshot) {
+            if (typeof afterSuccess === 'function') { afterSuccess(); }
+            feedback.textContent = name === 'start' ? 'Agent session started.'
+                : name === 'stop' ? 'Agent session stopped; the governed task remains open.'
+                    : name === 'turn' ? 'Prompt sent to agent.' : 'Decision sent to agent.';
+            if (selectedProvider === provider()) { render(snapshot); }
+            return true;
+        }).catch(function (error) {
+            feedback.textContent = error.message || 'The Codex App Server action failed.';
+            return false;
+        }).then(function (succeeded) {
+            busy = false;
+            refresh();
+            return succeeded;
+        });
+    }
+
+    providerSelect.addEventListener('change', function () {
+        generation++;
+        window.clearTimeout(timer);
+        feedback.textContent = '';
+        csrf = '';
+        start.disabled = true;
+        stop.hidden = true;
+        form.hidden = true;
+        state.textContent = 'Checking ' + providerName() + '…';
+        refresh();
+    });
+    start.addEventListener('click', function () { action('start', {}); });
+    stop.addEventListener('click', function () {
+        if (window.confirm('Stop the ' + (provider() === 'codex' ? 'Codex App Server' : 'Claude structured') + ' session? This can interrupt its work and does not close the governed task.')) { action('stop', {}); }
+    });
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var value = prompt.value.trim();
+        if (!value) { return; }
+        action('turn', { prompt: value }, function () { prompt.value = ''; });
+    });
+    prompt.addEventListener('input', function () { send.disabled = busy || prompt.value.trim() === ''; });
+    requestList.addEventListener('click', function (event) {
+        var target = event.target && typeof event.target.closest === 'function' ? event.target : null;
+        var button = target ? target.closest('button[data-codex-request-token]') : null;
+        if (!button) { return; }
+        action('decision', { token: button.dataset.codexRequestToken, decision: button.dataset.codexRequestDecision });
+    });
+    document.addEventListener('visibilitychange', function () {
+        window.clearTimeout(timer);
+        if (document.hidden) { schedule(); } else { refresh(); }
+    });
+    refresh();
 }());
 
 /*

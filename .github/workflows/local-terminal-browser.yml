@@ -1,0 +1,55 @@
+name: Local terminal browser
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-terminal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install local terminal tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y tmux ttyd
+      - name: Install browser test dependency
+        working-directory: tools
+        run: |
+          npm init -y >/dev/null
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Prove the private PHP backend cannot bypass the browser gateway
+        run: node tools/terminal/backend-isolation-check.cjs
+      - name: Exercise authenticated terminal and session recovery
+        run: |
+          node tools/terminal/terminal-browser-check.cjs
+          COCKPIT_TEST_BROWSER_START=1 node tools/terminal/terminal-browser-check.cjs
+          mkdir -p var
+          COCKPIT_TEST_BROWSER_START=1 COCKPIT_TEST_USE_CLI=1 WORKBENCH_SCREENSHOT=var/workbench-preview.png node tools/terminal/terminal-browser-check.cjs
+          node tools/terminal/terminal-shell-browser-check.cjs
+          node tools/terminal/codex-app-server-browser-check.cjs
+          node tools/terminal/claude-stream-browser-check.cjs
+      - name: Upload synthetic HTML workbench preview
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: workbench-preview
+          path: var/workbench-preview.png
+          if-no-files-found: warn
+          retention-days: 7

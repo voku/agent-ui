@@ -1,15 +1,20 @@
 <?php
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
+use voku\AgentUi\Runtime\LocalTerminal;
 use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string} $model */
+/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string, brief_html: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $progress = $model['progress'];
 $decisionHtml = $model['decision_html'];
+$briefHtml = $model['brief_html'];
+$terminalTask = getenv('AGENT_UI_TERMINAL_TASK');
+$terminalOrigin = LocalTerminal::origin();
+$showTerminal = is_string($terminalTask) && $terminalTask === $card->id && $terminalOrigin !== null;
 $title = $card->id . ' · Workflow progress · agent-ui';
 $nav = null;
 $projectLabel = null;
@@ -18,6 +23,8 @@ require __DIR__ . '/../layout/header.php';
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Workflow progress</p>
 <?php $taskNavCurrent = '/progress'; require __DIR__ . '/../layout/task-context.php'; ?>
 
+<div<?= $showTerminal ? ' class="workflow-cockpit"' : '' ?>>
+<div class="workflow-cockpit__progress">
 <div class="page-head" data-workflow-live data-task-id="<?= TemplateRenderer::escape($card->id) ?>" data-progress-url="/task/<?= rawurlencode($card->id) ?>/progress.json">
     <h1>Workflow progress</h1>
     <p class="lede">Where this task is in the Loop-owned governed workflow. The order and status come from agent-loop; this page does not reconstruct lifecycle policy.</p>
@@ -35,7 +42,9 @@ require __DIR__ . '/../layout/header.php';
         policy evaluation as the workflow progress below, so it is shown there once rather than twice here.</p>
 </section>
 
-<div data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
+<div id="workflow-overview" data-workflow-brief data-brief-digest="<?= hash('sha256', $briefHtml) ?>" aria-live="polite"><?= $briefHtml ?></div>
+
+<div id="workflow-approval" data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
 
 <p class="eyebrow">Task workflow</p>
 <section class="panel" data-progress-empty<?= $progress->steps !== [] ? ' hidden' : '' ?>>
@@ -75,7 +84,7 @@ require __DIR__ . '/../layout/header.php';
         }
     }
     ?>
-    <section class="panel workflow-graph-container" data-workflow-graph<?= $progress->steps === [] ? ' hidden' : '' ?> style="margin-bottom: 20px; padding: 16px;">
+    <section id="workflow-graph" class="panel workflow-graph-container" data-workflow-graph<?= $progress->steps === [] ? ' hidden' : '' ?> style="margin-bottom: 20px; padding: 16px;">
         <div class="action__head" style="margin-bottom: 12px;">
             <div>
                 <strong style="font-size: 14px;">Workflow Graph</strong>
@@ -105,7 +114,7 @@ require __DIR__ . '/../layout/header.php';
         </div>
     </section>
 
-    <div data-progress-details<?= $progress->steps === [] ? ' hidden' : '' ?>>
+    <div id="workflow-steps" data-progress-details<?= $progress->steps === [] ? ' hidden' : '' ?>>
     <p class="eyebrow" style="margin-top: 24px;">Workflow steps detail</p>
     <ol class="stack" data-progress-list style="list-style:none;padding:0;margin:0">
         <?php foreach ($progress->steps as $index => $step): ?>
@@ -134,6 +143,73 @@ require __DIR__ . '/../layout/header.php';
     </ol>
     <p class="note">Done, current, pending, blocked and not-applicable remain distinct owner-projected states. agent-ui does not calculate a percentage complete.</p>
     </div>
+</div>
+<?php if ($showTerminal): ?>
+<aside id="workflow-terminal" class="workflow-cockpit__terminal panel" aria-label="Local terminal session" data-terminal-panel>
+    <div class="action__head">
+        <strong>Local terminal session</strong>
+        <div>
+            <button type="button" class="btn btn--small" data-terminal-toggle hidden>Disconnect</button>
+            <button type="button" class="btn btn--small" data-terminal-stop hidden>Stop session</button>
+        </div>
+    </div>
+    <p class="note">Use your preferred CLI in the task's project directory. Run <code id="terminal-cmd-enter">vendor/bin/agent-loop enter <?= TemplateRenderer::escape($card->id) ?> --format=json</code> <button type="button" class="copy" hidden data-copy-target="terminal-cmd-enter">Copy</button>, follow the owner-provided next action, and use <code id="terminal-cmd-finish">vendor/bin/agent-loop finish <?= TemplateRenderer::escape($card->id) ?> --format=json</code> <button type="button" class="copy" hidden data-copy-target="terminal-cmd-finish">Copy</button> to reconcile evidence. The workflow panel refreshes independently; terminal output is not authority.</p>
+    <p class="small"><strong>Task:</strong> <code><?= TemplateRenderer::escape($card->id) ?></code> · <strong>Project:</strong> <code>AGENT_UI_PROJECT_ROOT</code> · <strong>Context:</strong> <code>AGENT_LOOP_TASK_ID</code></p>
+    <p class="small faint" data-terminal-attach-note hidden><strong>External terminal:</strong> <code id="terminal-attach-cmd" data-terminal-attach-cmd></code> <button type="button" class="copy" hidden data-copy-target="terminal-attach-cmd">Copy</button></p>
+    <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
+    <div data-terminal-start hidden>
+        <label for="terminal-host">Start terminal</label>
+        <select id="terminal-host" data-terminal-host>
+            <option value="shell">Interactive shell (any CLI)</option>
+            <option value="agy">Antigravity (agy) shortcut</option>
+            <option value="codex">Codex shortcut</option>
+            <option value="claude">Claude Code shortcut</option>
+        </select>
+        <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
+    </div>
+    <div class="panel" data-terminal-attachment hidden>
+        <label for="terminal-image-file">Attach screenshot or image (PNG, JPEG, WebP, GIF; max 8 MiB)</label>
+        <input type="file" id="terminal-image-file" data-terminal-image-file accept="image/png,image/jpeg,image/webp,image/gif">
+        <button type="button" class="btn btn--small" data-terminal-image-clipboard>Paste image from clipboard</button>
+        <p class="note">The image is stored privately for this task. Its path is pasted into the terminal without pressing Enter. Drop an image here or choose a file if clipboard access is unavailable.</p>
+    </div>
+    <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
+    <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
+    <section class="codex-app-server panel" data-codex-app-server data-agent-activity aria-label="Structured coding-agent activity">
+        <div class="action__head">
+            <strong>Coding-agent activity <span class="pill pill--neutral">observation</span></strong>
+            <button type="button" class="btn btn--small" data-codex-app-server-stop hidden>Stop observed session</button>
+        </div>
+        <label for="agent-activity-provider">Structured agent</label>
+        <select id="agent-activity-provider" data-agent-activity-provider>
+            <option value="codex">Codex App Server</option>
+            <option value="claude">Claude Code stream-json</option>
+        </select>
+        <p class="note">The selected provider reports structured activity separately from the authoritative agent-loop workflow. Codex supports deliberate one-time HTML tool approvals. Claude stream-json activity supports prompts and observed tools, but tool permission prompts are denied until an Agent SDK permission bridge is available. Generic CLI tools remain usable in the terminal without structured observation.</p>
+        <p class="small" data-codex-app-server-state aria-live="polite">Checking coding-agent activity…</p>
+        <p class="small muted" data-codex-app-server-message></p>
+        <p class="small" data-codex-app-server-feedback aria-live="polite"></p>
+        <div class="btn-row">
+            <button type="button" class="btn btn--primary btn--small" data-codex-app-server-start>Start selected agent</button>
+        </div>
+        <form class="codex-app-server__prompt" data-codex-app-server-form hidden>
+            <label for="codex-app-server-prompt">Send a prompt to this agent session</label>
+            <textarea id="codex-app-server-prompt" data-codex-app-server-prompt rows="3" maxlength="12288" required></textarea>
+            <button type="submit" class="btn btn--primary btn--small" data-codex-app-server-send>Send prompt</button>
+            <p class="note">Prompts are sent directly to the agent and are not copied into this activity feed.</p>
+        </form>
+        <div class="codex-app-server__requests" data-codex-app-server-requests hidden>
+            <h2>Requests waiting for a human</h2>
+            <div data-codex-app-server-request-list></div>
+        </div>
+        <div class="codex-app-server__activity">
+            <h2>Recent structured activity</h2>
+            <ol data-codex-app-server-activity aria-live="off"><li class="muted">No observed activity yet.</li></ol>
+        </div>
+    </section>
+</aside>
+<?php endif; ?>
+</div>
 
 <?php if (ClientScript::graphLibrary() !== ''): ?><script><?= ClientScript::graphLibrary() ?></script><?php endif; ?>
 <?php require __DIR__ . '/../layout/footer.php'; ?>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Http;
 
 use JsonException;
+use voku\AgentUi\Runtime\LocalTerminal;
 use voku\AgentUi\View\ClientScript;
 
 final readonly class Response
@@ -51,9 +52,12 @@ final readonly class Response
      */
     public static function contentSecurityPolicy(): string
     {
+        $terminalOrigin = LocalTerminal::origin();
+        $frameSources = $terminalOrigin === null ? '' : "; frame-src 'self' " . $terminalOrigin;
+
         return "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src "
             . ClientScript::cspSource()
-            . "; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+            . "; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" . $frameSources;
     }
 
     public function send(): void
@@ -66,6 +70,8 @@ final readonly class Response
             header($name . ': ' . $value);
         }
 
-        echo $this->body;
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'HEAD') {
+            echo $this->body;
+        }
     }
 }

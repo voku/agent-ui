@@ -6,7 +6,7 @@ use voku\AgentUi\View\TemplateRenderer;
 $guidance = $model['guidance'];
 $title = $guidance->id . ' · Guidance · agent-ui';
 $nav = 'knowledge';
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/knowledge">Knowledge</a><span>/</span><?= TemplateRenderer::escape($guidance->type->value) ?></p>

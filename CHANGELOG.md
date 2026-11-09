@@ -4,7 +4,47 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
-## [Unreleased]
+## [0.19.1] - 2026-11-09
+
+### Added
+
+- Terminal Workbench developer ergonomics:
+  - Add `--host=agy` (Antigravity) support to `agent-ui session start` CLI command.
+  - Interactive shell resolution: detect and prefer user's configured `$SHELL` (e.g. `/bin/bash` or `/bin/zsh` with full line editing, readline history, and tab completion), falling back cleanly to `/bin/bash`, `/usr/bin/bash`, or `/bin/sh`.
+  - Fallback search in `$HOME/.local/bin` for CLI tools (`agy`, `codex`, `claude`) when started from minimal PATH environments.
+  - Dynamically adapt tmux window sizing (`window-size latest`) to client browser viewport dimensions.
+  - Provide one-click Copy buttons for `vendor/bin/agent-loop enter <task-id> --format=json` and `vendor/bin/agent-loop finish <task-id> --format=json` directly in the terminal workbench briefing.
+  - Project active external terminal attach command (`tmux -L agent-ui attach-session -t =...`) with one-click Copy in the web UI for seamless switching between browser and local native terminal.
+  - Prominently position interactive terminal iframe above observational activity panel for immediate access.
+
+### Fixed
+
+- Support HTTP `HEAD` requests across all routes complying with RFC 9110 by matching read routes and suppressing response bodies while preserving status codes and headers (UI-14).
+- Display the project prefix in the masthead meta across Knowledge pages (`index`, `finding`, `proposal`, `guidance`, `dream`, `task`) via `BoardProjectionGateway` (UI-14).
+- Bound the home overview "Current work" listing to at most 10 active tasks, filtering out completed/terminal items, and provide a direct link to the full Board when additional tasks are active (UI-14).
+- Archive completed backlog card `UI-14`.
+- Acknowledge UI review, record learning, and archive completed blindspot card `UI-1`.
+- Archive workflow cards `UI-18` and `UI-19` with resolution handoff notes (upstream owner boundaries and proxy bootstrap documentation), clearing the active Kanban board.
+
+## [0.19.0] - 2026-11-09
+
+### Added
+
+- Unified workflow terminal workbench (`vendor/bin/agent-ui session serve <task-id>`):
+  - Embed an interactive PTY beside the live Loop workflow timeline and human decision briefing (#138, #139, #140, #150).
+  - Loopback-bound (`127.0.0.1`), origin-verified, and CSRF-authenticated local gateway (`local-cockpit.cjs`) isolating the terminal transport and private PHP backend (#152).
+  - Open, agent-agnostic interactive shell (`/bin/sh -i`) running in persistent `tmux`, with automatic injection of `AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` (#141).
+  - First-class shortcuts for `agy` (Antigravity), `codex`, and `claude` with dynamic PATH detection (#141, #156).
+  - Private task-scoped image and screenshot attachment bridge supporting PNG, JPEG, WebP, and GIF with signature validation and clipboard paste (#142, #146, #148).
+- Structured coding-agent activity & observational panel:
+  - Multi-provider activity feed operating strictly as observational state beside authoritative `agent-loop` progress (#154, #156).
+  - Codex App Server JSON-RPC integration (`codex app-server`) supporting active thread/turn tracking, streaming deltas, and one-time deliberate HTML approvals for command execution and file changes (#154).
+  - Claude Code stream-json adapter launching `claude -p --input-format stream-json --output-format stream-json` with fail-closed permissions and secret redaction (#156).
+
+### Fixed
+
+- ControlPlaneHostGuard socket client race condition on PHP 8.4 dev server startup (#156).
+- Neutralize provider prompt helper copy across all structured coding agents (#156).
 
 ## [0.18.17] - 2026-10-24
 

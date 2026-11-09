@@ -9,6 +9,7 @@ use Throwable;
 use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Http\Response;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\DreamGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
@@ -29,6 +30,7 @@ final readonly class DreamAction
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
+        private ?BoardProjectionGateway $board = null,
     ) {
     }
 
@@ -46,6 +48,7 @@ final readonly class DreamAction
             'report' => $report,
             'problem' => $problem,
             'csrf' => $this->csrf->token(),
+            'project_label' => $this->projectPrefix(),
         ]), $problem === null ? 200 : 503);
     }
 
@@ -63,5 +66,14 @@ final readonly class DreamAction
             : sprintf('agent-learning wrote %d candidate Proposal(s). They are candidates only and need review before any becomes guidance.', $written));
 
         return Response::redirect($written === 0 ? '/knowledge/dream' : '/knowledge?tab=proposals');
+    }
+
+    private function projectPrefix(): ?string
+    {
+        try {
+            return $this->board?->board()->projectPrefix;
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

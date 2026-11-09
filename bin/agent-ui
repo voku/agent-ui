@@ -32,11 +32,17 @@ agent-ui - Local server-rendered human control plane for voku/agent-loop
 Usage:
   agent-ui [serve] [--port=PORT] [--host=HOST] [--root=PATH]
   agent-ui status [--port=PORT] [--host=HOST] [--root=PATH] [--format=text|json]
+  agent-ui session serve TASK [--root=PATH] [--port=PORT]
+  agent-ui session start TASK [--host=shell|agy|codex|claude] [--root=PATH] [--port=PORT]
+  agent-ui session attach TASK [--root=PATH] [--port=PORT]
+  agent-ui session status TASK [--root=PATH] [--format=text|json]
+  agent-ui session stop TASK [--root=PATH]
   agent-ui help
 
 Commands:
   serve          Run the local foreground HTTP server (default command).
   status         Probe whether this endpoint is agent-ui for the exact project.
+  session        Manage the optional local coding-host terminal cockpit.
   help           Show this help message.
 
 Options:
@@ -58,6 +64,71 @@ if ($args !== [] && !str_starts_with($args[0], '-')) {
 if ($command === 'help') {
     $help();
     exit(0);
+}
+if ($command === 'session') {
+    $sessionAction = array_shift($args);
+    if ($sessionAction === '--help' || $sessionAction === '-h') {
+        $help();
+        exit(0);
+    }
+    $taskId = array_shift($args);
+    if (!is_string($sessionAction) || !in_array($sessionAction, ['serve', 'start', 'attach', 'status', 'stop'], true)
+        || !is_string($taskId) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D', $taskId) !== 1) {
+        fwrite(STDERR, "Error: session requires an action and a valid task ID.\n");
+        $help();
+        exit(1);
+    }
+
+    $sessionOptions = [];
+    foreach ($args as $arg) {
+        if (preg_match('/^--(root|port|host|format)=(.+)$/D', $arg, $matches) !== 1 || isset($sessionOptions[$matches[1]])) {
+            fwrite(STDERR, "Error: invalid or repeated session option.\n");
+            exit(1);
+        }
+        $sessionOptions[$matches[1]] = $matches[2];
+    }
+    $sessionRoot = $sessionOptions['root'] ?? getcwd();
+    $sessionHost = $sessionOptions['host'] ?? null;
+    $sessionPort = $sessionOptions['port'] ?? null;
+    $sessionFormat = $sessionOptions['format'] ?? null;
+    if (!is_string($sessionRoot) || !is_dir($sessionRoot)
+        || ($sessionAction === 'start' ? ($sessionHost !== null && !in_array($sessionHost, ['shell', 'agy', 'codex', 'claude'], true)) : $sessionHost !== null)
+        || ($sessionPort !== null && (!in_array($sessionAction, ['serve', 'start', 'attach'], true)
+            || preg_match('/^[0-9]{1,5}$/D', $sessionPort) !== 1 || (int) $sessionPort < 1024 || (int) $sessionPort > 65535))
+        || ($sessionFormat !== null && ($sessionAction !== 'status' || !in_array($sessionFormat, ['text', 'json'], true)))) {
+        fwrite(STDERR, "Error: invalid session root, host, port or format.\n");
+        exit(1);
+    }
+
+    $script = dirname(__DIR__) . '/tools/terminal/local-cockpit.cjs';
+    if (!is_file($script)) {
+        fwrite(STDERR, "Error: the optional terminal cockpit is not installed.\n");
+        exit(1);
+    }
+    if (!function_exists('proc_open')) {
+        fwrite(STDERR, "Error: PHP process execution is unavailable for the optional terminal cockpit.\n");
+        exit(1);
+    }
+    $sessionArgs = ['node', $script, '--root=' . $sessionRoot, '--task=' . $taskId];
+    $sessionArgs[] = $sessionAction === 'start' ? '--start=' . ($sessionHost ?? 'shell') : '--' . $sessionAction;
+    if ($sessionPort !== null) {
+        $sessionArgs[] = '--port=' . $sessionPort;
+    }
+    if ($sessionFormat !== null) {
+        $sessionArgs[] = '--format=' . $sessionFormat;
+    }
+    putenv('AGENT_UI_COMPOSER_AUTOLOAD=' . $autoload);
+    putenv('AGENT_UI_SESSION_PARENT_PID=' . (string) getmypid());
+    $sessionProcess = proc_open($sessionArgs, [0 => STDIN, 1 => STDOUT, 2 => STDERR], $sessionPipes);
+    if (!is_resource($sessionProcess)) {
+        fwrite(STDERR, "Error: unable to start the optional Node.js terminal cockpit.\n");
+        exit(1);
+    }
+    $sessionExitCode = proc_close($sessionProcess);
+    if ($sessionExitCode === 127) {
+        fwrite(STDERR, "Error: Node.js is required for the optional terminal cockpit.\n");
+    }
+    exit($sessionExitCode);
 }
 if (!in_array($command, ['serve', 'status'], true)) {
     fwrite(STDERR, sprintf("Unknown command: %s\n", $command));

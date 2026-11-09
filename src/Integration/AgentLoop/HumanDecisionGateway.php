@@ -6,18 +6,22 @@ namespace voku\AgentUi\Integration\AgentLoop;
 
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
+use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjector;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionService;
 
 final readonly class HumanDecisionGateway
 {
     private WorkflowHumanDecisionService $service;
     private TaskContractStore $contractStore;
+    private WorkflowHumanDecisionProjector $approvalProjector;
 
     public function __construct(string $projectRoot)
     {
         $this->service = new WorkflowHumanDecisionService($projectRoot);
         $this->contractStore = new TaskContractStore($projectRoot);
+        $this->approvalProjector = new WorkflowHumanDecisionProjector($projectRoot);
     }
 
     public function contract(string $taskId): ?TaskContract
@@ -88,6 +92,14 @@ final readonly class HumanDecisionGateway
     public function supersededRevisions(string $taskId): array
     {
         return $this->contractStore->supersededRevisions($taskId);
+    }
+
+    public function contractApprovalPresentation(
+        string $taskId,
+        string $nextAction,
+        string $nextActionKind,
+    ): ?WorkflowContractApprovalPresentation {
+        return $this->approvalProjector->projectContractApprovalPresentation($taskId, $nextAction, $nextActionKind);
     }
 
     public function available(string $taskId): WorkflowHumanDecisionProjection

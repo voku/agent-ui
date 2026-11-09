@@ -43,7 +43,7 @@ $totalProposalCount = array_sum($overview->proposalCounts);
 
 $title = 'Knowledge · agent-ui';
 $nav = 'knowledge';
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <div class="page-head">

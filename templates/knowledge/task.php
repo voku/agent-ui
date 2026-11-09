@@ -11,7 +11,7 @@ $precedents = $model['precedents'];
 $delivered = $model['delivered'];
 $title = $learning->taskId . ' · Learning · agent-ui';
 $nav = null;
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($learning->taskId) ?>"><?= TemplateRenderer::escape($learning->taskId) ?></a><span>/</span>Learning</p>

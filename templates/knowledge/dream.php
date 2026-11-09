@@ -16,7 +16,7 @@ $report = $model['report'];
 $problem = $model['problem'];
 $title = 'Dream · Knowledge · agent-ui';
 $nav = 'knowledge';
-$projectLabel = null;
+$projectLabel = $model['project_label'] ?? null;
 require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/knowledge">Knowledge</a><span>/</span>Dream</p>

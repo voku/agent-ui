@@ -72,7 +72,7 @@ final class ContractDecisionDeltaPageTest extends TestCase
         self::assertStringNotContainsString('Approve Contract revision 2?', $main);
     }
 
-    public function testMultiRevisionBriefingWarnsThatAnIntermediateDraftMayHideChanges(): void
+    public function testMultiRevisionBriefingUsesOwnerApprovedBaselineWithoutObsoleteWarning(): void
     {
         $app = $this->revisedContract();
         (new TaskContractStore($this->root))->revise(
@@ -86,12 +86,12 @@ final class ContractDecisionDeltaPageTest extends TestCase
 
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
         self::assertStringContainsString('Approve Contract revision 3?', $main);
-        self::assertStringContainsString('draft revision 2.', $main);
+        self::assertStringContainsString('approved revision 1.', $main);
         self::assertStringContainsString('Changed fields: Goal, Scope, Acceptance criteria.', $main);
-        self::assertStringContainsString('The displayed delta may omit earlier', $main);
-        self::assertStringContainsString('href="/task/APP-1/history">revision event timeline</a>', $main);
-        self::assertStringContainsString('not complete archived Contract contents.', $main);
-        self::assertStringContainsString('a complete cumulative comparison is not yet available here.', $main);
+        self::assertStringNotContainsString('Revision history matters:', $main);
+
+
+
     }
 
     public function testTwoRevisionBriefingDoesNotShowMultiRevisionWarning(): void
