@@ -930,6 +930,8 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     var attachment = panel.querySelector('[data-terminal-attachment]');
     var imageFile = panel.querySelector('[data-terminal-image-file]');
     var pasteClipboard = panel.querySelector('[data-terminal-image-clipboard]');
+    var attachNote = panel.querySelector('[data-terminal-attach-note]');
+    var attachCmd = panel.querySelector('[data-terminal-attach-cmd]');
     if (!frame || !toggle || !stop || !start || !startButton || !host || !message || !state ||
         !attachment || !imageFile || !pasteClipboard) { return; }
     var terminalUrl = frame.getAttribute('data-terminal-url');
@@ -988,6 +990,14 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                 }
                 startButton.disabled = busy || !available || !host.selectedOptions.length || host.selectedOptions[0].disabled;
                 stop.disabled = busy;
+                if (attachNote && attachCmd) {
+                    if (running && snapshot.attach_command) {
+                        attachCmd.textContent = snapshot.attach_command;
+                        attachNote.hidden = false;
+                    } else {
+                        attachNote.hidden = true;
+                    }
+                }
             })
             .catch(function () {
                 if (requestGeneration === generation) { state.textContent = 'Local session status unavailable'; start.hidden = true; stop.hidden = true; }

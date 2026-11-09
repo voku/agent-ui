@@ -742,7 +742,13 @@ function requestHandler(req, res) {
     if (!authenticated(req)) return deny(res, 401, 'Open the access URL printed by the local cockpit.');
     if (req.method === 'GET' && req.url === '/_local/session') {
         const state = inspectSession();
-        return json(res, 200, { ...state, terminal_available: terminalAvailable, hosts: hostAvailability(), csrf: csrfToken });
+        return json(res, 200, {
+            ...state,
+            terminal_available: terminalAvailable,
+            hosts: hostAvailability(),
+            attach_command: state.state === 'session_running' ? 'tmux -L agent-ui attach-session -t =' + session : null,
+            csrf: csrfToken,
+        });
     }
     if (req.method === 'POST' && ['/_local/session/start', '/_local/session/stop'].includes(req.url)) {
         if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
@@ -973,11 +979,28 @@ function hostExecutable(name) {
     // POSIX interactive shell is the generic default. Other CLI agents are programs
     // a developer may run inside it; only explicit shortcuts launch a host directly.
     if (name === 'shell') {
+        const preferred = process.env.SHELL;
+        if (typeof preferred === 'string' && path.isAbsolute(preferred)) {
+            try {
+                fs.accessSync(preferred, fs.constants.X_OK);
+                if (fs.statSync(preferred).isFile()) return preferred;
+            } catch (_) { /* fallback */ }
+        }
+        for (const candidate of ['/bin/bash', '/usr/bin/bash', '/bin/sh']) {
+            try {
+                fs.accessSync(candidate, fs.constants.X_OK);
+                if (fs.statSync(candidate).isFile()) return candidate;
+            } catch (_) { /* next candidate */ }
+        }
         fs.accessSync('/bin/sh', fs.constants.X_OK);
         return '/bin/sh';
     }
-    for (const directory of (process.env.PATH || '').split(path.delimiter)) {
-        if (!directory) continue;
+    const searchDirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    try {
+        const homeLocalBin = path.join(os.homedir(), '.local/bin');
+        if (!searchDirs.includes(homeLocalBin)) searchDirs.push(homeLocalBin);
+    } catch (_) { /* ignore */ }
+    for (const directory of searchDirs) {
         try {
             const candidate = fs.realpathSync(path.join(directory, name));
             fs.accessSync(candidate, fs.constants.X_OK);
@@ -1039,6 +1062,7 @@ function ensureSession(requestedHost, create) {
                 tmuxCommand(['kill-session', '-t', target]);
                 throw new Error('The coding host exited before its session could be recorded.');
             }
+            try { tmuxCommand(['set-option', '-t', target + ':', 'window-size', 'latest']); } catch (_) {}
             state = inspectSession();
         }
         if (state.state !== 'session_running' || (requestedHost && requestedHost !== state.host)) {

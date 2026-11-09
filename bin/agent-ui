@@ -33,7 +33,7 @@ Usage:
   agent-ui [serve] [--port=PORT] [--host=HOST] [--root=PATH]
   agent-ui status [--port=PORT] [--host=HOST] [--root=PATH] [--format=text|json]
   agent-ui session serve TASK [--root=PATH] [--port=PORT]
-  agent-ui session start TASK [--host=shell|codex|claude] [--root=PATH] [--port=PORT]
+  agent-ui session start TASK [--host=shell|agy|codex|claude] [--root=PATH] [--port=PORT]
   agent-ui session attach TASK [--root=PATH] [--port=PORT]
   agent-ui session status TASK [--root=PATH] [--format=text|json]
   agent-ui session stop TASK [--root=PATH]
@@ -92,7 +92,7 @@ if ($command === 'session') {
     $sessionPort = $sessionOptions['port'] ?? null;
     $sessionFormat = $sessionOptions['format'] ?? null;
     if (!is_string($sessionRoot) || !is_dir($sessionRoot)
-        || ($sessionAction === 'start' ? ($sessionHost !== null && !in_array($sessionHost, ['shell', 'codex', 'claude'], true)) : $sessionHost !== null)
+        || ($sessionAction === 'start' ? ($sessionHost !== null && !in_array($sessionHost, ['shell', 'agy', 'codex', 'claude'], true)) : $sessionHost !== null)
         || ($sessionPort !== null && (!in_array($sessionAction, ['serve', 'start', 'attach'], true)
             || preg_match('/^[0-9]{1,5}$/D', $sessionPort) !== 1 || (int) $sessionPort < 1024 || (int) $sessionPort > 65535))
         || ($sessionFormat !== null && ($sessionAction !== 'status' || !in_array($sessionFormat, ['text', 'json'], true)))) {

@@ -4,7 +4,18 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
-## [Unreleased]
+## [0.19.1] - 2026-11-09
+
+### Added
+
+- Terminal Workbench developer ergonomics:
+  - Add `--host=agy` (Antigravity) support to `agent-ui session start` CLI command.
+  - Interactive shell resolution: detect and prefer user's configured `$SHELL` (e.g. `/bin/bash` or `/bin/zsh` with full line editing, readline history, and tab completion), falling back cleanly to `/bin/bash`, `/usr/bin/bash`, or `/bin/sh`.
+  - Fallback search in `$HOME/.local/bin` for CLI tools (`agy`, `codex`, `claude`) when started from minimal PATH environments.
+  - Dynamically adapt tmux window sizing (`window-size latest`) to client browser viewport dimensions.
+  - Provide one-click Copy buttons for `vendor/bin/agent-loop enter <task-id> --format=json` and `vendor/bin/agent-loop finish <task-id> --format=json` directly in the terminal workbench briefing.
+  - Project active external terminal attach command (`tmux -L agent-ui attach-session -t =...`) with one-click Copy in the web UI for seamless switching between browser and local native terminal.
+  - Prominently position interactive terminal iframe above observational activity panel for immediate access.
 
 ### Fixed
 

@@ -153,8 +153,9 @@ require __DIR__ . '/../layout/header.php';
             <button type="button" class="btn btn--small" data-terminal-stop hidden>Stop session</button>
         </div>
     </div>
-    <p class="note">Use your preferred CLI in the task's project directory. Run <code>vendor/bin/agent-loop enter <?= TemplateRenderer::escape($card->id) ?> --format=json</code>, follow the owner-provided next action, and use <code>finish</code> to reconcile evidence. The workflow panel refreshes independently; terminal output is not authority.</p>
+    <p class="note">Use your preferred CLI in the task's project directory. Run <code id="terminal-cmd-enter">vendor/bin/agent-loop enter <?= TemplateRenderer::escape($card->id) ?> --format=json</code> <button type="button" class="copy" hidden data-copy-target="terminal-cmd-enter">Copy</button>, follow the owner-provided next action, and use <code id="terminal-cmd-finish">vendor/bin/agent-loop finish <?= TemplateRenderer::escape($card->id) ?> --format=json</code> <button type="button" class="copy" hidden data-copy-target="terminal-cmd-finish">Copy</button> to reconcile evidence. The workflow panel refreshes independently; terminal output is not authority.</p>
     <p class="small"><strong>Task:</strong> <code><?= TemplateRenderer::escape($card->id) ?></code> · <strong>Project:</strong> <code>AGENT_UI_PROJECT_ROOT</code> · <strong>Context:</strong> <code>AGENT_LOOP_TASK_ID</code></p>
+    <p class="small faint" data-terminal-attach-note hidden><strong>External terminal:</strong> <code id="terminal-attach-cmd" data-terminal-attach-cmd></code> <button type="button" class="copy" hidden data-copy-target="terminal-attach-cmd">Copy</button></p>
     <p class="small" data-terminal-state aria-live="polite">Live session status requires JavaScript.</p>
     <div data-terminal-start hidden>
         <label for="terminal-host">Start terminal</label>
@@ -166,6 +167,14 @@ require __DIR__ . '/../layout/header.php';
         </select>
         <button type="button" class="btn btn--primary btn--small" data-terminal-start-button>Start session</button>
     </div>
+    <div class="panel" data-terminal-attachment hidden>
+        <label for="terminal-image-file">Attach screenshot or image (PNG, JPEG, WebP, GIF; max 8 MiB)</label>
+        <input type="file" id="terminal-image-file" data-terminal-image-file accept="image/png,image/jpeg,image/webp,image/gif">
+        <button type="button" class="btn btn--small" data-terminal-image-clipboard>Paste image from clipboard</button>
+        <p class="note">The image is stored privately for this task. Its path is pasted into the terminal without pressing Enter. Drop an image here or choose a file if clipboard access is unavailable.</p>
+    </div>
+    <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
+    <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
     <section class="codex-app-server panel" data-codex-app-server data-agent-activity aria-label="Structured coding-agent activity">
         <div class="action__head">
             <strong>Coding-agent activity <span class="pill pill--neutral">observation</span></strong>
@@ -198,14 +207,6 @@ require __DIR__ . '/../layout/header.php';
             <ol data-codex-app-server-activity aria-live="off"><li class="muted">No observed activity yet.</li></ol>
         </div>
     </section>
-    <div class="panel" data-terminal-attachment hidden>
-        <label for="terminal-image-file">Attach screenshot or image (PNG, JPEG, WebP, GIF; max 8 MiB)</label>
-        <input type="file" id="terminal-image-file" data-terminal-image-file accept="image/png,image/jpeg,image/webp,image/gif">
-        <button type="button" class="btn btn--small" data-terminal-image-clipboard>Paste image from clipboard</button>
-        <p class="note">The image is stored privately for this task. Its path is pasted into the terminal without pressing Enter. Drop an image here or choose a file if clipboard access is unavailable.</p>
-    </div>
-    <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
-    <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
 </aside>
 <?php endif; ?>
 </div>
