@@ -237,11 +237,26 @@ async function run() {
     assert.equal(unknown.pending_requests[0].kind, 'unsupported');
     assert.equal(loggedDecisions().length, 3, 'unknown command is not approved automatically');
 
-    await panel.locator('[data-codex-app-server-stop]').click();
-    await until(async () => {
+    const [stopResponse] = await Promise.all([
+        page.waitForResponse((response) => response.url().endsWith('/_local/codex-app-server/stop') &&
+            response.request().method() === 'POST', { timeout: 15000 }),
+        panel.locator('[data-codex-app-server-stop]').click(),
+    ]);
+    assert.equal(stopResponse.status(), 200, 'Stop endpoint must acknowledge deliberate session termination');
+    try {
+        await until(async () => {
+            const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+            return snapshot.state === 'stopped' && snapshot.running === false;
+        }, 'expected Stop preserves backend stopped state');
+    } catch (error) {
         const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
-        return snapshot.state === 'stopped' && snapshot.running === false;
-    }, 'expected Stop preserves backend stopped state');
+        const feedback = await panel.locator('[data-codex-app-server-feedback]').textContent();
+        console.error('Stop diagnostics:', JSON.stringify({
+            state: snapshot.state, running: snapshot.running, message: snapshot.message,
+            pending: snapshot.pending_requests.length, feedback,
+        }));
+        throw error;
+    }
     await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
     assert.ok(fs.readFileSync(protocolLog, 'utf8').includes('"method":"turn/start"'));
     console.log('Codex App Server JSON-RPC browser: auth/CSRF, startup, activity, context-bound approvals, scoped decisions, stale cleanup and stop passed.');
