@@ -122,8 +122,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/skills/agent-loop-php-setup",
-            "source_sha256": "sha256:33bc56fdd48ebe6b468f51745085730c653052521b6483b08b6e5d40bdf5e70c",
-            "representation_sha256": "sha256:33bc56fdd48ebe6b468f51745085730c653052521b6483b08b6e5d40bdf5e70c",
+            "source_sha256": "sha256:e2b43439ce15f48a1d6bd6f80f34eca0b8a4f129c9f0fe1f86d57784cf5c95d9",
+            "representation_sha256": "sha256:e2b43439ce15f48a1d6bd6f80f34eca0b8a4f129c9f0fe1f86d57784cf5c95d9",
             "adopted": false
         },
         {
