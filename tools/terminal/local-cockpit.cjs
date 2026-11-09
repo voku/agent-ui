@@ -12,7 +12,7 @@ const { spawn, spawnSync } = require('node:child_process');
 const { StringDecoder } = require('node:string_decoder');
 const { ClaudeStreamActivity } = require('./claude-stream-activity.cjs');
 
-const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=shell|codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
+const usage = 'Usage: node tools/terminal/local-cockpit.cjs --root=PATH --task=ID (--serve | --start=shell|agy|codex|claude | --attach | --status | --stop) [--port=8090] [--format=json|text]';
 const fail = (message) => { console.error(message); process.exit(1); };
 const options = {};
 for (const argument of process.argv.slice(2)) {
@@ -23,7 +23,7 @@ for (const argument of process.argv.slice(2)) {
 }
 if (!options.root || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(options.task || '') ||
     [options.attach, options.start, options.serve, options.status, options.stop].filter(Boolean).length !== 1 ||
-    (options.start && !['shell', 'codex', 'claude'].includes(options.start))) fail(usage);
+    (options.start && !['shell', 'agy', 'codex', 'claude'].includes(options.start))) fail(usage);
 if (options.format && (!options.status || !['text', 'json'].includes(options.format))) fail(usage);
 const port = Number(options.port || 8090);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) fail('Port must be between 1024 and 65535.');
@@ -756,7 +756,7 @@ function requestHandler(req, res) {
             try {
                 if (req.url === '/_local/session/start') {
                     const requestedHost = value.host === undefined ? 'shell' : value.host;
-                    if (!['shell', 'codex', 'claude'].includes(requestedHost)) return deny(res, 400, 'Unsupported terminal host.');
+                    if (!['shell', 'agy', 'codex', 'claude'].includes(requestedHost)) return deny(res, 400, 'Unsupported terminal host.');
                     if (!terminalAvailable) return deny(res, 503, 'The terminal transport is unavailable.');
                     const taskStatus = await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`);
                     if (taskStatus !== 200) return deny(res, 409, 'The task is unavailable in the selected project.');
@@ -988,7 +988,7 @@ function hostExecutable(name) {
 }
 function hostAvailability() {
     const availability = {};
-    for (const name of ['shell', 'codex', 'claude']) {
+    for (const name of ['shell', 'agy', 'codex', 'claude']) {
         try { hostExecutable(name); availability[name] = true; } catch (_) { availability[name] = false; }
     }
     return availability;
@@ -1003,7 +1003,7 @@ function inspectSession() {
         const identity = tmuxCommand(['show-options', '-v', '-t', target + ':', '@agent-ui-host']);
         const host = identity.stdout.trim();
         if (location.status !== 0 || fs.realpathSync(location.stdout.trim()) !== root ||
-            identity.status !== 0 || !['shell', 'codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
+            identity.status !== 0 || !['shell', 'agy', 'codex', 'claude'].includes(host)) return { state: 'unavailable', host: null };
         return { state: 'session_running', host };
     } catch (_) { return { state: 'unavailable', host: null }; }
 }
@@ -1024,7 +1024,7 @@ function ensureSession(requestedHost, create) {
         let state = inspectSession();
         if (state.state === 'session_not_found') {
             if (!create) throw new Error('The task has no running terminal session; start a host explicitly.');
-            if (!['shell', 'codex', 'claude'].includes(requestedHost)) throw new Error('Unsupported coding host.');
+            if (!['shell', 'agy', 'codex', 'claude'].includes(requestedHost)) throw new Error('Unsupported coding host.');
             const executable = hostExecutable(requestedHost);
             // The command is constant shell syntax; task, root and executable are
             // positional arguments, never interpolated into executable shell code.

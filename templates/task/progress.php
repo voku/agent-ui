@@ -160,6 +160,7 @@ require __DIR__ . '/../layout/header.php';
         <label for="terminal-host">Start terminal</label>
         <select id="terminal-host" data-terminal-host>
             <option value="shell">Interactive shell (any CLI)</option>
+            <option value="agy">Antigravity (agy) shortcut</option>
             <option value="codex">Codex shortcut</option>
             <option value="claude">Claude Code shortcut</option>
         </select>
@@ -186,7 +187,7 @@ require __DIR__ . '/../layout/header.php';
             <label for="codex-app-server-prompt">Send a prompt to this agent session</label>
             <textarea id="codex-app-server-prompt" data-codex-app-server-prompt rows="3" maxlength="12288" required></textarea>
             <button type="submit" class="btn btn--primary btn--small" data-codex-app-server-send>Send prompt</button>
-            <p class="note">Prompts are sent directly to Codex and are not copied into this activity feed.</p>
+            <p class="note">Prompts are sent directly to the agent and are not copied into this activity feed.</p>
         </form>
         <div class="codex-app-server__requests" data-codex-app-server-requests hidden>
             <h2>Requests waiting for a human</h2>
