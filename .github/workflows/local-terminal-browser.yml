@@ -38,5 +38,14 @@ jobs:
         run: |
           node tools/terminal/terminal-browser-check.cjs
           COCKPIT_TEST_BROWSER_START=1 node tools/terminal/terminal-browser-check.cjs
-          COCKPIT_TEST_BROWSER_START=1 COCKPIT_TEST_USE_CLI=1 node tools/terminal/terminal-browser-check.cjs
+          mkdir -p var
+          COCKPIT_TEST_BROWSER_START=1 COCKPIT_TEST_USE_CLI=1 WORKBENCH_SCREENSHOT=var/workbench-preview.png node tools/terminal/terminal-browser-check.cjs
           node tools/terminal/terminal-shell-browser-check.cjs
+      - name: Upload synthetic HTML workbench preview
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: workbench-preview
+          path: var/workbench-preview.png
+          if-no-files-found: warn
+          retention-days: 7
