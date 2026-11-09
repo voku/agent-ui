@@ -6,6 +6,26 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-09
+
+### Added
+
+- Unified workflow terminal workbench (`vendor/bin/agent-ui session serve <task-id>`):
+  - Embed an interactive PTY beside the live Loop workflow timeline and human decision briefing (#138, #139, #140, #150).
+  - Loopback-bound (`127.0.0.1`), origin-verified, and CSRF-authenticated local gateway (`local-cockpit.cjs`) isolating the terminal transport and private PHP backend (#152).
+  - Open, agent-agnostic interactive shell (`/bin/sh -i`) running in persistent `tmux`, with automatic injection of `AGENT_LOOP_TASK_ID` and `AGENT_UI_PROJECT_ROOT` (#141).
+  - First-class shortcuts for `agy` (Antigravity), `codex`, and `claude` with dynamic PATH detection (#141, #156).
+  - Private task-scoped image and screenshot attachment bridge supporting PNG, JPEG, WebP, and GIF with signature validation and clipboard paste (#142, #146, #148).
+- Structured coding-agent activity & observational panel:
+  - Multi-provider activity feed operating strictly as observational state beside authoritative `agent-loop` progress (#154, #156).
+  - Codex App Server JSON-RPC integration (`codex app-server`) supporting active thread/turn tracking, streaming deltas, and one-time deliberate HTML approvals for command execution and file changes (#154).
+  - Claude Code stream-json adapter launching `claude -p --input-format stream-json --output-format stream-json` with fail-closed permissions and secret redaction (#156).
+
+### Fixed
+
+- ControlPlaneHostGuard socket client race condition on PHP 8.4 dev server startup (#156).
+- Neutralize provider prompt helper copy across all structured coding agents (#156).
+
 ## [0.18.17] - 2026-10-24
 
 ### Changed
