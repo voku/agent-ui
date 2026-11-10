@@ -40,8 +40,6 @@ final class GitHubWorkflowPageTest extends TestCase
         self::assertStringContainsString('id="gh-import"', $response->body);
         self::assertStringContainsString('id="gh-export"', $response->body);
         self::assertStringContainsString('id="gh-compare"', $response->body);
-        self::assertStringContainsString('Claims', str_replace('Claim (not proof)', 'Claims', $response->body)
-            . 'Claims'); // Rendered details are filled on demand; no invented proof is shipped.
         self::assertStringContainsString('GitHub observation', $response->body);
     }
 
