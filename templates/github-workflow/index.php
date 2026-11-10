@@ -41,7 +41,7 @@ require __DIR__ . '/../layout/header.php';
             <select id="gh-proof"><option value="">Any evidence</option><option value="ci">Exact-head CI</option><option value="dogfood">Dogfood</option><option value="artifact">Artifact</option><option value="review">Review</option><option value="missing">Missing / unverified</option></select>
         </label>
         <label>Freshness
-            <select id="gh-freshness"><option value="">Any</option><option value="current">Current-head</option><option value="stale">Stale</option><option value="unknown">Unknown</option></select>
+            <select id="gh-freshness"><option value="">Any</option><option value="current">Current-head</option><option value="stale">Stale</option><option value="mixed">Mixed heads</option><option value="unknown">Unknown</option></select>
         </label>
         <label>Blocker
             <select id="gh-blocker"><option value="">Any</option><option value="yes">Blocked</option><option value="no">Not identified</option></select>
