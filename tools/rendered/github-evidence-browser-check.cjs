@@ -112,7 +112,7 @@ if (process.env.CHROMIUM_PATH) {
         await page.locator('#gh-list input[type=checkbox]').last().check();
         await page.locator('#gh-compare').click();
         assert.equal(await page.locator('#gh-comparison').isVisible(), true);
-        assert.ok((await page.locator('#gh-comparison').innerText()).includes('Dependencies'));
+        assert.ok((await page.locator('#gh-comparison th').allTextContents()).includes('Dependencies'));
 
         const downloadPromise = page.waitForEvent('download');
         await page.locator('#gh-export').click();
