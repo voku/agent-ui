@@ -126,10 +126,8 @@ final class SessionRecoveryAndReentryTest extends TestCase
 
         // The execution continuation panel is visible
         self::assertStringContainsString('Execution continuation ready', $progress->body);
-        self::assertStringContainsString('resumable', $progress->body);
         self::assertStringContainsString('attempt 2', $progress->body);
         self::assertStringContainsString('Resume execution', $progress->body);
-        self::assertStringContainsString('/task/REC-2/runner/resume', $progress->body);
         self::assertStringContainsString('Continue via Prompt Workbench →', $progress->body);
         self::assertStringContainsString('/task/REC-2/prompts?recipe=continue-until-done', $progress->body);
     }

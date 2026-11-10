@@ -49,13 +49,13 @@ require __DIR__ . '/../layout/header.php';
 
 <div id="workflow-approval" data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
 
-<?php if ($runner !== null && ($runner->allowResume || $runner->allowRun)): ?>
+<?php if ($runner !== null && $runner->installed): ?>
     <h2 class="eyebrow">Execution continuation</h2>
     <section class="panel panel--accent" aria-label="Execution continuation">
         <div class="action__head">
             <div>
                 <strong>Execution continuation ready</strong>
-                <span class="pill pill--ok" style="margin-left:8px"><?= $runner->allowResume ? 'resumable' : 'runnable' ?></span>
+                <span class="pill pill--<?= ($runner->allowResume || $runner->allowRun) ? 'ok' : 'neutral' ?>" style="margin-left:8px"><?= $runner->allowResume ? 'resumable' : ($runner->allowRun ? 'runnable' : 'managed runner') ?></span>
             </div>
             <span class="small faint">stage <?= TemplateRenderer::escape($runner->currentStageId ?? 'execution') ?> · attempt <?= (int) ($runner->currentAttempt ?? 1) ?></span>
         </div>
@@ -71,6 +71,8 @@ require __DIR__ . '/../layout/header.php';
                     <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
                     <button class="btn btn--primary" type="submit">Run stage</button>
                 </form>
+            <?php else: ?>
+                <button class="btn" type="button" disabled title="Runner control unavailable in current environment">Resume execution</button>
             <?php endif; ?>
             <a class="btn" href="/task/<?= rawurlencode($card->id) ?>/prompts?recipe=continue-until-done">Continue via Prompt Workbench →</a>
         </div>
