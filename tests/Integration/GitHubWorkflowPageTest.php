@@ -55,7 +55,8 @@ final class GitHubWorkflowPageTest extends TestCase
     {
         $script = ClientScript::githubWorkflowCode();
         self::assertStringContainsString('updateFromGitHub', $script);
-        self::assertStringContainsString('sameHead ? existing.proofs : []', $script);
+        // Head-change and partial-refresh proof handling are exercised by the
+        // fixture-driven Playwright test, not brittle JavaScript source matching.
         self::assertStringContainsString('credentials: \'omit\'', $script);
         self::assertStringContainsString(
             "'sha256-" . base64_encode(hash('sha256', $script, true)) . "'",
