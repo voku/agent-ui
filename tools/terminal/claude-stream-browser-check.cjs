@@ -85,46 +85,51 @@ async function run() {
     const page = await browser.newPage();
     await page.goto(stdout.match(/http:\/\/\S+/)[0]);
     await page.waitForURL('**/task/UI-36/progress');
-    const panel = page.locator('[data-agent-activity]');
+    // No structured provider panel in the CLI-first workbench. The private
+    // transport remains active; test its authorization and bounded output
+    // without reintroducing a duplicate browser approval surface.
+    assert.equal(await page.locator('[data-agent-activity]').count(), 0);
     const pageErrors = [];
     page.on('pageerror', (error) => { pageErrors.push(error.message); });
-    await panel.locator('[data-agent-activity-provider]').selectOption('claude');
-    const snapshotBefore = await page.evaluate(async () => {
-        const response = await fetch('/_local/agent-activity/claude');
-        return { status: response.status, data: response.ok ? await response.json() : await response.text() };
-    });
-    assert.equal(snapshotBefore.status, 200, JSON.stringify(snapshotBefore));
-    assert.equal(snapshotBefore.data.state, 'stopped', JSON.stringify(snapshotBefore));
-    await until(async () => (await panel.locator('[data-codex-app-server-state]').textContent()).includes('stopped'),
-        'Claude selected provider view; errors=' + JSON.stringify(pageErrors));
-    assert.equal(snapshotBefore.data.provider, 'claude');
-    assert.equal(snapshotBefore.data.supports_decisions, false);
+    const snapshot = () => page.evaluate(async () => (await (await fetch('/_local/agent-activity/claude')).json()));
+    const post = (action, payload = {}) => page.evaluate(async ({ action, payload }) => {
+        const current = await (await fetch('/_local/agent-activity/claude')).json();
+        const response = await fetch('/_local/agent-activity/claude/' + action, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': current.csrf },
+            body: JSON.stringify(payload),
+        });
+        return { status: response.status, body: await response.text() };
+    }, { action, payload });
+    const before = await snapshot();
+    assert.equal(before.state, 'stopped');
+    assert.equal(before.provider, 'claude');
+    assert.equal(before.supports_decisions, false);
     const invalid = await page.evaluate(async () => (await fetch('/_local/agent-activity/claude/start', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json',
-            'X-Agent-Ui-Csrf': 'incorrect' }, body: '{}',
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': 'incorrect' },
+        body: '{}',
     })).status);
-    assert.equal(invalid, 403, 'Claude start is CSRF protected');
-    await panel.locator('[data-codex-app-server-start]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
-    await until(() => fs.existsSync(protocolLog), 'Claude structured process launched');
+    assert.equal(invalid, 403, 'Claude start requires valid CSRF token');
+
+    assert.equal((await post('start')).status, 200, 'fixture Claude stream transport starts');
+    await until(async () => (await snapshot()).state === 'idle', 'Claude stream starts', 15000);
+    await until(() => fs.existsSync(protocolLog), 'Claude fixture was launched');
     const initial = JSON.parse(fs.readFileSync(protocolLog, 'utf8').trim().split('\n')[0]);
     for (const flag of ['-p', '--input-format', 'stream-json', '--output-format', '--verbose',
         '--permission-mode', 'default', '--permission-prompts', 'none']) {
-        assert.ok(initial.argv.includes(flag), 'required documented CLI flag: ' + flag);
+        assert.ok(initial.argv.includes(flag), 'required CLI flag: ' + flag);
     }
-    const unrelatedDecision = await page.evaluate(async (csrf) => (await fetch('/_local/agent-activity/claude/decision', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json',
-            'X-Agent-Ui-Csrf': csrf }, body: JSON.stringify({ token: 'invented', decision: 'accept' }),
-    })).status, snapshotBefore.data.csrf);
-    assert.equal(unrelatedDecision, 409, 'Claude tool approvals cannot be fabricated through browser JSON');
-    await panel.locator('[data-codex-app-server-prompt]').fill('Please inspect the owner-backed task');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await until(() => fs.readFileSync(protocolLog, 'utf8').includes('"type":"user"'), 'prompt delivered over stream-json');
+    assert.equal((await post('decision', { token: 'invented', decision: 'accept' })).status, 409,
+        'Claude tool approvals cannot be fabricated through browser JSON');
+    assert.equal((await post('turn', { prompt: 'Please inspect the owner-backed task' })).status, 200);
+    await until(() => fs.readFileSync(protocolLog, 'utf8').includes('"type":"user"'),
+        'Claude prompt delivered over stream-json');
     const messages = fs.readFileSync(protocolLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
     assert.equal(messages[1].message.content[0].text, 'Please inspect the owner-backed task');
-    await until(async () => (await panel.locator('[data-codex-app-server-activity]').textContent())
-        .includes('Claude completed a turn'), 'observed tool + result events appear in shared UI');
-    const after = await page.evaluate(async () => (await (await fetch('/_local/agent-activity/claude')).json()));
+    await until(async () => (await snapshot()).activity.some((entry) => entry.label.includes('Claude completed a turn')),
+        'bounded Claude tool and result events');
+    const after = await snapshot();
     assert.equal(after.state, 'idle');
     assert.ok(after.activity.some((entry) => entry.label.includes('requested tool Bash')));
     assert.equal(after.pending_requests.length, 0);
@@ -132,15 +137,12 @@ async function run() {
     for (const secret of ['SECRET-TOOL-INPUT', 'PRIVATE-CLAUDE-OUTPUT', 'PRIVATE-CLAUDE-RESULT', 'SECRET-RESULT']) {
         assert.equal(publicText.includes(secret), false, 'no model/tool payload leak: ' + secret);
     }
-    assert.equal(await page.locator('[data-workflow-live]').count(), 1, 'Loop visualization remains separate');
-    page.once('dialog', async (dialog) => {
-        assert.equal(dialog.type(), 'confirm');
-        assert.ok(dialog.message().includes('Stop the Claude structured session?'));
-        await dialog.accept();
-    });
-    await panel.locator('[data-codex-app-server-stop]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
-    console.log('Claude structured CLI browser: provider sharing, CSRF, prompts, events, bounded observation, explicit denied approvals, stop passed.');
+    assert.equal(await page.locator('[data-workflow-live]').count(), 1, 'Loop remains independent');
+
+    assert.equal((await post('stop')).status, 200, 'explicit fixture stop');
+    await until(async () => (await snapshot()).state === 'stopped', 'Claude transport stops');
+    assert.deepEqual(pageErrors, []);
+    console.log('Claude stream-json authenticated browser API: CSRF, prompts, bounded events, denied tool approvals and stop passed.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
     if (browser) await browser.close();
