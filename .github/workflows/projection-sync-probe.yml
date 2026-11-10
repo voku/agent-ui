@@ -1,0 +1,30 @@
+name: Temporary owner-generated skills reconciliation probe
+on:
+  push:
+    branches: ['feat/cross-repo-evidence-workbench-20261110']
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Install declared packages
+        run: composer install --no-interaction --prefer-dist
+      - name: Generate canonical Claude skills and manifest from installed owner
+        run: vendor/bin/agent-loop init sync-skills --agent=claude
+      - name: Display exact generated asset delta
+        run: |
+          git status --short
+          git diff --stat
+          git diff -- .claude/skills/.agent-loop-manifest.json
+          git diff --name-status -- .claude/skills/
+      - name: Verify generated projection at installed owner
+        run: vendor/bin/phpunit tests/Integration/ManagedSkillProjectionTest.php
