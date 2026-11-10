@@ -33,8 +33,10 @@ The page intentionally separates:
 - JSON v1 interchange: import/export a bounded snapshot (max 300 items / 2 MiB);
   input is never treated as executable markup or repository authority. An imported
   thread disposition is an operator-supplied observation, not a GraphQL verification.
-  On head change, previously attached checks, reviews and thread dispositions
-  are invalidated.
+  On head change, previous SHA-bound CI/review receipts remain visible as stale
+  history; prior thread dispositions and head-unbound artifact views are invalidated.
+  When both historical and current-head proof exists, freshness is `mixed`,
+  not a fabricated all-current pass.
 - No OAuth token, private repository details, or GitHub API key are sent to
   the browser. Requests are fixed to `https://api.github.com`, `voku/` and
   the six hardcoded repositories. CSP permits that destination and SHA-pinned
