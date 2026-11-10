@@ -1,6 +1,7 @@
 name: Host-native workflow without Runner
 
 on:
+  push:
   pull_request:
   workflow_dispatch:
 
