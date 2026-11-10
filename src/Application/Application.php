@@ -10,6 +10,7 @@ use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Feature\Commands\CommandsAction;
 use voku\AgentUi\Feature\Context\ContextAction;
 use voku\AgentUi\Feature\Evidence\EvidenceAction;
+use voku\AgentUi\Feature\GitHubWorkflow\GitHubWorkflowAction;
 use voku\AgentUi\Feature\History\HistoryAction;
 use voku\AgentUi\Feature\History\TaskActivityComposer;
 use voku\AgentUi\Feature\Home\HomeAction;
@@ -72,6 +73,7 @@ final readonly class Application
     private ContextAction $context;
     private WorkAction $work;
     private EvidenceAction $evidence;
+    private GitHubWorkflowAction $githubWorkflow;
     private HistoryAction $history;
     private HumanDecisionAction $humanDecision;
     private RunnerAction $runner;
@@ -144,6 +146,7 @@ final readonly class Application
         $this->context = new ContextAction($board, $context, $transparency, $taskContext, $templates);
         $this->work = new WorkAction($board, $transparency, $taskContext, $templates);
         $this->evidence = new EvidenceAction($workflow, $audit, $taskContext, $templates);
+        $this->githubWorkflow = new GitHubWorkflowAction($templates);
         $this->history = new HistoryAction(
             $audit,
             new TaskActivityComposer($decisions, $learning, $board),
@@ -172,6 +175,7 @@ final readonly class Application
             return match ($route['route']) {
                 'health' => Response::json($this->identity->payload()),
                 'home' => ($this->home)(),
+                'github_workflow' => ($this->githubWorkflow)(),
                 'setup' => $this->setup->overview(),
                 'prompts' => $this->prompts->newTask($request),
                 'commands' => ($this->commands)($request),
