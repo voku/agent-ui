@@ -50,6 +50,24 @@ The v0.1 → v0.10 control-plane roadmap is implemented:
 - an attention-first cockpit that composes Setup, Needs you, Current work, Knowledge and the board without inventing a universal priority algorithm.
 - a code search and code visualization surface driven by `agent-map`: hybrid chunk search with visible channel provenance, hash-verified source windows, and a bounded reverse-dependency impact projection.
 
+### Cross-repository GitHub evidence workbench
+
+The local `/github-workflow` page opens a **read-only, public GitHub**
+cross-repository inventory for `agent-loop`, `agent-ui`,
+`php-runtime-audit`, `phpstan-agent-format`, `agent-learning` and
+`agent-recall-compiler`. It supports exact-head CI observations, on-demand
+reviews and artifact checks, evidence freshness, declared dependencies versus
+related issues, categorical next investigations, filters, comparisons, and
+JSON snapshot import/export. Browser refresh only runs while the page is open;
+private GitHub projects and GraphQL review-thread resolution are not fetched
+by the browser. Unknown is never treated as a pass. See
+[the evidence workbench boundary](docs/cross-repository-evidence-workbench.md).
+
+This page is **not** a second lifecycle engine or a merge bot. In Codex, Claude
+Code, OpenCode or another native host, continue using the canonical
+`agent-loop enter` / `finish` owner projections; `agent-loop-runner`
+remains optional.
+
 ## Installation
 
 ```bash
