@@ -16,6 +16,7 @@ use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
@@ -29,6 +30,7 @@ final readonly class WorkflowProgressAction
         private BoardProjectionGateway $board,
         private WorkflowProgressGateway $progress,
         private HumanDecisionGateway $decisions,
+        private RunnerGateway $runner,
         private CsrfTokenManager $csrf,
         private TaskContextComposer $taskContext,
         private TemplateRenderer $templates,
@@ -50,6 +52,8 @@ final readonly class WorkflowProgressAction
             'progress' => $progress,
             'decision_html' => $decisionHtml,
             'brief_html' => $briefHtml,
+            'runner' => $this->runner->status($taskId),
+            'csrf_token' => $this->csrf->token(),
             'task_context' => $this->taskContext->forCard($card),
         ]));
     }

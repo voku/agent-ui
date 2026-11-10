@@ -49,8 +49,19 @@ final readonly class PromptWorkbenchAction
         $taskId = $card->id ?? strtoupper(trim($request->body['task_id'] ?? ''));
         $goal = trim($request->body['goal'] ?? '');
         $additionalInstruction = trim($request->body['additional_instruction'] ?? '');
-        $selectedRecipeId = trim($request->body['recipe'] ?? '');
-        $argumentValues = $this->argumentValues($request->body);
+        $selectedRecipeId = trim($request->body['recipe'] ?? $request->query['recipe'] ?? '');
+        if ($selectedRecipeId === '' && $taskAware) {
+            foreach ($recipes as $candidate) {
+                if ($candidate->id === 'continue-until-done') {
+                    $selectedRecipeId = 'continue-until-done';
+                    break;
+                }
+            }
+        }
+        $argumentValues = $this->argumentValues($request->body !== [] ? $request->body : $request->query);
+        if ($selectedRecipeId === 'continue-until-done' && (!isset($argumentValues['done_condition']) || $argumentValues['done_condition'] === '')) {
+            $argumentValues['done_condition'] = 'All approved acceptance criteria and validation pass without errors.';
+        }
         $context = $card === null ? null : $this->context->task($card->id);
         $errors = [];
         $composition = null;
@@ -148,13 +159,13 @@ final readonly class PromptWorkbenchAction
     }
 
     /**
-     * @param array<string, string> $body
+     * @param array<string, string> $data
      * @return array<string, string>
      */
-    private function argumentValues(array $body): array
+    private function argumentValues(array $data): array
     {
         $values = [];
-        foreach ($body as $name => $value) {
+        foreach ($data as $name => $value) {
             if (!str_starts_with($name, 'arg_')) {
                 continue;
             }

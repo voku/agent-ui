@@ -7,9 +7,12 @@ namespace voku\AgentUi\Integration\AgentLoop;
 use InvalidArgumentException;
 use Throwable;
 use voku\AgentLoop\Execution\AttentionRequest;
+use voku\AgentLoop\Execution\AttentionResolution;
 use voku\AgentLoop\Execution\AttentionResolutionStore;
+use voku\AgentLoop\Execution\ExecutionArtifactValue;
 use voku\AgentLoop\Execution\ExecutionGateway;
 use voku\AgentLoop\Execution\ExecutionPlanStore;
+use voku\AgentLoop\ProjectLayout;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
@@ -160,6 +163,72 @@ final readonly class HumanDecisionGateway
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /** @return list<AttentionResolution> */
+    public function attentionResolutions(string $taskId): array
+    {
+        try {
+            $dir = (new ProjectLayout($this->projectRoot))->executionAttentionResolutionsRoot($taskId);
+        } catch (Throwable) {
+            return [];
+        }
+        if (!is_dir($dir)) {
+            return [];
+        }
+
+        $entries = scandir($dir);
+        if ($entries === false) {
+            return [];
+        }
+
+        $resolutions = [];
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..' || !str_ends_with($entry, '.json')) {
+                continue;
+            }
+            $path = $dir . '/' . $entry;
+            $json = @file_get_contents($path);
+            if (!is_string($json)) {
+                continue;
+            }
+            try {
+                $data = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                continue;
+            }
+            if (!is_array($data) || ($data['schema_version'] ?? null) !== '1.0' || ($data['kind'] ?? null) !== 'execution_attention_resolution') {
+                continue;
+            }
+            $revision = $data['contract_revision'] ?? null;
+            $attempt = $data['attempt'] ?? null;
+            if (!is_int($revision) || $revision < 1 || !is_int($attempt) || $attempt < 1) {
+                continue;
+            }
+
+            try {
+                $resolutions[] = new AttentionResolution(
+                    ExecutionArtifactValue::string($data['attention_id'] ?? null, $path . '#attention_id'),
+                    ExecutionArtifactValue::string($data['task_id'] ?? null, $path . '#task_id'),
+                    ExecutionArtifactValue::string($data['run_id'] ?? null, $path . '#run_id'),
+                    $revision,
+                    ExecutionArtifactValue::sha256($data['execution_plan_digest'] ?? null, $path . '#execution_plan_digest'),
+                    ExecutionArtifactValue::string($data['stage_id'] ?? null, $path . '#stage_id'),
+                    $attempt,
+                    ExecutionArtifactValue::string($data['actor'] ?? null, $path . '#actor'),
+                    ExecutionArtifactValue::string($data['resolved_at'] ?? null, $path . '#resolved_at'),
+                );
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        usort(
+            $resolutions,
+            static fn(AttentionResolution $left, AttentionResolution $right): int => strcmp($left->resolvedAt, $right->resolvedAt),
+        );
+
+        return $resolutions;
     }
 
     public function resolveAttention(string $taskId, string $attentionId, string $actor): void
