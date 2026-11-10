@@ -39,6 +39,8 @@ jobs:
           exit 1
       - name: Check live workflow behavior
         run: node tools/rendered/workflow-live-check.cjs http://127.0.0.1:8080
+      - name: Check cross-repository evidence behavior with mocked GitHub
+        run: node tools/rendered/github-evidence-browser-check.cjs http://127.0.0.1:8080
       - name: Server log
         if: always()
         run: tail -30 "$RUNNER_TEMP/workflow-server.log" || true
