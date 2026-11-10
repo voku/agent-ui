@@ -51,7 +51,7 @@ const captureGraph = () => {
             staticAttention.waitForNavigation({ waitUntil: 'domcontentloaded' }),
             staticForm.getByRole('button', { name: 'Resolve Attention' }).click()
         ]);
-        assert.equal(staticNavigation.status(), 200);
+        assert.equal(staticNavigation.status(), 200, `Native Attention POST returned: ${await staticNavigation.text()} (Origin: ${await staticNavigation.request().headerValue('origin')})`);
         assert.equal(await staticAttention.locator('form[action="/task/UI-39/attention"]').count(), 0);
         await staticAttention.reload();
         assert.equal(await staticAttention.locator('form[action="/task/UI-39/attention"]').count(), 0);
