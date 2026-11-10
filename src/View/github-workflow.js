@@ -4,6 +4,7 @@
 
     var root = document.getElementById('github-workflow');
     if (!root || typeof window.fetch !== 'function') { return; }
+    root.hidden = false;
 
     var repositories = [
         'voku/agent-loop', 'voku/agent-ui', 'voku/php-runtime-audit',
