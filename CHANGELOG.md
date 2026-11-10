@@ -4,6 +4,29 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.0] - 2026-11-10
+
+### Added
+
+- Human Attention Resolution (#167, #59):
+  - Direct browser-based resolution of `agent-loop` Attention requirements (`POST /task/{id}/attention`) with CSRF protection, explicit non-empty human actor requirements, and zero-JS accessibility.
+  - Decision context, consequence explanations, authority boundaries, and fresh state refresh without manual CLI invocation.
+  - Fail-closed validation rejecting empty actors, invalid IDs, unauthorized transitions, and stale execution attempts.
+  - Strict heading accessibility hierarchy (`h1` -> `h2` -> `h3`) across decision panels and workflow subviews.
+- End-to-End Workflow Dogfood (#169, #59):
+  - Comprehensive integration test (`tests/Integration/EndToEndWorkflowDogfoodTest.php`) verifying the entire multi-attempt governed task lifecycle on real git and loop fixtures.
+  - Task creation, Contract proposal & human approval, governed enter, attention interruption, browser attention resolution, stage continuation attempt 2, stage verify pass, review report check, human review acknowledgement gate, learning finding & note publication, through downstream task Recall delivery.
+- Learning → Recall Lineage (#169, #59):
+  - Bidirectional precedent lineage tracking across tasks and knowledge views:
+    - Forward lineage: `ContextExplanationGateway::deliveredPrecedentsByNote()` parses selection reports in `.agent-loop/recall/` to determine which downstream tasks received notes derived from a given task or finding.
+    - Backward lineage: `DeliveredPrecedentComposer` shows which preceding tasks taught each delivered precedent with direct links back to origin tasks and findings.
+    - Exposed downstream task deliveries in `templates/knowledge/task.php` (under Learning notes) and `templates/knowledge/finding.php` (under Derived Learning Notes & Downstream Reuse).
+    - Hyperlinked `sourceProposal`, `sourceRef`, and `subjectId` in `templates/context/index.php` directly to canonical `/knowledge/proposals/{id}` and `/knowledge/findings/{id}` views.
+- Session Recovery, History Timeline & Re-Entry Continuation (#170, #59):
+  - Authoritative Attention requirements and human resolutions recorded and placed on `/task/{id}/history` timeline with timestamps, actors, stage identities, and attempts via `HumanDecisionGateway::attentionResolutions()`.
+  - Injected `RunnerGateway` into `WorkflowProgressAction` to expose an Execution Continuation panel directly on `/task/{id}/progress`, enabling one-click `Resume execution` or `Run stage` via the managed runner without manual CLI reconstruction.
+  - Support `?recipe=` query parameter in `PromptWorkbenchAction`, automatically defaulting to `continue-until-done` with pre-populated acceptance criteria for governed task handoffs (`/task/{id}/handoff`).
+
 ## [0.19.1] - 2026-11-09
 
 ### Added
