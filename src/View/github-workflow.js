@@ -70,8 +70,11 @@
     }
 
     function freshness(item) {
-        if (proofs(item).some(function (p) { return p.sha && !fresh(item, p); })) { return 'stale'; }
-        if (proofs(item).some(function (p) { return fresh(item, p); })) { return 'current'; }
+        var current = proofs(item).some(function (p) { return fresh(item, p); });
+        var stale = proofs(item).some(function (p) { return p.sha && !fresh(item, p); });
+        if (current && stale) { return 'mixed'; }
+        if (current) { return 'current'; }
+        if (stale) { return 'stale'; }
         return 'unknown';
     }
 
@@ -124,7 +127,9 @@
             return 'Address the unresolved review thread and revalidate the head.';
         }
         if (Array.isArray(item.blockers) && item.blockers.length) { return 'Resolve: ' + item.blockers[0]; }
-        if (freshness(item) === 'stale') { return 'Rerun checks on the changed head; previous proof is stale.'; }
+        if (freshness(item) === 'stale' || freshness(item) === 'mixed') {
+            return 'Reconcile historical proof with the exact current head before advancing.';
+        }
         if (!hasEvidence(item, 'ci')) { return 'Collect current-head CI jobs and their outcomes.'; }
         if (item.draft) { return 'Complete the experiment; retain human review gate.'; }
         if (!hasEvidence(item, 'dogfood')) { return 'Check meaningful consumer/host dogfood and review requirements.'; }
@@ -273,7 +278,8 @@
 
         var reviews = section(detail, 'Reviews and threads');
         notes(reviews, item.reviews, function (li, r) {
-            append(li, 'span', r.state + ' by ' + r.author + ' · ' + shortSha(r.sha));
+            append(li, 'span', r.state + ' by ' + r.author + ' · ' + shortSha(r.sha) +
+                (item.kind === 'pr' && r.sha === item.head ? ' · CURRENT HEAD' : ' · STALE / UNKNOWN'));
         });
         if (item.threads === null) { append(reviews, 'p', 'Resolved/unresolved thread state UNKNOWN: unauthenticated REST does not expose GraphQL thread resolution. Import owner-verified thread facts.', 'note'); }
         else { notes(reviews, item.threads, function (li, t) {
@@ -360,8 +366,10 @@
             head: head, draft: raw.draft,
             claim: typeof raw.body === 'string' ? raw.body.slice(0, 4000) : null,
             phase: sameHead ? existing.phase : null,
-            proofs: sameHead ? existing.proofs : [],
-            reviews: sameHead ? existing.reviews : [],
+            // Keep old SHA-bound proof as historical evidence, never current
+            // authority. Drop thread disposition on any head transition.
+            proofs: existing ? existing.proofs : [],
+            reviews: existing ? existing.reviews : [],
             threads: sameHead ? existing.threads : null,
             artifacts: sameHead ? existing.artifacts : null,
             blockers: sameHead ? existing.blockers : [],
@@ -369,8 +377,8 @@
             relatedTo: existing ? existing.relatedTo : [],
             observedAt: seenAt, detailsLoaded: false
         });
-        // A head change removes previously attached facts, rather than silently
-        // displaying old checks, reviews or thread dispositions as current.
+        // A head change preserves SHA-bound historical receipts as STALE, but
+        // invalidates old thread disposition and head-unbound artifacts.
         state.items.set(id, item);
     }
 
@@ -435,11 +443,12 @@
             } else { missing.push('reviews'); }
             if (requests[1].status === 'fulfilled') {
                 var checks = requests[1].value.check_runs || [];
-                item.proofs = checks.map(function (c) {
+                var previous = item.proofs.filter(function (p) { return p.sha && p.sha !== currentHead; });
+                item.proofs = previous.concat(checks.map(function (c) {
                     return { type: /dogfood|consumer|smoke|host/i.test(c.name) ? 'dogfood' : 'ci',
                         sha: c.head_sha || currentHead, outcome: c.conclusion || c.status,
                         label: c.name, url: c.html_url, observedAt: c.completed_at };
-                });
+                })).slice(-100);
             } else { missing.push('check runs'); }
             var runs = [];
             if (requests[2].status === 'fulfilled') {
