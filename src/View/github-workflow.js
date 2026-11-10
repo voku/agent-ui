@@ -421,6 +421,15 @@
     async function loadDetails(id) {
         var item = state.items.get(id);
         if (!item || item.kind !== 'pr') { return; }
+        // Revoke same-head approvals and checks before attempting verification.
+        // Clearly old-head receipts remain visible as stale history only.
+        item.proofs = item.proofs.filter(function (p) { return p.sha && p.sha !== item.head; });
+        item.reviews = [];
+        item.threads = null;
+        item.artifacts = null;
+        item.detailsLoaded = false;
+        item.partial = true;
+        render();
         message.textContent = 'Loading current PR identity, checks, reviews and artifacts for ' + id + '.';
         var base = '/repos/' + item.repo;
         try {
