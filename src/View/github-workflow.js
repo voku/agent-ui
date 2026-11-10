@@ -96,7 +96,7 @@
         if (item.state === 'closed' || item.state === 'merged') { return 'closed'; }
         if (isBlocked(item)) { return 'blocked'; }
         if (item.draft) { return 'draft'; }
-        if (item.kind === 'pr' && !(item.reviews || []).some(function (r) { return r.state === 'APPROVED'; })) {
+        if (item.kind === 'pr' && !(item.reviews || []).some(function (r) { return r.state === 'APPROVED' && r.sha === item.head; })) {
             return 'review';
         }
         return 'observed';
