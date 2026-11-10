@@ -21,6 +21,8 @@ final class ClientScript
 
     private static ?string $graphLibrary = null;
 
+    private static ?string $githubWorkflowCode = null;
+
     /** The inline script body, without its surrounding `<script>` element. */
     public static function code(): string
     {
@@ -33,6 +35,20 @@ final class ClientScript
         }
 
         return self::$code;
+    }
+
+    /** Read-only GitHub workbench enhancement, loaded only on its page. */
+    public static function githubWorkflowCode(): string
+    {
+        if (self::$githubWorkflowCode === null) {
+            $code = file_get_contents(__DIR__ . '/github-workflow.js');
+            if ($code === false) {
+                throw new RuntimeException('Unable to read the GitHub workbench script.');
+            }
+            self::$githubWorkflowCode = $code;
+        }
+
+        return self::$githubWorkflowCode;
     }
 
     /**
@@ -55,7 +71,7 @@ final class ClientScript
     /** The exact `script-src` source expressions that permit the shipped scripts. */
     public static function cspSource(): string
     {
-        $sources = [self::hashSource(self::code())];
+        $sources = [self::hashSource(self::code()), self::hashSource(self::githubWorkflowCode())];
         if (self::graphLibrary() !== '') {
             $sources[] = self::hashSource(self::graphLibrary());
         }
