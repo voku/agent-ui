@@ -345,7 +345,7 @@
         var controller = new AbortController();
         var timer = setTimeout(function () { controller.abort(); }, 12000);
         return fetch('https://api.github.com' + path, {
-            headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+            headers: { Accept: 'application/vnd.github+json' },
             cache: 'no-store',
             credentials: 'omit',
             signal: controller.signal
