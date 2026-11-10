@@ -8,7 +8,9 @@ const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
 let head = HEAD_A;
 let detailApiUnavailable = false;
+let detailPrUnavailable = false;
 let checkOutcome = 'success';
+let extraCheckOutcomes = [];
 let reviewerStates = ['APPROVED'];
 let holdReviews = false;
 let reviewGateEntered = null;
@@ -39,9 +41,10 @@ if (process.env.CHROMIUM_PATH) {
             const path = url.pathname;
             const repo = path.match(/^\/repos\/voku\/([^/]+)/)?.[1];
             let result = {};
-            if (detailApiUnavailable &&
+            if ((detailPrUnavailable && path.endsWith('/pulls/500')) ||
+                (detailApiUnavailable &&
                 (path.endsWith('/pulls/500/reviews') || path.endsWith('/pulls/500/comments') ||
-                    path.endsWith('/actions/runs') || /\/commits\/[a-f0-9]{40}\/check-runs$/.test(path))) {
+                    path.endsWith('/actions/runs') || /\/commits\/[a-f0-9]{40}\/check-runs$/.test(path)))) {
                 await route.fulfill({ status: 503, contentType: 'application/json',
                     body: JSON.stringify({ message: 'Temporary GitHub API failure' }) });
                 return;
@@ -70,11 +73,12 @@ if (process.env.CHROMIUM_PATH) {
                     state, user: { login: 'reviewer' }, commit_id: head
                 }));
             } else if (/\/commits\/[a-f0-9]{40}\/check-runs$/.test(path)) {
-                result = { check_runs: [{
-                    name: 'CI', head_sha: head, conclusion: checkOutcome,
-                    status: checkOutcome ? 'completed' : 'in_progress',
-                    html_url: 'https://github.com/voku/agent-loop/actions/runs/1'
-                }] };
+                result = { check_runs: [checkOutcome].concat(extraCheckOutcomes).map((outcome, index) => ({
+                    name: index === 0 ? 'CI' : 'CI extra ' + index,
+                    head_sha: head, conclusion: outcome === 'in_progress' ? null : outcome,
+                    status: outcome === 'in_progress' ? 'in_progress' : 'completed',
+                    html_url: 'https://github.com/voku/agent-loop/actions/runs/' + (index + 1)
+                })) };
             } else if (path.endsWith('/actions/runs')) {
                 result = { workflow_runs: [] };
             } else if (path.endsWith('/pulls/500/comments')) {
@@ -96,6 +100,15 @@ if (process.env.CHROMIUM_PATH) {
         assert.ok((await page.locator('#gh-detail').innerText()).includes('Claim (not proof)'));
         assert.ok((await page.locator('#gh-detail').innerText()).includes('resolved/unresolved thread state UNKNOWN') ||
             (await page.locator('#gh-detail').innerText()).includes('thread state UNKNOWN'));
+
+        // When the PR lookup itself fails, cleared same-head observations must
+        // not be described as retained. No prior approval or CI may survive.
+        detailPrUnavailable = true;
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes(
+            'Same-head checks and reviews were cleared and are unverified'));
+        assert.ok(!(await page.locator('#gh-detail').innerText()).includes('CURRENT HEAD'));
+        detailPrUnavailable = false;
 
         // A retry with four unavailable detail APIs must not inherit
         // the earlier same-head approval or successful check.
@@ -121,6 +134,28 @@ if (process.env.CHROMIUM_PATH) {
         assert.equal(await page.locator('#gh-list tr').count(), 1); // Empty placeholder row, not a proof.
         assert.ok((await page.locator('#gh-list').innerText()).includes('No matching observations'));
         await page.locator('#gh-proof').selectOption('');
+
+        // A passing check must not mask additional pending, neutral or skipped
+        // exact-head checks. Every fresh check must have a success outcome.
+        checkOutcome = 'success';
+        reviewerStates = ['APPROVED'];
+        for (const nonPassingOutcome of ['in_progress', 'neutral', 'skipped']) {
+            extraCheckOutcomes = [nonPassingOutcome];
+            await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+            await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Exact-head details loaded'));
+            await page.locator('#gh-proof').selectOption('ci');
+            assert.ok((await page.locator('#gh-list').innerText()).includes('No matching observations'));
+            await page.locator('#gh-proof').selectOption('');
+            assert.ok((await page.locator('#gh-detail').innerText()).includes('Collect current-head CI jobs and their outcomes'));
+        }
+        // Multiple passing same-head checks are sufficient for the CI filter.
+        extraCheckOutcomes = ['success'];
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Exact-head details loaded'));
+        await page.locator('#gh-proof').selectOption('ci');
+        assert.equal(await page.locator('#gh-list tr').count(), 1);
+        await page.locator('#gh-proof').selectOption('');
+        extraCheckOutcomes = [];
 
         // Dismissing the latest review cannot resurrect the earlier approval.
         checkOutcome = 'success';
