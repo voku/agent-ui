@@ -18,7 +18,7 @@ require __DIR__ . '/../layout/header.php';
         <div>
             <button type="button" class="btn" id="gh-refresh">Refresh GitHub</button>
             <button type="button" class="btn" id="gh-export">Export JSON</button>
-            <label class="btn" for="gh-import">Import JSON</label>
+            <button type="button" class="btn" id="gh-import-button">Import JSON</button>
             <input type="file" id="gh-import" accept="application/json,.json" hidden>
         </div>
         <span class="small faint" id="gh-updated">No GitHub observation yet</span>
