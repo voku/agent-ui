@@ -55,7 +55,9 @@ final class GitHubWorkflowPageTest extends TestCase
     {
         $script = ClientScript::githubWorkflowCode();
         self::assertStringContainsString('updateFromGitHub', $script);
-        self::assertStringContainsString('sameHead ? existing.proofs : []', $script);
+        self::assertStringContainsString('proofs: existing ? existing.proofs : []', $script);
+        self::assertStringContainsString('threads: sameHead ? existing.threads : null', $script);
+        self::assertStringContainsString("return 'mixed';", $script);
         self::assertStringContainsString('credentials: \'omit\'', $script);
         self::assertStringContainsString(
             "'sha256-" . base64_encode(hash('sha256', $script, true)) . "'",
