@@ -94,7 +94,7 @@ require __DIR__ . '/../layout/header.php';
                 <dl class="kv" style="margin-top:12px">
                     <dt>Engine</dt><dd><?= TemplateRenderer::escape($constraint->engine) ?></dd>
                     <dt>Rule</dt><dd><code><?= TemplateRenderer::escape($constraint->ruleIdentifier) ?></code></dd>
-                    <dt>Source proposal</dt><dd><?= TemplateRenderer::escape($constraint->sourceProposal) ?></dd>
+                    <dt>Source proposal</dt><dd><?php if (str_starts_with($constraint->sourceProposal, 'proposal.')): ?><a class="mono" href="/knowledge/proposals/<?= TemplateRenderer::escape($constraint->sourceProposal) ?>"><?= TemplateRenderer::escape($constraint->sourceProposal) ?></a><?php else: ?><?= TemplateRenderer::escape($constraint->sourceProposal) ?><?php endif; ?></dd>
                     <dt>Status</dt><dd><?= TemplateRenderer::escape($constraint->status ?? 'metadata not persisted') ?></dd>
                     <dt>Scope</dt><dd><?= TemplateRenderer::escape($constraint->scope === null ? 'metadata not persisted' : implode(', ', $constraint->scope)) ?></dd>
                     <dt>Validation</dt><dd><?= TemplateRenderer::escape($constraint->validationCommands === null ? 'metadata not persisted' : implode(' · ', $constraint->validationCommands)) ?></dd>
@@ -119,7 +119,7 @@ require __DIR__ . '/../layout/header.php';
                 </div>
                 <dl class="kv" style="margin-top:12px">
                     <dt>Why selected</dt><dd><?= TemplateRenderer::escape($guidance->selectionReason?->value ?? 'owner reason unavailable') ?></dd>
-                    <dt>Source proposal</dt><dd><?= TemplateRenderer::escape($guidance->sourceProposal ?? 'not recorded') ?></dd>
+                    <dt>Source proposal</dt><dd><?php if ($guidance->sourceProposal !== null && str_starts_with($guidance->sourceProposal, 'proposal.')): ?><a class="mono" href="/knowledge/proposals/<?= TemplateRenderer::escape($guidance->sourceProposal) ?>"><?= TemplateRenderer::escape($guidance->sourceProposal) ?></a><?php else: ?><?= TemplateRenderer::escape($guidance->sourceProposal ?? 'not recorded') ?><?php endif; ?></dd>
                     <dt>Task files</dt><dd><?= TemplateRenderer::escape($guidance->taskFiles === [] ? 'none recorded' : implode(', ', $guidance->taskFiles)) ?></dd>
                     <?php if ($stats !== null): ?>
                         <dt>Outcome evidence</dt><dd><?= $stats['selected_count'] ?> selected · <?= $stats['helpful_count'] ?> helpful · <?= $stats['irrelevant_count'] ?> irrelevant · <?= $stats['harmful_count'] ?> harmful · <?= $stats['violation_detected_count'] ?> violations</dd>
@@ -144,7 +144,7 @@ require __DIR__ . '/../layout/header.php';
                 <dl class="kv" style="margin-top:12px">
                     <dt>Eligible</dt><dd><?= $guidance->eligible ? 'yes' : 'no' ?></dd>
                     <dt>Why not</dt><dd><?= TemplateRenderer::escape($guidance->exclusionReason?->value ?? 'owner reason unavailable') ?></dd>
-                    <dt>Source proposal</dt><dd><?= TemplateRenderer::escape($guidance->sourceProposal ?? 'not recorded') ?></dd>
+                    <dt>Source proposal</dt><dd><?php if ($guidance->sourceProposal !== null && str_starts_with($guidance->sourceProposal, 'proposal.')): ?><a class="mono" href="/knowledge/proposals/<?= TemplateRenderer::escape($guidance->sourceProposal) ?>"><?= TemplateRenderer::escape($guidance->sourceProposal) ?></a><?php else: ?><?= TemplateRenderer::escape($guidance->sourceProposal ?? 'not recorded') ?><?php endif; ?></dd>
                     <dt>Task files</dt><dd><?= TemplateRenderer::escape($guidance->taskFiles === [] ? 'none recorded' : implode(', ', $guidance->taskFiles)) ?></dd>
                 </dl>
             </article>
@@ -169,7 +169,10 @@ require __DIR__ . '/../layout/header.php';
                     <dt>How</dt><dd><?= TemplateRenderer::escape($item->how) ?></dd>
                     <dt>Authority</dt><dd><?= TemplateRenderer::escape($item->authority) ?></dd>
                     <dt>Intended use</dt><dd><?= TemplateRenderer::escape($item->use) ?></dd>
-                    <dt>Source</dt><dd><?= TemplateRenderer::escape($item->sourceRef ?? 'not recorded') ?></dd>
+                    <?php if ($item->kind === 'learning_precedent' && $item->subjectId !== null): ?>
+                        <dt>Precedent</dt><dd class="mono"><?= TemplateRenderer::escape($item->subjectId) ?></dd>
+                    <?php endif; ?>
+                    <dt>Source</dt><dd><?php if ($item->sourceRef !== null && str_starts_with($item->sourceRef, 'finding.')): ?><a class="mono" href="/knowledge/findings/<?= TemplateRenderer::escape($item->sourceRef) ?>"><?= TemplateRenderer::escape($item->sourceRef) ?></a><?php elseif ($item->sourceRef !== null && str_starts_with($item->sourceRef, 'proposal.')): ?><a class="mono" href="/knowledge/proposals/<?= TemplateRenderer::escape($item->sourceRef) ?>"><?= TemplateRenderer::escape($item->sourceRef) ?></a><?php else: ?><?= TemplateRenderer::escape($item->sourceRef ?? 'not recorded') ?><?php endif; ?></dd>
                     <dt>Evidence</dt><dd><?= TemplateRenderer::escape($item->evidenceIds === [] ? 'none recorded' : implode(', ', $item->evidenceIds)) ?></dd>
                 </dl>
             </article>

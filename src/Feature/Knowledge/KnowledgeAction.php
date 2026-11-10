@@ -78,6 +78,7 @@ final readonly class KnowledgeAction
         return Response::html($this->templates->render('knowledge/finding', [
             'finding' => $finding,
             'promotion' => $this->learning->promotionReadiness($findingId),
+            'derived_notes' => $this->delivered->findingLineage($findingId),
             'project_label' => $this->projectPrefix(),
         ]));
     }
@@ -114,6 +115,7 @@ final readonly class KnowledgeAction
             'learning' => $this->learning->task($taskId),
             'precedents' => $this->learning->taskPrecedents($taskId),
             'delivered' => $this->delivered->forTask($taskId),
+            'downstream_deliveries' => $this->delivered->downstreamDeliveries(),
             'task_context' => $this->taskContext->forTask($taskId),
             'project_label' => $this->projectPrefix(),
         ]));

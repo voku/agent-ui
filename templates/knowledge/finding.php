@@ -3,9 +3,10 @@ use voku\AgentLearning\Catalog\FindingProjection;
 use voku\AgentUi\Integration\AgentLearning\FindingPromotionSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{finding: FindingProjection, promotion: ?FindingPromotionSnapshot} $model */
+/** @var array{finding: FindingProjection, promotion: ?FindingPromotionSnapshot, derived_notes?: list<array{note: \voku\AgentLearning\LearningNoteProjection, deliveries: list<string>}>} $model */
 $finding = $model['finding'];
 $promotion = $model['promotion'];
+$derivedNotes = $model['derived_notes'] ?? [];
 $title = $finding->id . ' · Finding · agent-ui';
 $nav = 'knowledge';
 $projectLabel = $model['project_label'] ?? null;
@@ -55,6 +56,34 @@ require __DIR__ . '/../layout/header.php';
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+    </section>
+<?php endif; ?>
+
+<?php if ($derivedNotes !== []): ?>
+    <p class="eyebrow" style="margin-top:20px">Derived Learning Notes &amp; Downstream Reuse</p>
+    <section class="panel" aria-label="Derived Learning Notes">
+        <div class="stack">
+            <?php foreach ($derivedNotes as $derived): ?>
+                <article>
+                    <div class="action__head">
+                        <span class="mono"><strong><?= TemplateRenderer::escape($derived['note']->id) ?></strong></span>
+                        <span class="pill pill--ok">active note</span>
+                    </div>
+                    <p style="margin:4px 0 0"><strong><?= TemplateRenderer::escape($derived['note']->content->title) ?></strong></p>
+                    <p class="small" style="margin:2px 0 0"><?= TemplateRenderer::escape($derived['note']->content->guidance) ?></p>
+                    <?php if ($derived['deliveries'] !== []): ?>
+                        <p class="small note" style="margin-top:6px">
+                            <strong>Delivered to downstream tasks (Recall):</strong>
+                            <?php foreach ($derived['deliveries'] as $idx => $downstreamTaskId): ?>
+                                <?= $idx > 0 ? ', ' : '' ?><a class="mono" href="/task/<?= TemplateRenderer::escape($downstreamTaskId) ?>/learning"><?= TemplateRenderer::escape($downstreamTaskId) ?></a>
+                            <?php endforeach; ?>
+                        </p>
+                    <?php else: ?>
+                        <p class="small faint" style="margin-top:4px">No subsequent tasks have been delivered this precedent yet.</p>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
+        </div>
     </section>
 <?php endif; ?>
 
