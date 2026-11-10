@@ -114,6 +114,21 @@ async function run() {
     const page = await context.newPage();
     await page.goto(accessUrl);
     await page.waitForURL('**/task/UI-36/progress');
+    assert.equal(await page.getByRole('link', { name: 'Open task prompts' }).getAttribute('href'), '/task/UI-36/prompts');
+    assert.equal(await page.locator('[data-agent-activity]').count(), 0);
+    const prompts = await context.newPage();
+    await prompts.addInitScript(() => {
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText: (value) => { window.__copiedPrompt = value; return Promise.resolve(); } } });
+    });
+    await prompts.goto(origin + '/prompts');
+    await prompts.locator('#task-id').fill('UI-36');
+    await prompts.locator('#goal').fill('Inspect the current task');
+    await prompts.locator('input[name="recipe"][value="discovery-first"]').check();
+    await prompts.locator('#workbench-prompt').waitFor();
+    const promptText = (await prompts.locator('#workbench-prompt').textContent()).trim();
+    await prompts.locator('[data-copy-target="workbench-prompt"]').click();
+    assert.equal(await prompts.evaluate(() => window.__copiedPrompt), promptText);
+    await prompts.close();
     const cookies = await context.cookies(origin);
     const cookie = cookies.map((entry) => `${entry.name}=${entry.value}`).join('; ');
     const terminalUrl = new URL(await page.locator('[data-terminal-frame]').getAttribute('data-terminal-url'));

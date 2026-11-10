@@ -279,6 +279,7 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertStringNotContainsString('<html', $fragment->body);
         self::assertStringNotContainsString('class="masthead"', $fragment->body);
         self::assertStringContainsString('id="workbench-prompt"', $fragment->body);
+        self::assertStringContainsString('data-copy-target="workbench-prompt"', $fragment->body);
         preg_match('/sha256:([0-9a-f]{64})/', $fragment->body, $digest);
         $promptDigest = $digest[1] ?? null;
         self::assertIsString($promptDigest);
@@ -288,6 +289,7 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(400, $refused->status);
         self::assertStringContainsString('Prompt not generated', $refused->body);
         self::assertStringNotContainsString('id="workbench-prompt"', $refused->body);
+        self::assertStringNotContainsString('data-copy-target="workbench-prompt"', $refused->body);
     }
 
     /**
