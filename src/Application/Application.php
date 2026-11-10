@@ -208,7 +208,7 @@ final readonly class Application
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
                 'history' => ($this->history)($route['task_id'] ?? ''),
                 'handoff' => Response::redirect('/task/' . rawurlencode($route['task_id'] ?? '') . '/prompts'),
-                'approve', 'review_ack', 'learning' => ($this->humanDecision)(
+                'approve', 'review_ack', 'learning', 'attention' => ($this->humanDecision)(
                     $route['task_id'] ?? '',
                     $route['route'],
                     $request,

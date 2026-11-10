@@ -1,17 +1,56 @@
 <?php
+use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract: ?TaskContract, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract: ?TaskContract, csrf_token: string, pending_attention?: ?AttentionRequest} $model */
 $card = $model['card'];
 $decisions = $model['human_decisions'];
 $contract = $model['contract'];
 $csrf = $model['csrf_token'];
+$pendingAttention = $model['pending_attention'] ?? null;
 ?>
-<?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT) && $contract !== null): ?>
-    <p class="eyebrow">Human decision required</p>
+<?php if ($pendingAttention !== null): ?>
+    <h2 class="eyebrow">Human attention required</h2>
+    <section class="panel panel--attention">
+        <div class="action__head">
+            <div>
+                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($pendingAttention->kind->value)) ?>"><?= TemplateRenderer::escape(Presentation::label($pendingAttention->kind->value)) ?></span>
+                <strong style="margin-left:8px">Attention required: stage <?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></strong>
+            </div>
+            <span class="small faint">created <?= TemplateRenderer::escape($pendingAttention->createdAt) ?></span>
+        </div>
+
+        <div class="workflow-brief__next" style="margin-top:12px">
+            <strong>What this attention means</strong>
+            <p class="small" style="margin:5px 0 0"><?= TemplateRenderer::escape($pendingAttention->message) ?></p>
+        </div>
+
+        <div style="margin:12px 0 6px;padding:10px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+            <div class="small">
+                <p style="margin:0 0 4px"><strong>Attention ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->id) ?></code></p>
+                <p style="margin:0 0 4px"><strong>Run ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->runId) ?></code></p>
+                <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records an authoritative human decision in <code class="mono">AttentionResolutionStore</code>, clears the attention flag, and increments the execution attempt so stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> can resume under execution governance. Autonomous agents cannot self-resolve.</p>
+            </div>
+        </div>
+
+        <form class="form" method="post" data-workflow-approval-form data-workflow-decision-form action="/task/<?= TemplateRenderer::escape($card->id) ?>/attention" style="margin-top:16px">
+            <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+            <input type="hidden" name="return_to" value="progress">
+            <input type="hidden" name="attention_id" value="<?= TemplateRenderer::escape($pendingAttention->id) ?>">
+            <p class="note" style="margin:0 0 10px">Human authority required. Provide your name or identifier to record the resolution.</p>
+            <div class="form__row">
+                <label class="field"><span>Resolved by</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is resolving"></label>
+                <button class="btn btn--primary" type="submit">Resolve Attention</button>
+            </div>
+            <p class="small note" data-workflow-approval-status aria-live="polite" hidden></p>
+        </form>
+    </section>
+<?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT) && $contract !== null): ?>
+    <h2 class="eyebrow">Human decision required</h2>
     <section class="panel panel--attention">
         <div class="action__head">
             <div>
@@ -71,7 +110,7 @@ $csrf = $model['csrf_token'];
         </form>
     </section>
 <?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
-    <p class="eyebrow">Human review acknowledgement</p>
+    <h2 class="eyebrow">Human review acknowledgement</h2>
     <section class="panel panel--attention">
         <div class="action__head">
             <strong>Review the exact report before acknowledging</strong>
@@ -92,7 +131,7 @@ $csrf = $model['csrf_token'];
         </form>
     </section>
 <?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::RECORD_LEARNING)): ?>
-    <p class="eyebrow">Learning disposition</p>
+    <h2 class="eyebrow">Learning disposition</h2>
     <section class="panel panel--attention">
         <strong>Record the outcome of this run</strong>
         <p class="note">Choose from the currently supported owner actions. No durable learning means there was no reusable finding; a follow-up requires a concrete reference. This is not a substitute for validation or review.</p>
@@ -124,7 +163,7 @@ $csrf = $model['csrf_token'];
         <p class="small note">Validated Finding content still belongs to the Learning owner. Use the full task decision page for any other projected action.</p>
     </section>
 <?php elseif ($decisions->actions !== []): ?>
-    <p class="eyebrow">Human decision available</p>
+    <h2 class="eyebrow">Human decision available</h2>
     <section class="panel panel--attention">
         <p class="note">The owner projects another recordable decision. Its details are available on the full task page; this cockpit will not invent a generic approval.</p>
         <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>#decision">Open exact owner decision</a>

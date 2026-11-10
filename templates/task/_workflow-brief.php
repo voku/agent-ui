@@ -7,11 +7,12 @@ use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, contract: ?TaskContract, human_decisions: WorkflowHumanDecisionProjection} $model */
+/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, contract: ?TaskContract, human_decisions: WorkflowHumanDecisionProjection, pending_attention?: ?\voku\AgentLoop\Execution\AttentionRequest} $model */
 $card = $model['card'];
 $progress = $model['progress'];
 $contract = $model['contract'];
 $decisions = $model['human_decisions'];
+$pendingAttention = $model['pending_attention'] ?? null;
 
 $activeStep = null;
 foreach ($progress->steps as $step) {
@@ -20,7 +21,7 @@ foreach ($progress->steps as $step) {
         break;
     }
 }
-$humanRequired = $decisions->actions !== [];
+$humanRequired = $decisions->actions !== [] || $pendingAttention !== null;
 $contractApproved = $contract !== null && $contract->status === TaskContract::APPROVED;
 ?>
 <section class="panel workflow-brief" aria-label="Current task briefing">

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentLoop;
 
+use InvalidArgumentException;
+use Throwable;
+use voku\AgentLoop\Execution\AttentionRequest;
+use voku\AgentLoop\Execution\AttentionResolutionStore;
+use voku\AgentLoop\Execution\ExecutionGateway;
+use voku\AgentLoop\Execution\ExecutionPlanStore;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
@@ -17,7 +23,7 @@ final readonly class HumanDecisionGateway
     private TaskContractStore $contractStore;
     private WorkflowHumanDecisionProjector $approvalProjector;
 
-    public function __construct(string $projectRoot)
+    public function __construct(private string $projectRoot)
     {
         $this->service = new WorkflowHumanDecisionService($projectRoot);
         $this->contractStore = new TaskContractStore($projectRoot);
@@ -143,5 +149,54 @@ final readonly class HumanDecisionGateway
         ?string $followUpRef,
     ): void {
         $this->service->recordLearning($taskId, $decision, $actor, $reason, followUpRef: $followUpRef);
+    }
+
+    public function pendingAttention(string $taskId): ?AttentionRequest
+    {
+        try {
+            $projection = (new ExecutionGateway($this->projectRoot))->projection($taskId);
+
+            return $projection->attention;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function resolveAttention(string $taskId, string $attentionId, string $actor): void
+    {
+        $attentionId = trim($attentionId);
+        if ($attentionId === '') {
+            throw new InvalidArgumentException('A non-empty attention ID is required.');
+        }
+
+        $actor = trim($actor);
+        if ($actor === '') {
+            throw new InvalidArgumentException('A non-empty actor is required to resolve Attention.');
+        }
+
+        $gateway = new ExecutionGateway($this->projectRoot);
+        try {
+            $projection = $gateway->projection($taskId);
+        } catch (Throwable $exception) {
+            throw new InvalidArgumentException('No execution exists for task ' . $taskId . '.', previous: $exception);
+        }
+
+        $attention = $projection->attention;
+        if ($attention === null || $attention->id !== $attentionId) {
+            throw new InvalidArgumentException('No matching pending Attention exists for this execution.');
+        }
+
+        $plan = (new ExecutionPlanStore($this->projectRoot))->load($taskId);
+        try {
+            (new AttentionResolutionStore($this->projectRoot))->record(
+                $plan,
+                $attention,
+                $projection->currentAttempt,
+                $actor,
+            );
+            $gateway->resolveAttention($taskId, $attentionId);
+        } catch (Throwable $exception) {
+            throw new InvalidArgumentException('Attention resolution failed: ' . $exception->getMessage(), previous: $exception);
+        }
     }
 }

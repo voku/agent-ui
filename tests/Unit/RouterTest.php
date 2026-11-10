@@ -57,6 +57,7 @@ final class RouterTest extends TestCase
         yield 'approve' => [new Request('POST', '/task/abc-12/approve'), ['route' => 'approve', 'task_id' => 'ABC-12']];
         yield 'review ack' => [new Request('POST', '/task/ABC-12/review-ack'), ['route' => 'review_ack', 'task_id' => 'ABC-12']];
         yield 'learning decision' => [new Request('POST', '/task/ABC-12/learning'), ['route' => 'learning', 'task_id' => 'ABC-12']];
+        yield 'attention' => [new Request('POST', '/task/ABC-12/attention'), ['route' => 'attention', 'task_id' => 'ABC-12']];
         yield 'runner run' => [new Request('POST', '/task/ABC-12/runner/run'), ['route' => 'runner_run', 'task_id' => 'ABC-12']];
         yield 'runner resume' => [new Request('POST', '/task/ABC-12/runner/resume'), ['route' => 'runner_resume', 'task_id' => 'ABC-12']];
         yield 'runner cancel' => [new Request('POST', '/task/ABC-12/runner/cancel'), ['route' => 'runner_cancel', 'task_id' => 'ABC-12']];

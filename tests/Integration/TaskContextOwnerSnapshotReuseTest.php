@@ -110,6 +110,32 @@ final class TaskContextOwnerSnapshotReuseTest extends TestCase
         );
     }
 
+    public function testMismatchedPendingAttentionSnapshotFailsClosed(): void
+    {
+        $board = new BoardProjectionGateway($this->root);
+        $workflow = new WorkflowProjectionGateway($this->root);
+        $decisions = new HumanDecisionGateway($this->root);
+        $composer = new TaskContextComposer($board, $workflow, $decisions);
+
+        $card = $board->card('APP-1');
+
+        $this->expectException(InvalidArgumentException::class);
+        $composer->fromOwnerSnapshots(
+            $card,
+            $workflow->task('APP-1'),
+            $decisions->available('APP-1'),
+            new \voku\AgentLoop\Execution\AttentionRequest(
+                'att-1',
+                'APP-2',
+                'run-1',
+                \voku\AgentLoop\Execution\AttentionKind::CLARIFICATION_REQUIRED,
+                'Needs help',
+                'build',
+                '2026-11-10T00:00:00Z',
+            ),
+        );
+    }
+
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) {

@@ -7,6 +7,7 @@ namespace voku\AgentUi\Feature\Task;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
+use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Http\Response;
@@ -39,9 +40,10 @@ final readonly class WorkflowProgressAction
         $card = $this->board->card($taskId);
         $decisions = $this->decisions->available($taskId);
         $contract = $this->decisions->contract($taskId);
+        $pendingAttention = $this->decisions->pendingAttention($taskId);
         $progress = $this->progress->task($taskId);
-        $decisionHtml = $this->decisionHtml($card, $decisions, $contract);
-        $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract);
+        $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+        $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
 
         return Response::html($this->templates->render('task/progress', [
             'card' => $card,
@@ -94,8 +96,9 @@ final readonly class WorkflowProgressAction
             }
 
             $contract = $this->decisions->contract($taskId);
-            $decisionHtml = $this->decisionHtml($card, $decisions, $contract);
-            $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract);
+            $pendingAttention = $this->decisions->pendingAttention($taskId);
+            $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+            $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
             $response = Response::json([
                 'schema_version' => 1,
                 'task_id' => $progress->taskId,
@@ -108,7 +111,7 @@ final readonly class WorkflowProgressAction
                 'next_action_kind_tone' => Presentation::tone($progress->nextActionKind),
                 'next_action_hint' => Presentation::nextActionKindHint($progress->nextActionKind),
                 'command_reference' => Presentation::commandReference($progress->nextAction),
-                'has_human_decision' => $decisions->actions !== [],
+                'has_human_decision' => $decisions->actions !== [] || $pendingAttention !== null,
                 'decision_html' => $decisionHtml,
                 'decision_digest' => hash('sha256', $decisionHtml),
                 'brief_html' => $briefHtml,
@@ -133,12 +136,14 @@ final readonly class WorkflowProgressAction
         WorkflowProgressSnapshot $progress,
         WorkflowHumanDecisionProjection $decisions,
         ?TaskContract $contract,
+        ?AttentionRequest $pendingAttention = null,
     ): string {
         return $this->templates->render('task/_workflow-brief', [
             'card' => $card,
             'progress' => $progress,
             'human_decisions' => $decisions,
             'contract' => $contract,
+            'pending_attention' => $pendingAttention,
         ]);
     }
 
@@ -146,11 +151,13 @@ final readonly class WorkflowProgressAction
         CardSnapshot $card,
         WorkflowHumanDecisionProjection $decisions,
         ?TaskContract $contract,
+        ?AttentionRequest $pendingAttention = null,
     ): string {
         return $this->templates->render('task/_progress-decision', [
             'card' => $card,
             'human_decisions' => $decisions,
             'contract' => $contract,
+            'pending_attention' => $pendingAttention,
             'csrf_token' => $this->csrf->token(),
         ]);
     }

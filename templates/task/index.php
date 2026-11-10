@@ -1,4 +1,5 @@
 <?php
+use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\Transparency\ContextCoverage;
 use voku\AgentLoop\Workflow\Transparency\TaskTransparencyProjection;
@@ -10,11 +11,12 @@ use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, pending_attention?: ?AttentionRequest, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
+$pendingAttention = $model['pending_attention'] ?? null;
 $contract = $model['contract'] ?? null;
 $contractDelta = $model['contract_delta'] ?? null;
 $runner = $model['runner'];
@@ -230,11 +232,40 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<?php if ($decisions->actions !== []): ?>
-    <p class="eyebrow">Your decision</p>
+<?php if ($decisions->actions !== [] || $pendingAttention !== null): ?>
+    <h2 class="eyebrow">Your decision</h2>
     <section class="panel panel--attention" id="decision" aria-label="Your decision">
         <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
             corresponding human action as recordable.</p>
+
+        <?php if ($pendingAttention !== null): ?>
+            <div style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div>
+                        <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($pendingAttention->kind->value)) ?>"><?= TemplateRenderer::escape(Presentation::label($pendingAttention->kind->value)) ?></span>
+                        <strong style="margin-left:8px">Execution stage <?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?> requires human attention</strong>
+                    </div>
+                    <span class="small faint"><?= TemplateRenderer::escape($pendingAttention->createdAt) ?></span>
+                </div>
+                <p style="margin:4px 0 8px"><strong>Reason:</strong> <?= TemplateRenderer::escape($pendingAttention->message) ?></p>
+                <div class="small" style="margin-top:6px">
+                    <p style="margin:0 0 2px"><strong>Attention ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->id) ?></code></p>
+                    <p style="margin:0 0 2px"><strong>Run ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->runId) ?></code></p>
+                    <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records an authoritative human decision in <code class="mono">AttentionResolutionStore</code>, clears the attention flag, and increments the execution attempt so stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> can resume under execution governance. Autonomous agents cannot self-resolve.</p>
+                </div>
+            </div>
+
+            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/attention" style="margin-bottom:16px">
+                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                <input type="hidden" name="attention_id" value="<?= TemplateRenderer::escape($pendingAttention->id) ?>">
+                <h3>Resolve Attention and continue stage</h3>
+                <p class="note" style="margin:0 0 10px">Human authority required. Provide your name or identifier to record the resolution.</p>
+                <div class="form__row">
+                    <label class="field"><span>Resolved by</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is resolving"></label>
+                    <button class="btn btn--primary" type="submit">Resolve Attention</button>
+                </div>
+            </form>
+        <?php endif; ?>
 
         <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
             <?php if ($contract !== null): ?>
@@ -419,7 +450,7 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<p class="eyebrow">Execution</p>
+<h2 class="eyebrow">Execution</h2>
 <section class="panel">
     <p class="note" style="margin:0 0 14px">The same governed workflow, two ways of doing the work.
         agent-loop owns lifecycle state and persistence in both; human approval, review acknowledgement and Learning decisions remain human authority.</p>
