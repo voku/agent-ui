@@ -1,0 +1,16 @@
+name: GitHub evidence workbench JavaScript
+on:
+  push:
+  pull_request:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate workbench JavaScript syntax
+        run: node --check src/View/github-workflow.js
