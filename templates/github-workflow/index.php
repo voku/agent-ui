@@ -11,7 +11,8 @@ require __DIR__ . '/../layout/header.php';
     <h1>Cross-repository work</h1>
     <p class="lede">Follow GitHub evidence across PRs, issues, releases and consumers. GitHub observations are not Loop approval or execution authority. Missing proof stays missing.</p>
 </div>
-<section class="panel" id="github-workflow" aria-label="GitHub workbench">
+<noscript><p class="note">This optional cross-repository view requires JavaScript for GitHub refresh and JSON import/export. The ordinary agent-loop owner views remain available without JavaScript.</p></noscript>
+<section class="panel" id="github-workflow" aria-label="GitHub workbench" hidden>
     <p class="note" id="gh-message" role="status">The public GitHub API is not loaded yet. Use Refresh or import a verified evidence snapshot.</p>
     <div class="action__head">
         <div>
