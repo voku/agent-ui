@@ -148,12 +148,15 @@ if (process.env.CHROMIUM_PATH) {
             await page.locator('#gh-proof').selectOption('');
             assert.ok((await page.locator('#gh-detail').innerText()).includes('Collect current-head CI jobs and their outcomes'));
         }
-        // Multiple passing same-head checks are sufficient for the CI filter.
+        // Multiple passing same-head checks must show the actual matching PR.
+        // A single "No matching observations" placeholder row is not proof.
         extraCheckOutcomes = ['success'];
         await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
         await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Exact-head details loaded'));
         await page.locator('#gh-proof').selectOption('ci');
         assert.equal(await page.locator('#gh-list tr').count(), 1);
+        assert.equal(await page.locator('#gh-list').getByRole('button', { name: /agent-loop#500/ }).count(), 1);
+        assert.ok(!(await page.locator('#gh-list').innerText()).includes('No matching observations'));
         await page.locator('#gh-proof').selectOption('');
         extraCheckOutcomes = [];
 
