@@ -18,8 +18,8 @@ jobs:
           coverage: none
       - name: Install declared packages
         run: composer install --no-interaction --prefer-dist
-      - name: Generate canonical Claude skills and manifest from installed owner
-        run: vendor/bin/agent-loop init sync-skills --agent=claude
+      - name: Generate canonical Claude assets and manifest from installed owner
+        run: vendor/bin/agent-loop init install-assets --agent=claude
       - name: Display exact generated asset delta
         run: |
           git status --short
