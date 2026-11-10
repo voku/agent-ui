@@ -36,6 +36,30 @@ const captureGraph = () => {
         await staticPage.locator('[data-workflow-brief]').getByText('Contract authority').waitFor();
         assert.equal(await staticPage.locator('[data-workflow-brief]').getByText('Not approved · revision 1').count(), 1);
         assert.equal(await staticPage.locator('[data-workflow-live-status]').isVisible(), false);
+
+        // No-JS path: the browser renders owner Attention, performs a native
+        // form POST, and re-enters the task from fresh canonical state.
+        const staticAttention = await staticContext.newPage();
+        await staticAttention.goto(base + '/task/UI-39/progress');
+        const staticForm = staticAttention.locator('form[action="/task/UI-39/attention"]');
+        assert.equal(await staticForm.count(), 1);
+        assert.equal(await staticAttention.getByText('Browser fixture needs a human clarification.').count(), 1);
+        const staticAttentionId = await staticForm.locator('[name="attention_id"]').inputValue();
+        const staticCsrf = await staticForm.locator('[name="_csrf"]').inputValue();
+        await staticForm.locator('[name="actor"]').fill('browser-no-js-human');
+        const [staticNavigation] = await Promise.all([
+            staticAttention.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+            staticForm.getByRole('button', { name: 'Resolve Attention' }).click()
+        ]);
+        assert.equal(staticNavigation.status(), 200);
+        assert.equal(await staticAttention.locator('form[action="/task/UI-39/attention"]').count(), 0);
+        await staticAttention.reload();
+        assert.equal(await staticAttention.locator('form[action="/task/UI-39/attention"]').count(), 0);
+        const staleNoJs = await staticContext.request.post(base + '/task/UI-39/attention', {
+            form: { _csrf: staticCsrf, attention_id: staticAttentionId, actor: 'browser-no-js-human' },
+            maxRedirects: 0
+        });
+        assert.equal(staleNoJs.status(), 400);
         await staticContext.close();
 
         const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -190,9 +214,48 @@ const captureGraph = () => {
         assert.equal(await emptyPage.locator('[data-workflow-graph]').isVisible(), true);
         assert.ok(await emptyPage.evaluate(() => window.__workflowTestGraph.width() > 100));
         await editor.close();
+
+        // JavaScript-enhanced path: click the real decision form, observe the
+        // live owner refresh, then verify stale and invalid posts stay rejected.
+        const attentionPage = await context.newPage();
+        await attentionPage.goto(base + '/task/UI-38/progress');
+        await attentionPage.waitForFunction(() => document.querySelector('[data-workflow-live-status]').textContent === 'Live workflow updates connected.');
+        const attentionForm = attentionPage.locator('form[action="/task/UI-38/attention"]');
+        assert.equal(await attentionForm.count(), 1);
+        assert.equal(await attentionPage.getByText('Browser fixture needs a human clarification.').count(), 1);
+        const attentionId = await attentionForm.locator('[name="attention_id"]').inputValue();
+        const attentionCsrf = await attentionForm.locator('[name="_csrf"]').inputValue();
+        const pending = await (await context.request.get(base + '/task/UI-38/progress.json')).json();
+        assert.equal(pending.has_human_decision, true);
+        assert.ok(pending.decision_html.includes(attentionId));
+
+        const rejected = await context.request.post(base + '/task/UI-38/attention', {
+            form: { _csrf: 'invalid', attention_id: attentionId, actor: 'browser-human' },
+            maxRedirects: 0
+        });
+        assert.equal(rejected.status(), 400);
+        assert.equal(await attentionForm.count(), 1);
+
+        await attentionForm.locator('[name="actor"]').fill('browser-human');
+        await attentionForm.getByRole('button', { name: 'Resolve Attention' }).click();
+        await attentionPage.waitForFunction(() =>
+            !document.querySelector('form[action="/task/UI-38/attention"]'), null, { timeout: 15000 });
+        const resolved = await (await context.request.get(base + '/task/UI-38/progress.json')).json();
+        assert.equal(resolved.has_human_decision, false);
+        assert.ok(!resolved.decision_html.includes(attentionId));
+
+        const stale = await context.request.post(base + '/task/UI-38/attention', {
+            form: { _csrf: attentionCsrf, attention_id: attentionId, actor: 'browser-human' },
+            maxRedirects: 0
+        });
+        assert.equal(stale.status(), 400);
+        await attentionPage.reload();
+        assert.equal(await attentionPage.locator('form[action="/task/UI-38/attention"]').count(), 0);
+        assert.equal(await attentionPage.locator('[data-task-decision-link] a').count(), 0);
+        await attentionPage.close();
         await context.close();
 
-        console.log('PASS: owner changes, empty-to-live graph/recovery, graph state retention, mobile zoom, unavailable/retry, and no-JavaScript rendering');
+        console.log('PASS: owner changes, Attention resolution (JS/no-JS/stale/CSRF), empty-to-live graph/recovery, graph state retention, mobile zoom, unavailable/retry');
     } finally {
         await browser.close();
     }
