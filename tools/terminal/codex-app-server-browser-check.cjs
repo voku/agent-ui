@@ -153,9 +153,23 @@ async function run() {
     const page = await browser.newPage();
     await page.goto(output.match(/http:\/\/\S+/)[0]);
     await page.waitForURL('**/task/UI-36/progress');
-    const panel = page.locator('[data-codex-app-server]');
-    await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
-    const csrf = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()).csrf);
+    // The CLI-first cockpit intentionally has no structured provider panel.
+    // The still-supported private JSON-RPC transport retains explicit security
+    // tests; browser requests below are fixture actions, not human approval.
+    assert.equal(await page.locator('[data-codex-app-server]').count(), 0);
+    const snapshot = () => page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+    const post = (action, payload = {}) => page.evaluate(async ({ action, payload }) => {
+        const current = await (await fetch('/_local/codex-app-server')).json();
+        const response = await fetch('/_local/agent-activity/codex/' + action, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': current.csrf },
+            body: JSON.stringify(payload),
+        });
+        return { status: response.status, body: await response.text() };
+    }, { action, payload });
+    const waitState = (state) => until(async () => (await snapshot()).state === state, 'Codex transport state ' + state);
+    assert.equal((await snapshot()).state, 'stopped');
+    const csrf = (await snapshot()).csrf;
     const noCsrf = await page.evaluate(async () => (await fetch('/_local/codex-app-server/start', {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json',
             'X-Agent-Ui-Csrf': 'wrong' }, body: '{}',
@@ -167,115 +181,92 @@ async function run() {
     });
     assert.equal(wrongOrigin.status(), 403);
 
-    // No local CLI account: initialize, thread/start and turn/start must still
-    // traverse the real browser/Node JSON-RPC boundary.
-    await panel.locator('[data-codex-app-server-start]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
+    assert.equal((await post('start')).status, 200, 'fixture Codex transport starts with scoped credentials');
+    await waitState('idle');
     const boot = fs.readFileSync(protocolLog, 'utf8');
     assert.ok(boot.includes('"method":"initialize"'));
     assert.ok(boot.includes('"method":"thread/start"'));
     assert.ok(boot.includes('"approvalPolicy":"on-request"'));
     assert.ok(boot.includes('"sandbox":"workspace-write"'));
 
-    await panel.locator('[data-codex-app-server-prompt]').fill('cross-thread approval fixture');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
-    await until(async () => (await panel.locator('button[data-codex-request-decision="accept"]').count()) === 1,
-        'one scoped approval button');
-    assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('wrong thread'), false);
-    assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('wrong turn'), false);
-    const summary = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+    assert.equal((await post('turn', { prompt: 'cross-thread approval fixture' })).status, 200);
+    await until(async () => (await snapshot()).pending_requests.length === 1, 'exactly one same-thread request');
+    const summary = await snapshot();
+    assert.equal(summary.state, 'waiting_approval');
     assert.equal(summary.pending_requests.length, 1, 'foreign-thread request cannot become a decision');
     assert.equal(JSON.stringify(summary).includes('PRIVATE-DELTA-NOT-EXPOSED'), false, 'model text is never exposed');
-    assert.equal(summary.state, 'waiting_approval');
-    await panel.locator('button[data-codex-request-decision="accept"]').click();
-    await until(() => loggedDecisions().length === 1, 'explicit approval reaches fake server');
+    assert.equal(JSON.stringify(summary.pending_requests).includes('wrong thread'), false);
+    assert.equal(JSON.stringify(summary.pending_requests).includes('wrong turn'), false);
+    assert.equal(summary.pending_requests[0].can_accept, true);
+    assert.equal((await post('decision', {
+        token: summary.pending_requests[0].token, decision: 'accept',
+    })).status, 200);
+    await until(() => loggedDecisions().length === 1, 'one scoped fixture decision');
     assert.deepEqual(loggedDecisions()[0].result, { decision: 'accept' });
-    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
-    assert.equal((await page.locator('[data-workflow-live]').count()), 1, 'owner workflow still independently rendered');
+    await waitState('idle');
+    assert.equal(await page.locator('[data-workflow-live]').count(), 1, 'owner workflow remains separate');
 
-    await panel.locator('[data-codex-app-server-prompt]').fill('decline-only');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
-    assert.equal(await panel.locator('button[data-codex-request-decision="accept"]').count(), 0);
-    await panel.locator('button[data-codex-request-decision="decline"]').click();
-    await until(() => loggedDecisions().length === 2, 'restricted decision reaches fake server');
+    assert.equal((await post('turn', { prompt: 'decline-only' })).status, 200);
+    await waitState('waiting_approval');
+    const restricted = await snapshot();
+    assert.equal(restricted.pending_requests.length, 1);
+    assert.equal(restricted.pending_requests[0].can_accept, false);
+    assert.equal(restricted.pending_requests[0].can_decline, true);
+    assert.equal((await post('decision', {
+        token: restricted.pending_requests[0].token, decision: 'decline',
+    })).status, 200);
+    await until(() => loggedDecisions().length === 2, 'restricted fixture decision');
     assert.deepEqual(loggedDecisions()[1].result, { decision: 'decline' });
-    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
+    await waitState('idle');
 
-    await panel.locator('[data-codex-app-server-prompt]').fill('item-context');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('waiting approval', { exact: false }).waitFor();
-    assert.ok((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('Command: echo secret'),
-        'same-thread item supplies the command context when the request omits it');
-    assert.equal((await panel.locator('[data-codex-app-server-request-list]').textContent()).includes('UNSCOPED-COMMAND'), false,
-        'unscoped item cannot change the human approval prompt');
-    await panel.locator('button[data-codex-request-decision="decline"]').click();
-    await until(() => loggedDecisions().length === 3, 'item-context decision');
-    await panel.locator('[data-codex-app-server-state]').getByText('idle', { exact: false }).waitFor();
+    assert.equal((await post('turn', { prompt: 'item-context' })).status, 200);
+    await waitState('waiting_approval');
+    const scoped = await snapshot();
+    assert.equal(scoped.pending_requests.length, 1);
+    assert.ok(JSON.stringify(scoped.pending_requests).includes('Command: echo secret'),
+        'same-thread item supplies missing command context');
+    assert.equal(JSON.stringify(scoped.pending_requests).includes('UNSCOPED-COMMAND'), false);
+    assert.equal((await post('decision', {
+        token: scoped.pending_requests[0].token, decision: 'decline',
+    })).status, 200);
+    await until(() => loggedDecisions().length === 3, 'item-context fixture decision');
+    await waitState('idle');
 
-
-    const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length;
-    await panel.locator('[data-codex-app-server-prompt]').fill('stale-turn');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await until(() => fs.readFileSync(protocolLog, 'utf8').split('\n').filter((line) => line.includes('"method":"turn/start"')).length === turnCountBeforeStale + 1,
-        'stale turn was actually dispatched');
-    await until(async () => (await panel.locator('[data-codex-app-server-state]').textContent()).includes('idle'),
-        'completed turn no longer needs approval');
-    const stale = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
-    assert.equal(stale.pending_requests.length, 0, 'completed turn clears one-time approval tokens');
-    assert.equal(loggedDecisions().length, 3, 'no automatic approval after completion');
-
-    // Some server requests omit turnId. Completion still invalidates them:
-    // a request from a finished turn must never remain actionable.
-    await panel.locator('[data-codex-app-server-prompt]').fill('stale-no-turn-id');
-    await panel.locator('[data-codex-app-server-send]').click();
+    const turnCountBeforeStale = fs.readFileSync(protocolLog, 'utf8').split('\n')
+        .filter((line) => line.includes('"method":"turn/start"')).length;
+    assert.equal((await post('turn', { prompt: 'stale-turn' })).status, 200);
+    await until(() => fs.readFileSync(protocolLog, 'utf8').split('\n')
+        .filter((line) => line.includes('"method":"turn/start"')).length === turnCountBeforeStale + 1,
+        'stale turn actually dispatched');
     await until(async () => {
-        const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
-        return snapshot.state === 'idle' && snapshot.pending_requests.length === 0 &&
-            snapshot.activity.some((entry) => entry.label.includes('interrupted'));
-    }, 'missing-turn-id stale approval is cleared');
-    assert.equal(loggedDecisions().length, 3, 'missing-turn-id request cannot auto-approve');
+        const value = await snapshot();
+        return value.state === 'idle' && value.pending_requests.length === 0;
+    }, 'finished turn removes stale approvals');
+    assert.equal(loggedDecisions().length, 3, 'no automatic decision after completion');
 
-    await panel.locator('[data-codex-app-server-prompt]').fill('no-context');
-    await panel.locator('[data-codex-app-server-send]').click();
-    await panel.locator('[data-codex-app-server-state]').getByText('waiting input', { exact: false }).waitFor();
-    assert.equal(await panel.locator('button[data-codex-request-decision="accept"]').count(), 0,
-        'the UI must not approve an unidentifiable command');
-    const unknown = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
+    assert.equal((await post('turn', { prompt: 'stale-no-turn-id' })).status, 200);
+    await until(async () => {
+        const value = await snapshot();
+        return value.state === 'idle' && value.pending_requests.length === 0 &&
+            value.activity.some((entry) => entry.label.includes('interrupted'));
+    }, 'missing-turn-id stale approval cleared');
+    assert.equal(loggedDecisions().length, 3);
+
+    assert.equal((await post('turn', { prompt: 'no-context' })).status, 200);
+    await waitState('waiting_input');
+    const unknown = await snapshot();
+    assert.equal(unknown.pending_requests.length, 1);
     assert.equal(unknown.pending_requests[0].kind, 'unsupported');
-    assert.equal(loggedDecisions().length, 3, 'unknown command is not approved automatically');
+    assert.notEqual(unknown.pending_requests[0].can_accept, true);
+    assert.equal(loggedDecisions().length, 3, 'unidentified command is never auto-approved');
 
-    // Playwright dismisses native confirm dialogs unless the test explicitly
-    // accepts them. No confirmation means no Stop request by design.
-    page.once('dialog', async (dialog) => {
-        assert.equal(dialog.type(), 'confirm');
-        assert.ok(dialog.message().includes('Stop the Codex App Server session?'));
-        await dialog.accept();
-    });
-    const [stopResponse] = await Promise.all([
-        page.waitForResponse((response) => response.url().endsWith('/_local/agent-activity/codex/stop') &&
-            response.request().method() === 'POST', { timeout: 15000 }),
-        panel.locator('[data-codex-app-server-stop]').click(),
-    ]);
-    assert.equal(stopResponse.status(), 200, 'Stop endpoint must acknowledge deliberate session termination');
-    try {
-        await until(async () => {
-            const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
-            return snapshot.state === 'stopped' && snapshot.running === false;
-        }, 'expected Stop preserves backend stopped state');
-    } catch (error) {
-        const snapshot = await page.evaluate(async () => (await (await fetch('/_local/codex-app-server')).json()));
-        const feedback = await panel.locator('[data-codex-app-server-feedback]').textContent();
-        console.error('Stop diagnostics:', JSON.stringify({
-            state: snapshot.state, running: snapshot.running, message: snapshot.message,
-            pending: snapshot.pending_requests.length, feedback,
-        }));
-        throw error;
-    }
-    await panel.locator('[data-codex-app-server-state]').getByText('stopped', { exact: false }).waitFor();
+    assert.equal((await post('stop')).status, 200, 'explicit fixture stop completes');
+    await until(async () => {
+        const value = await snapshot();
+        return value.state === 'stopped' && value.running === false;
+    }, 'Codex process stopped');
     assert.ok(fs.readFileSync(protocolLog, 'utf8').includes('"method":"turn/start"'));
-    console.log('Codex App Server JSON-RPC browser: auth/CSRF, startup, activity, context-bound approvals, scoped decisions, stale cleanup and stop passed.');
+    console.log('Codex JSON-RPC authenticated browser API: CSRF, context-bound fixture decisions, stale cleanup and stop passed.');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
     if (browser) await browser.close();
