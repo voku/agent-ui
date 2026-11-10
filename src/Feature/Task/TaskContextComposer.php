@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Task;
 
 use InvalidArgumentException;
+use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
@@ -76,6 +77,7 @@ final readonly class TaskContextComposer
         CardSnapshot $card,
         WorkflowSnapshot $workflow,
         WorkflowHumanDecisionProjection $humanDecisions,
+        ?AttentionRequest $pendingAttention = null,
     ): TaskContext {
         if ($card->id !== $workflow->taskId || $card->id !== $humanDecisions->taskId) {
             throw new InvalidArgumentException(sprintf(
@@ -86,6 +88,17 @@ final readonly class TaskContextComposer
             ));
         }
 
+        if ($pendingAttention !== null && $pendingAttention->taskId !== $card->id) {
+            throw new InvalidArgumentException(sprintf(
+                'TaskContext owner snapshots must describe one task: card=%s attention=%s.',
+                $card->id,
+                $pendingAttention->taskId,
+            ));
+        }
+
+        $awaitsHumanDecision = $humanDecisions->actions !== []
+            || ($pendingAttention ?? $this->decisions->pendingAttention($card->id)) !== null;
+
         return new TaskContext(
             taskId: $card->id,
             title: $card->title,
@@ -93,7 +106,7 @@ final readonly class TaskContextComposer
             workflowState: $workflow->state,
             nextAction: $workflow->nextAction,
             nextActionKind: $workflow->nextActionKind,
-            awaitsHumanDecision: $humanDecisions->actions !== [],
+            awaitsHumanDecision: $awaitsHumanDecision,
         );
     }
 }

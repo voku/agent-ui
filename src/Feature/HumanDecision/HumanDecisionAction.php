@@ -20,7 +20,7 @@ final readonly class HumanDecisionAction
     ) {
     }
 
-    /** @param 'approve'|'review_ack'|'learning' $route */
+    /** @param 'approve'|'review_ack'|'learning'|'attention' $route */
     public function __invoke(string $taskId, string $route, Request $request): Response
     {
         $this->csrf->assertValid($request->body['_csrf'] ?? null);
@@ -31,6 +31,7 @@ final readonly class HumanDecisionAction
             'approve' => $this->approve($taskId, $actor, $request),
             'review_ack' => $this->acknowledgeReview($taskId, $actor, $request),
             'learning' => $this->learning($taskId, $actor, $request),
+            'attention' => $this->attention($taskId, $actor, $request),
         };
 
         $this->notice->record($recorded);
@@ -84,6 +85,14 @@ final readonly class HumanDecisionAction
         );
 
         return sprintf('agent-learning recorded the "%s" decision for %s.', str_replace('_', ' ', $decision), $taskId);
+    }
+
+    private function attention(string $taskId, string $actor, Request $request): string
+    {
+        $attentionId = $this->required($request, 'attention_id', 120);
+        $this->decisions->resolveAttention($taskId, $attentionId, $actor);
+
+        return sprintf('agent-loop recorded the Attention resolution for %s (%s) by %s.', $taskId, $attentionId, $actor);
     }
 
     private function returnPath(string $taskId, Request $request): string

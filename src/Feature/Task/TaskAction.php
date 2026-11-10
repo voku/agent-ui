@@ -45,11 +45,13 @@ final readonly class TaskAction
         $contract = $this->decisions->contract($taskId);
         $workflow = $this->workflow->task($taskId);
         $humanDecisions = $this->decisions->available($taskId);
+        $pendingAttention = $this->decisions->pendingAttention($taskId);
 
         return Response::html($this->templates->render('task/index', [
             'card' => $card,
             'workflow' => $workflow,
             'human_decisions' => $humanDecisions,
+            'pending_attention' => $pendingAttention,
             'contract' => $contract,
             'contract_delta' => $this->contractDelta($taskId, $contract, $workflow->nextAction, $workflow->nextActionKind),
             'runner' => $this->runner->status($taskId),
@@ -57,7 +59,7 @@ final readonly class TaskAction
             'context_coverage' => $transparency->context,
             'task_transparency' => $transparency,
             'csrf_token' => $this->csrf->token(),
-            'task_context' => $this->taskContext->fromOwnerSnapshots($card, $workflow, $humanDecisions),
+            'task_context' => $this->taskContext->fromOwnerSnapshots($card, $workflow, $humanDecisions, $pendingAttention),
         ]));
     }
 
