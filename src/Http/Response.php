@@ -57,7 +57,7 @@ final readonly class Response
 
         return "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src "
             . ClientScript::cspSource()
-            . "; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" . $frameSources;
+            . "; connect-src 'self' https://api.github.com; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" . $frameSources;
     }
 
     public function send(): void
