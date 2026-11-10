@@ -99,4 +99,45 @@ final readonly class DeliveredPrecedentComposer
 
         return array_map(strval(...), $ids);
     }
+
+    /**
+     * Map of noteId => list<string> for tasks whose compiled Recall context received that note.
+     *
+     * @return array<string, list<string>>
+     */
+    public function downstreamDeliveries(): array
+    {
+        return $this->recall->deliveredPrecedentsByNote();
+    }
+
+    /**
+     * Finds active notes derived from a finding and their downstream task deliveries.
+     *
+     * @return list<array{note: LearningNoteProjection, deliveries: list<string>}>
+     */
+    public function findingLineage(string $findingId): array
+    {
+        $finding = $this->learning->finding($findingId);
+        if ($finding === null) {
+            return [];
+        }
+
+        $precedents = $this->learning->taskPrecedents($finding->taskId);
+        if (!$precedents->isAvailable()) {
+            return [];
+        }
+
+        $allDeliveries = $this->downstreamDeliveries();
+        $derived = [];
+        foreach ($precedents->taughtNotes() as $note) {
+            if (in_array($findingId, $note->sourceFindings, true)) {
+                $derived[] = [
+                    'note' => $note,
+                    'deliveries' => $allDeliveries[$note->id] ?? [],
+                ];
+            }
+        }
+
+        return $derived;
+    }
 }
