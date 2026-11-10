@@ -18,6 +18,8 @@
     var detail = document.getElementById('gh-detail');
     var comparison = document.getElementById('gh-comparison');
     var nextRefresh = 0;
+    var detailSequence = 0;
+    var detailPending = new Map();
     var phaseWords = { release: /\brelease\b/i, consumer: /\bconsumer\b|\bdeps\b/i, verify: /\btest\b|\bverify\b|\bproof\b|\bci\b/i, research: /\bresearch\b|\bexperiment\b|\bdogfood\b/i };
 
     function element(tag, text, className) {
@@ -82,11 +84,37 @@
         if (type === 'missing') { return proofs(item).length === 0 || freshness(item) !== 'current'; }
         if (type === 'review') { return Array.isArray(item.reviews) && item.reviews.length > 0; }
         if (type === 'artifact') { return Array.isArray(item.artifacts) && item.artifacts.length > 0; }
-        return proofs(item).some(function (p) { return p.type === type && fresh(item, p); });
+        return proofs(item).some(function (p) {
+            return p.type === type && fresh(item, p) &&
+                (!['ci', 'dogfood'].includes(type) || p.outcome === 'success');
+        });
     }
 
     function failed(item) {
-        return proofs(item).some(function (p) { return p.type === 'ci' && fresh(item, p) && p.outcome === 'failure'; });
+        var failures = ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
+        return proofs(item).some(function (p) {
+            return ['ci', 'dogfood'].includes(p.type) && fresh(item, p) && failures.includes(p.outcome);
+        });
+    }
+
+    function latestReviews(item) {
+        var byReviewer = new Map();
+        (item.reviews || []).forEach(function (review) {
+            if (review.state !== 'COMMENTED') { byReviewer.set(review.author, review); }
+        });
+        return Array.from(byReviewer.values());
+    }
+
+    function approvedAtHead(item) {
+        return latestReviews(item).some(function (review) {
+            return review.state === 'APPROVED' && review.sha === item.head;
+        });
+    }
+
+    function changesRequestedAtHead(item) {
+        return latestReviews(item).some(function (review) {
+            return review.state === 'CHANGES_REQUESTED' && review.sha === item.head;
+        });
     }
 
     function unresolvedDependency(item) {
@@ -104,14 +132,14 @@
         return unresolvedDependency(item) !== null ||
             (Array.isArray(item.blockers) && item.blockers.length > 0) ||
             (Array.isArray(item.threads) && item.threads.some(function (t) { return t.resolved === false; })) ||
-            failed(item);
+            failed(item) || changesRequestedAtHead(item);
     }
 
     function status(item) {
         if (item.state === 'closed' || item.state === 'merged') { return 'closed'; }
         if (isBlocked(item)) { return 'blocked'; }
         if (item.draft) { return 'draft'; }
-        if (item.kind === 'pr' && !(item.reviews || []).some(function (r) { return r.state === 'APPROVED' && r.sha === item.head; })) {
+        if (item.kind === 'pr' && !approvedAtHead(item)) {
             return 'review';
         }
         return 'observed';
@@ -123,6 +151,7 @@
         var dependency = unresolvedDependency(item);
         if (dependency) { return 'Inspect upstream ' + dependency + ' first, then recheck this exact head and consumer proof.'; }
         if (failed(item)) { return 'Inspect the exact-head failed job before any merge.'; }
+        if (changesRequestedAtHead(item)) { return 'Address the latest changes-requested review and verify the current head.'; }
         if (Array.isArray(item.threads) && item.threads.some(function (t) { return t.resolved === false; })) {
             return 'Address the unresolved review thread and revalidate the head.';
         }
@@ -421,6 +450,9 @@
     async function loadDetails(id) {
         var item = state.items.get(id);
         if (!item || item.kind !== 'pr') { return; }
+        var loadId = ++detailSequence;
+        detailPending.set(id, loadId);
+        var startHead = item.head;
         // Revoke same-head approvals and checks before attempting verification.
         // Clearly old-head receipts remain visible as stale history only.
         item.proofs = item.proofs.filter(function (p) { return p.sha && p.sha !== item.head; });
@@ -436,6 +468,13 @@
             var pr = await api(base + '/pulls/' + item.number);
             var currentHead = pr.head && pr.head.sha;
             if (!/^[a-f0-9]{40}$/.test(currentHead || '')) { throw new Error('GitHub returned no exact PR head.'); }
+            if (detailPending.get(id) !== loadId) { return; }
+            var observed = state.items.get(id);
+            if (!observed || (observed !== item && observed.head !== startHead)) {
+                message.textContent = 'PR head changed during detail load. Discarded stale response; reload exact-head evidence.';
+                render();
+                return;
+            }
             updateFromGitHub(pr, item.repo, 'pr', new Date().toISOString());
             item = state.items.get(id);
             var requests = await Promise.allSettled([
@@ -444,6 +483,23 @@
                 api(base + '/actions/runs?head_sha=' + currentHead + '&per_page=100'),
                 api(base + '/pulls/' + item.number + '/comments?per_page=100')
             ]);
+            // Fetch artifacts before applying any result: a concurrent inventory
+            // refresh may replace the item object or observe a different head.
+            var receivedRuns = requests[2].status === 'fulfilled' ?
+                (requests[2].value.workflow_runs || []).filter(function (run) {
+                    return run.head_sha === currentHead;
+                }) : [];
+            var artifactResponses = await Promise.allSettled(receivedRuns.slice(0, 3).map(function (run) {
+                return api(base + '/actions/runs/' + run.id + '/artifacts?per_page=100');
+            }));
+            if (detailPending.get(id) !== loadId) { return; }
+            var live = state.items.get(id);
+            if (!live || live.head !== currentHead) {
+                message.textContent = 'PR head changed during detail load. Discarded stale response; reload exact-head evidence.';
+                render();
+                return;
+            }
+            item = live;
             var missing = [];
             if (requests[0].status === 'fulfilled') {
                 item.reviews = requests[0].value.map(function (r) {
@@ -474,9 +530,6 @@
             // The REST comments endpoint does not provide resolved-thread state.
             // Never turn a zero-comment count into "no open review threads".
             item.threads = null;
-            var artifactResponses = await Promise.allSettled(runs.slice(0, 3).map(function (r) {
-                return api(base + '/actions/runs/' + r.id + '/artifacts?per_page=100');
-            }));
             item.artifacts = [];
             artifactResponses.forEach(function (result, index) {
                 if (result.status !== 'fulfilled') { missing.push('run artifact ' + runs[index].id); return; }
@@ -490,8 +543,10 @@
                 (missing.length ? 'Unverified: ' + missing.join(', ') + '. ' : '') +
                 'Thread resolution still requires a verified GraphQL/source import.';
         } catch (error) {
-            message.textContent = 'Details unavailable for ' + id + ': ' + error.message +
-                '. Existing observation retained; no success inferred.';
+            if (detailPending.get(id) === loadId) {
+                message.textContent = 'Details unavailable for ' + id + ': ' + error.message +
+                    '. Existing observation retained; no success inferred.';
+            }
         }
         render();
     }
@@ -546,6 +601,9 @@
     });
     document.getElementById('gh-refresh').addEventListener('click', refresh);
     document.getElementById('gh-export').addEventListener('click', exportJson);
+    document.getElementById('gh-import-button').addEventListener('click', function () {
+        document.getElementById('gh-import').click();
+    });
     document.getElementById('gh-import').addEventListener('change', importJson);
     document.getElementById('gh-compare').addEventListener('click', renderCompare);
     document.addEventListener('visibilitychange', function () {
