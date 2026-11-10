@@ -8,6 +8,11 @@ const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
 let head = HEAD_A;
 let detailApiUnavailable = false;
+let checkOutcome = 'success';
+let reviewerStates = ['APPROVED'];
+let holdReviews = false;
+let reviewGateEntered = null;
+let releaseReviews = null;
 const browserOptions = { headless: true };
 if (process.env.CHROMIUM_PATH) {
     browserOptions.executablePath = process.env.CHROMIUM_PATH;
@@ -57,10 +62,17 @@ if (process.env.CHROMIUM_PATH) {
                     state: 'open', draft: false, head: { sha: head }
                 };
             } else if (path.endsWith('/pulls/500/reviews')) {
-                result = [{ state: 'APPROVED', user: { login: 'reviewer' }, commit_id: head }];
+                if (holdReviews) {
+                    if (reviewGateEntered) { reviewGateEntered(); }
+                    await new Promise(resolve => { releaseReviews = resolve; });
+                }
+                result = reviewerStates.map(state => ({
+                    state, user: { login: 'reviewer' }, commit_id: head
+                }));
             } else if (/\/commits\/[a-f0-9]{40}\/check-runs$/.test(path)) {
                 result = { check_runs: [{
-                    name: 'CI', head_sha: head, conclusion: 'success', status: 'completed',
+                    name: 'CI', head_sha: head, conclusion: checkOutcome,
+                    status: checkOutcome ? 'completed' : 'in_progress',
                     html_url: 'https://github.com/voku/agent-loop/actions/runs/1'
                 }] };
             } else if (path.endsWith('/actions/runs')) {
@@ -97,14 +109,44 @@ if (process.env.CHROMIUM_PATH) {
         assert.ok(!unavailableDetail.includes('APPROVED by reviewer'));
         detailApiUnavailable = false;
 
+        // Failing conclusions must neither satisfy the CI-proof filter nor
+        // allow an older approval to override a later change request.
+        checkOutcome = 'timed_out';
+        reviewerStates = ['APPROVED', 'CHANGES_REQUESTED'];
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Exact-head details loaded'));
+        assert.ok((await page.locator('#gh-detail').innerText()).includes('state: blocked'));
+        assert.ok((await page.locator('#gh-detail').innerText()).includes('timed_out'));
+        await page.locator('#gh-proof').selectOption('ci');
+        assert.equal(await page.locator('#gh-list tr').count(), 1); // Empty placeholder row, not a proof.
+        assert.ok((await page.locator('#gh-list').innerText()).includes('No matching observations'));
+        await page.locator('#gh-proof').selectOption('');
+
+        // Dismissing the latest review cannot resurrect the earlier approval.
+        checkOutcome = 'success';
+        reviewerStates = ['APPROVED', 'DISMISSED'];
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Exact-head details loaded'));
+        assert.ok((await page.locator('#gh-detail').innerText()).includes('state: review'));
+
+        // Race: a newer inventory head arrives while detail requests wait.
+        // Their late response must not repaint the replaced item or claim proof.
+        holdReviews = true;
+        const reviewStarted = new Promise(resolve => { reviewGateEntered = resolve; });
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await reviewStarted;
         head = HEAD_B;
         await page.locator('#gh-refresh').click();
         await page.waitForFunction(sha => document.querySelector('#gh-detail').textContent.includes(sha), HEAD_B);
+        assert.ok(typeof releaseReviews === 'function');
+        holdReviews = false;
+        releaseReviews();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Discarded stale response'));
         assert.ok(!(await page.locator('#gh-detail').innerText()).includes('CURRENT HEAD'));
         assert.ok((await page.locator('#gh-detail').innerText()).includes('Not verified / not available.'));
 
         const chooserPromise = page.waitForEvent('filechooser');
-        await page.locator('label[for="gh-import"]').click();
+        await page.getByRole('button', { name: 'Import JSON' }).click();
         const chooser = await chooserPromise;
         await chooser.setFiles({
             name: 'snapshot.json', mimeType: 'application/json',
