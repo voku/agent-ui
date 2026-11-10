@@ -7,6 +7,7 @@ const base = process.argv[2] || 'http://127.0.0.1:8080';
 const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
 let head = HEAD_A;
+let detailApiUnavailable = false;
 const browserOptions = { headless: true };
 if (process.env.CHROMIUM_PATH) {
     browserOptions.executablePath = process.env.CHROMIUM_PATH;
@@ -33,6 +34,13 @@ if (process.env.CHROMIUM_PATH) {
             const path = url.pathname;
             const repo = path.match(/^\/repos\/voku\/([^/]+)/)?.[1];
             let result = {};
+            if (detailApiUnavailable &&
+                (path.endsWith('/pulls/500/reviews') || path.endsWith('/pulls/500/comments') ||
+                    path.endsWith('/actions/runs') || /\/commits\/[a-f0-9]{40}\/check-runs$/.test(path))) {
+                await route.fulfill({ status: 503, contentType: 'application/json',
+                    body: JSON.stringify({ message: 'Temporary GitHub API failure' }) });
+                return;
+            }
             if (path.endsWith('/pulls') && url.searchParams.get('state') === 'open') {
                 result = repo === 'agent-loop' ? [{
                     number: 500, title: 'fix: meaningful example', body: 'Claim: fixes a real bug',
@@ -76,6 +84,18 @@ if (process.env.CHROMIUM_PATH) {
         assert.ok((await page.locator('#gh-detail').innerText()).includes('Claim (not proof)'));
         assert.ok((await page.locator('#gh-detail').innerText()).includes('resolved/unresolved thread state UNKNOWN') ||
             (await page.locator('#gh-detail').innerText()).includes('thread state UNKNOWN'));
+
+        // A retry with four unavailable detail APIs must not inherit
+        // the earlier same-head approval or successful check.
+        detailApiUnavailable = true;
+        await page.getByRole('button', { name: 'Load PR checks, reviews and artifacts' }).click();
+        await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes(
+            'Unverified: reviews, check runs, workflow runs, inline review comments'));
+        const unavailableDetail = await page.locator('#gh-detail').innerText();
+        assert.ok(unavailableDetail.includes('Not verified / not available.'));
+        assert.ok(!unavailableDetail.includes('CURRENT HEAD'));
+        assert.ok(!unavailableDetail.includes('APPROVED by reviewer'));
+        detailApiUnavailable = false;
 
         head = HEAD_B;
         await page.locator('#gh-refresh').click();
