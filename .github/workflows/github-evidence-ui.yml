@@ -2,6 +2,8 @@ name: GitHub evidence workbench JavaScript
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
   syntax:
     runs-on: ubuntu-latest
