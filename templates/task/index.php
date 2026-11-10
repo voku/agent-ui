@@ -233,7 +233,7 @@ require __DIR__ . '/../layout/header.php';
 <?php endif; ?>
 
 <?php if ($decisions->actions !== [] || $pendingAttention !== null): ?>
-    <p class="eyebrow">Your decision</p>
+    <h2 class="eyebrow">Your decision</h2>
     <section class="panel panel--attention" id="decision" aria-label="Your decision">
         <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
             corresponding human action as recordable.</p>
@@ -450,7 +450,7 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<p class="eyebrow">Execution</p>
+<h2 class="eyebrow">Execution</h2>
 <section class="panel">
     <p class="note" style="margin:0 0 14px">The same governed workflow, two ways of doing the work.
         agent-loop owns lifecycle state and persistence in both; human approval, review acknowledgement and Learning decisions remain human authority.</p>

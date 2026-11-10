@@ -14,7 +14,7 @@ $csrf = $model['csrf_token'];
 $pendingAttention = $model['pending_attention'] ?? null;
 ?>
 <?php if ($pendingAttention !== null): ?>
-    <p class="eyebrow">Human attention required</p>
+    <h2 class="eyebrow">Human attention required</h2>
     <section class="panel panel--attention">
         <div class="action__head">
             <div>
@@ -50,7 +50,7 @@ $pendingAttention = $model['pending_attention'] ?? null;
         </form>
     </section>
 <?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT) && $contract !== null): ?>
-    <p class="eyebrow">Human decision required</p>
+    <h2 class="eyebrow">Human decision required</h2>
     <section class="panel panel--attention">
         <div class="action__head">
             <div>
@@ -110,7 +110,7 @@ $pendingAttention = $model['pending_attention'] ?? null;
         </form>
     </section>
 <?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::ACKNOWLEDGE_REVIEW) && $decisions->reviewReportSha256 !== null): ?>
-    <p class="eyebrow">Human review acknowledgement</p>
+    <h2 class="eyebrow">Human review acknowledgement</h2>
     <section class="panel panel--attention">
         <div class="action__head">
             <strong>Review the exact report before acknowledging</strong>
@@ -131,7 +131,7 @@ $pendingAttention = $model['pending_attention'] ?? null;
         </form>
     </section>
 <?php elseif ($decisions->allows(WorkflowHumanDecisionProjection::RECORD_LEARNING)): ?>
-    <p class="eyebrow">Learning disposition</p>
+    <h2 class="eyebrow">Learning disposition</h2>
     <section class="panel panel--attention">
         <strong>Record the outcome of this run</strong>
         <p class="note">Choose from the currently supported owner actions. No durable learning means there was no reusable finding; a follow-up requires a concrete reference. This is not a substitute for validation or review.</p>
@@ -163,7 +163,7 @@ $pendingAttention = $model['pending_attention'] ?? null;
         <p class="small note">Validated Finding content still belongs to the Learning owner. Use the full task decision page for any other projected action.</p>
     </section>
 <?php elseif ($decisions->actions !== []): ?>
-    <p class="eyebrow">Human decision available</p>
+    <h2 class="eyebrow">Human decision available</h2>
     <section class="panel panel--attention">
         <p class="note">The owner projects another recordable decision. Its details are available on the full task page; this cockpit will not invent a generic approval.</p>
         <a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>#decision">Open exact owner decision</a>
