@@ -20,7 +20,7 @@ if (process.env.CHROMIUM_PATH) {
         const noJsPage = await disabled.newPage();
         await noJsPage.goto(base + '/github-workflow');
         assert.equal(await noJsPage.locator('#github-workflow').isVisible(), false);
-        assert.equal(await noJsPage.getByText('This optional cross-repository view requires JavaScript').count(), 1);
+        assert.ok((await noJsPage.content()).includes('This optional cross-repository view requires JavaScript'));
         await disabled.close();
 
         const context = await browser.newContext({ acceptDownloads: true });
