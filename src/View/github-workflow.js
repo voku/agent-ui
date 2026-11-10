@@ -84,10 +84,10 @@
         if (type === 'missing') { return proofs(item).length === 0 || freshness(item) !== 'current'; }
         if (type === 'review') { return Array.isArray(item.reviews) && item.reviews.length > 0; }
         if (type === 'artifact') { return Array.isArray(item.artifacts) && item.artifacts.length > 0; }
-        return proofs(item).some(function (p) {
-            return p.type === type && fresh(item, p) &&
-                (!['ci', 'dogfood'].includes(type) || p.outcome === 'success');
-        });
+        var matching = proofs(item).filter(function (p) { return p.type === type && fresh(item, p); });
+        if (!['ci', 'dogfood'].includes(type)) { return matching.length > 0; }
+        // Fail closed: skipped, neutral and pending checks do not establish passing proof.
+        return matching.length > 0 && matching.every(function (p) { return p.outcome === 'success'; });
     }
 
     function failed(item) {
@@ -545,7 +545,7 @@
         } catch (error) {
             if (detailPending.get(id) === loadId) {
                 message.textContent = 'Details unavailable for ' + id + ': ' + error.message +
-                    '. Existing observation retained; no success inferred.';
+                    '. Same-head checks and reviews were cleared and are unverified; no success inferred.';
             }
         }
         render();
