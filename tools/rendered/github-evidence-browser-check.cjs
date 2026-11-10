@@ -104,6 +104,8 @@ if (process.env.CHROMIUM_PATH) {
         await page.waitForFunction(() => document.querySelector('#gh-message').textContent.includes('Imported 1 work items'));
         assert.ok((await page.locator('#gh-detail').innerText()).includes('STALE / UNKNOWN'));
         assert.ok((await page.locator('#gh-detail').innerText()).includes('UNRESOLVED'));
+        assert.ok((await page.locator('#gh-detail').innerText()).includes('Inspect upstream voku/agent-loop#501 first'));
+        assert.ok((await page.locator('#gh-detail').innerText()).includes('Declared prerequisites'));
 
         await page.locator('#gh-kind').selectOption('issue');
         assert.equal(await page.locator('#gh-list tr').count(), 1);
