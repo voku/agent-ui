@@ -86,8 +86,20 @@
         return proofs(item).some(function (p) { return p.type === 'ci' && fresh(item, p) && p.outcome === 'failure'; });
     }
 
+    function unresolvedDependency(item) {
+        for (var id of item.dependsOn) {
+            var dependency = state.items.get(id);
+            if (!dependency || (dependency.kind === 'pr' && dependency.state !== 'merged') ||
+                (dependency.kind === 'issue' && dependency.state !== 'closed')) {
+                return id;
+            }
+        }
+        return null;
+    }
+
     function isBlocked(item) {
-        return (Array.isArray(item.blockers) && item.blockers.length > 0) ||
+        return unresolvedDependency(item) !== null ||
+            (Array.isArray(item.blockers) && item.blockers.length > 0) ||
             (Array.isArray(item.threads) && item.threads.some(function (t) { return t.resolved === false; })) ||
             failed(item);
     }
@@ -105,6 +117,8 @@
     function nextStep(item) {
         if (item.kind === 'issue') { return 'Inspect owner acceptance criteria; select a bounded next task.'; }
         if (item.state === 'merged') { return 'Verify release and installed consumer independently.'; }
+        var dependency = unresolvedDependency(item);
+        if (dependency) { return 'Inspect upstream ' + dependency + ' first, then recheck this exact head and consumer proof.'; }
         if (failed(item)) { return 'Inspect the exact-head failed job before any merge.'; }
         if (Array.isArray(item.threads) && item.threads.some(function (t) { return t.resolved === false; })) {
             return 'Address the unresolved review thread and revalidate the head.';
@@ -164,6 +178,9 @@
                 return String(x).slice(0, 400);
             }) : [],
             dependsOn: Array.isArray(raw.dependsOn) ? raw.dependsOn.slice(0, 20).filter(function (x) {
+                return typeof x === 'string' && /^voku\/[a-z-]+#[0-9]+$/.test(x);
+            }) : [],
+            relatedTo: Array.isArray(raw.relatedTo) ? raw.relatedTo.slice(0, 20).filter(function (x) {
                 return typeof x === 'string' && /^voku\/[a-z-]+#[0-9]+$/.test(x);
             }) : [],
             observedAt: typeof raw.observedAt === 'string' ? raw.observedAt : null,
@@ -269,8 +286,14 @@
 
         var blocks = section(detail, 'Blockers, dependencies and next step');
         notes(blocks, item.blockers, function (li, b) { append(li, 'span', b); });
-        append(blocks, 'h4', 'Dependencies');
+        append(blocks, 'h4', 'Declared prerequisites (not inferred from mentions)');
         notes(blocks, item.dependsOn, function (li, dep) {
+            var pieces = dep.split('#');
+            link(li, dep, 'https://github.com/' + pieces[0] + '/issues/' + pieces[1]);
+            append(li, 'span', state.items.has(dep) ? ' · observed: ' + status(state.items.get(dep)) : ' · not observed', 'small muted');
+        });
+        append(blocks, 'h4', 'Related work (not prerequisite)');
+        notes(blocks, item.relatedTo, function (li, dep) {
             var pieces = dep.split('#');
             link(li, dep, 'https://github.com/' + pieces[0] + '/issues/' + pieces[1]);
         });
@@ -298,7 +321,8 @@
             ['Head', function (i) { return i.head || 'unknown'; }],
             ['Claim', function (i) { return i.claim || 'unknown'; }],
             ['Freshness', freshness], ['Status', status], ['Next step', nextStep],
-            ['Dependencies', function (i) { return i.dependsOn.join(', ') || 'unverified'; }]
+            ['Dependencies', function (i) { return i.dependsOn.join(', ') || 'unverified'; }],
+            ['Related', function (i) { return i.relatedTo.join(', ') || 'none observed'; }]
         ].forEach(function (row) {
             var tr = append(tbody, 'tr');
             append(tr, 'th', row[0]);
@@ -342,6 +366,7 @@
             artifacts: sameHead ? existing.artifacts : null,
             blockers: sameHead ? existing.blockers : [],
             dependsOn: existing ? existing.dependsOn : [],
+            relatedTo: existing ? existing.relatedTo : [],
             observedAt: seenAt, detailsLoaded: false
         });
         // A head change removes previously attached facts, rather than silently
