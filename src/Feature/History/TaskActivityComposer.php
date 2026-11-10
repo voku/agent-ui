@@ -78,6 +78,7 @@ final readonly class TaskActivityComposer
 
         $this->addBoard($taskId, $events, $untimed);
         $this->addContracts($taskId, $events, $untimed);
+        $this->addAttention($taskId, $events, $untimed);
         $this->addLearning($taskId, $events, $untimed);
 
         usort($events, $this->newestFirst(...));
@@ -241,6 +242,41 @@ final readonly class TaskActivityComposer
     private function contractDetail(TaskContract $contract, string $actor): string
     {
         return 'Revision ' . $contract->revision . '. ' . $actor . '.';
+    }
+
+    /**
+     * Attention requirements and authoritative human resolutions.
+     *
+     * @param list<TaskActivityEvent> $events
+     * @param list<UntimedOwnerFact> $untimed
+     */
+    private function addAttention(string $taskId, array &$events, array &$untimed): void
+    {
+        $resolutions = $this->decisions->attentionResolutions($taskId);
+        foreach ($resolutions as $resolution) {
+            $this->place(
+                $events,
+                $untimed,
+                $resolution->resolvedAt,
+                'agent-loop',
+                'attention_resolved',
+                'Attention resolved: stage ' . $resolution->stageId,
+                'Attempt ' . $resolution->attempt . ' resolved by ' . $resolution->actor . ' (attention ID ' . $resolution->attentionId . ').',
+            );
+        }
+
+        $pending = $this->decisions->pendingAttention($taskId);
+        if ($pending !== null) {
+            $this->place(
+                $events,
+                $untimed,
+                $pending->createdAt,
+                'agent-loop',
+                'attention_required',
+                'Attention required: stage ' . ($pending->stageId ?? 'execution'),
+                $pending->message . ' (attention ID ' . $pending->id . ').',
+            );
+        }
     }
 
     /**

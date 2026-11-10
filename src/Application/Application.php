@@ -130,7 +130,7 @@ final readonly class Application
             $csrf,
             $templates,
         );
-        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $csrf, $taskContext, $templates);
+        $this->progress = new WorkflowProgressAction($board, $workflowProgress, $decisions, $runner, $csrf, $taskContext, $templates);
         $this->prompts = new PromptWorkbenchAction(
             $board,
             $workflowPrompt,
@@ -207,7 +207,7 @@ final readonly class Application
                 'work' => ($this->work)($route['task_id'] ?? ''),
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
                 'history' => ($this->history)($route['task_id'] ?? ''),
-                'handoff' => Response::redirect('/task/' . rawurlencode($route['task_id'] ?? '') . '/prompts'),
+                'handoff' => Response::redirect('/task/' . rawurlencode($route['task_id'] ?? '') . '/prompts?recipe=continue-until-done'),
                 'approve', 'review_ack', 'learning', 'attention' => ($this->humanDecision)(
                     $route['task_id'] ?? '',
                     $route['route'],

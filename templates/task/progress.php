@@ -1,17 +1,20 @@
 <?php
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProgressSnapshot;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Runtime\LocalTerminal;
 use voku\AgentUi\View\ClientScript;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string, brief_html: string} $model */
+/** @var array{card: CardSnapshot, progress: WorkflowProgressSnapshot, decision_html: string, brief_html: string, runner?: ?RunnerSnapshot, csrf_token?: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $progress = $model['progress'];
 $decisionHtml = $model['decision_html'];
 $briefHtml = $model['brief_html'];
+$runner = $model['runner'] ?? null;
+$csrf = $model['csrf_token'] ?? '';
 $terminalTask = getenv('AGENT_UI_TERMINAL_TASK');
 $terminalOrigin = LocalTerminal::origin();
 $showTerminal = is_string($terminalTask) && $terminalTask === $card->id && $terminalOrigin !== null;
@@ -45,6 +48,36 @@ require __DIR__ . '/../layout/header.php';
 <div id="workflow-overview" data-workflow-brief data-brief-digest="<?= hash('sha256', $briefHtml) ?>" aria-live="polite"><?= $briefHtml ?></div>
 
 <div id="workflow-approval" data-workflow-decision data-decision-digest="<?= hash('sha256', $decisionHtml) ?>" aria-live="polite"><?= $decisionHtml ?></div>
+
+<?php if ($runner !== null && $runner->installed): ?>
+    <h2 class="eyebrow">Execution continuation</h2>
+    <section class="panel panel--accent" aria-label="Execution continuation">
+        <div class="action__head">
+            <div>
+                <strong>Execution continuation ready</strong>
+                <span class="pill pill--<?= ($runner->allowResume || $runner->allowRun) ? 'ok' : 'neutral' ?>" style="margin-left:8px"><?= $runner->allowResume ? 'resumable' : ($runner->allowRun ? 'runnable' : 'managed runner') ?></span>
+            </div>
+            <span class="small faint">stage <?= TemplateRenderer::escape($runner->currentStageId ?? 'execution') ?> · attempt <?= (int) ($runner->currentAttempt ?? 1) ?></span>
+        </div>
+        <p class="small" style="margin:10px 0 12px">Human decisions are satisfied. Continue execution directly through the managed runner or switch to guided prompt handoff.</p>
+        <div class="btn-row">
+            <?php if ($runner->allowResume): ?>
+                <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/resume" style="margin:0">
+                    <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                    <button class="btn btn--primary" type="submit">Resume execution</button>
+                </form>
+            <?php elseif ($runner->allowRun): ?>
+                <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/runner/run" style="margin:0">
+                    <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                    <button class="btn btn--primary" type="submit">Run stage</button>
+                </form>
+            <?php else: ?>
+                <button class="btn" type="button" disabled title="Runner control unavailable in current environment">Resume execution</button>
+            <?php endif; ?>
+            <a class="btn" href="/task/<?= rawurlencode($card->id) ?>/prompts?recipe=continue-until-done">Continue via Prompt Workbench →</a>
+        </div>
+    </section>
+<?php endif; ?>
 
 <p class="eyebrow">Task workflow</p>
 <section class="panel" data-progress-empty<?= $progress->steps !== [] ? ' hidden' : '' ?>>

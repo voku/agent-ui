@@ -86,6 +86,7 @@ $contractApproved = $contract !== null && $contract->status === TaskContract::AP
         <a class="btn btn--small" href="#workflow-graph">Workflow graph</a>
         <a class="btn btn--small" href="/task/<?= rawurlencode($card->id) ?>/evidence">Evidence</a>
         <a class="btn btn--small" href="/task/<?= rawurlencode($card->id) ?>/work">Work &amp; review</a>
+        <a class="btn btn--small" href="/task/<?= rawurlencode($card->id) ?>/prompts?recipe=continue-until-done">Prompts</a>
         <?php if (getenv('AGENT_UI_TERMINAL_TASK') === $card->id && \voku\AgentUi\Runtime\LocalTerminal::origin() !== null): ?>
             <a class="btn btn--small" href="#workflow-terminal">Browser terminal</a>
         <?php endif; ?>
