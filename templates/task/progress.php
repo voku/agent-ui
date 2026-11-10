@@ -208,37 +208,10 @@ require __DIR__ . '/../layout/header.php';
     </div>
     <iframe title="Local interactive terminal" sandbox="allow-scripts allow-same-origin" src="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>" data-terminal-frame data-terminal-url="<?= TemplateRenderer::escape($terminalOrigin . '/_terminal/') ?>"></iframe>
     <p class="note" data-terminal-message>Connection status appears in the terminal. Disconnecting leaves the session running.</p>
-    <section class="codex-app-server panel" data-codex-app-server data-agent-activity aria-label="Structured coding-agent activity">
-        <div class="action__head">
-            <strong>Coding-agent activity <span class="pill pill--neutral">observation</span></strong>
-            <button type="button" class="btn btn--small" data-codex-app-server-stop hidden>Stop observed session</button>
-        </div>
-        <label for="agent-activity-provider">Structured agent</label>
-        <select id="agent-activity-provider" data-agent-activity-provider>
-            <option value="codex">Codex App Server</option>
-            <option value="claude">Claude Code stream-json</option>
-        </select>
-        <p class="note">The selected provider reports structured activity separately from the authoritative agent-loop workflow. Codex supports deliberate one-time HTML tool approvals. Claude stream-json activity supports prompts and observed tools, but tool permission prompts are denied until an Agent SDK permission bridge is available. Generic CLI tools remain usable in the terminal without structured observation.</p>
-        <p class="small" data-codex-app-server-state aria-live="polite">Checking coding-agent activity…</p>
-        <p class="small muted" data-codex-app-server-message></p>
-        <p class="small" data-codex-app-server-feedback aria-live="polite"></p>
-        <div class="btn-row">
-            <button type="button" class="btn btn--primary btn--small" data-codex-app-server-start>Start selected agent</button>
-        </div>
-        <form class="codex-app-server__prompt" data-codex-app-server-form hidden>
-            <label for="codex-app-server-prompt">Send a prompt to this agent session</label>
-            <textarea id="codex-app-server-prompt" data-codex-app-server-prompt rows="3" maxlength="12288" required></textarea>
-            <button type="submit" class="btn btn--primary btn--small" data-codex-app-server-send>Send prompt</button>
-            <p class="note">Prompts are sent directly to the agent and are not copied into this activity feed.</p>
-        </form>
-        <div class="codex-app-server__requests" data-codex-app-server-requests hidden>
-            <h2>Requests waiting for a human</h2>
-            <div data-codex-app-server-request-list></div>
-        </div>
-        <div class="codex-app-server__activity">
-            <h2>Recent structured activity</h2>
-            <ol data-codex-app-server-activity aria-live="off"><li class="muted">No observed activity yet.</li></ol>
-        </div>
+    <section class="panel" aria-label="Workflow prompts">
+        <strong>Workflow prompts</strong>
+        <p class="note">Choose and generate an owner-provided prompt for this task, then copy it into your terminal session.</p>
+        <a class="btn btn--small" href="/task/<?= rawurlencode($card->id) ?>/prompts">Open task prompts</a>
     </section>
 </aside>
 <?php endif; ?>

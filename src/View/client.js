@@ -967,7 +967,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                 var available = snapshot.terminal_available === true;
                 state.textContent = running ? 'tmux session running (' + snapshot.host + ')'
                     : missing ? 'tmux session not found' : 'Local session status unavailable';
-                if (!available) { state.textContent += ' · terminal transport unavailable'; }
+                if (!available) {
+                    state.textContent += ' · terminal transport unavailable';
+                    if (typeof snapshot.terminal_error === 'string') { state.textContent += '. ' + snapshot.terminal_error; }
+                }
                 toggle.hidden = !running || !available;
                 stop.hidden = !running;
                 start.hidden = !missing;

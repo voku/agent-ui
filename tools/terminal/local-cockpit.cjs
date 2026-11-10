@@ -89,6 +89,7 @@ let terminalServer;
 let terminalHost;
 let terminalOrigin;
 let terminalAvailable = false;
+let terminalError = null;
 let quitting = false;
 const upgradedSockets = new Set();
 let pendingSocket = null;
@@ -745,6 +746,7 @@ function requestHandler(req, res) {
         return json(res, 200, {
             ...state,
             terminal_available: terminalAvailable,
+            terminal_error: terminalError,
             hosts: hostAvailability(),
             attach_command: state.state === 'session_running' ? 'tmux -L agent-ui attach-session -t =' + session : null,
             csrf: csrfToken,
@@ -1121,16 +1123,26 @@ async function main() {
         });
     });
     await waitFor(async () => (await getStatus(`http://127.0.0.1:${phpPort}/task/${encodeURIComponent(options.task)}/progress.json`)) === 200, 'The task is unavailable in the selected project.');
+    const missing = ['ttyd', 'tmux'].filter((name) => !(process.env.PATH || '').split(path.delimiter).some((directory) => {
+        try {
+            const candidate = path.join(directory || '.', name);
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return fs.statSync(candidate).isFile();
+        } catch (_) { return false; }
+    }));
+    if (missing.length) terminalError = `Missing required terminal ${missing.length === 1 ? 'tool' : 'tools'}: ${missing.join(', ')}. Install ${missing.length === 1 ? 'it' : 'them'} on PATH and restart the cockpit.`;
+    if (!options.serve && terminalError) throw new Error(terminalError);
     const initialState = inspectSession();
     const host = options.serve
         ? (initialState.state === 'session_running' ? initialState.host : null)
         : ensureSession(options.start || null, Boolean(options.start));
     const terminalEnv = { ...process.env, TMUX: '' };
     delete terminalEnv.TMUX_TMPDIR;
-    let terminalExited = false;
-    child('ttyd', ['-i', socketPath, '-b', '/_terminal', '-W', '-O', '-m', '1', 'tmux', '-L', 'agent-ui', 'attach-session', '-t', '=' + session], terminalEnv, null, () => {
+    let terminalExited = missing.length > 0;
+    if (!terminalExited) child('ttyd', ['-i', socketPath, '-b', '/_terminal', '-W', '-O', '-m', '1', 'tmux', '-L', 'agent-ui', 'attach-session', '-t', '=' + session], terminalEnv, null, () => {
         terminalExited = true;
         terminalAvailable = false;
+        terminalError = 'The ttyd terminal transport stopped or could not start. Check the ttyd installation and restart the cockpit.';
     });
     for (let attempt = 0; attempt < 50 && !terminalExited; attempt++) {
         try { if (fs.statSync(socketPath).isSocket()) { terminalAvailable = true; break; } } catch (_) { /* waiting */ }
@@ -1139,7 +1151,7 @@ async function main() {
     console.log(`Open http://${expectedHost}/_local/access#${accessToken}`);
     console.log(`Task ${options.task}; host ${host || 'not started'}; tmux session ${session}; project ${root}`);
     console.log(`Normal terminal: env -u TMUX -u TMUX_TMPDIR tmux -L agent-ui attach-session -t =${session}`);
-    if (!terminalAvailable) console.log('Terminal transport unavailable; workflow navigation remains available.');
+    if (!terminalAvailable) console.log(`Terminal transport unavailable; workflow navigation remains available. ${terminalError || 'Check ttyd and restart the cockpit.'}`);
     console.log('Stopping this transport disconnects the browser and leaves the tmux session running.');
 }
 main().catch((error) => { console.error(error.message); cleanup(1); });
