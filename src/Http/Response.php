@@ -64,7 +64,9 @@ final readonly class Response
     {
         http_response_code($this->status);
         header('X-Content-Type-Options: nosniff');
-        header('Referrer-Policy: no-referrer');
+        // Keep cross-site referrers suppressed without making native same-origin
+        // POST forms send an opaque Origin that the CSRF origin guard rejects.
+        header('Referrer-Policy: same-origin');
         header('Content-Security-Policy: ' . self::contentSecurityPolicy());
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value);
