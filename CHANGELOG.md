@@ -4,6 +4,14 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.1] - 2026-11-10
+
+### Fixed
+
+- Preserve same-origin form Origin header under strict referrer policy (#168):
+  - Change page `Referrer-Policy` to `same-origin` so that native browser forms in Chromium with JavaScript disabled send an acceptable Origin rather than `Origin: null`, preventing false HTTP 403 cross-origin rejections while keeping cross-site referrer information suppressed.
+  - Add Playwright browser integration tests in Chromium for both native no-JS POST and JavaScript-enhanced Attention resolution, verifying freshness, re-entry, and rejection of stale and invalid CSRF submissions.
+
 ## [0.20.0] - 2026-11-10
 
 ### Added
