@@ -3,6 +3,7 @@ use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Integration\AgentKanban\BoardSnapshot;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -11,9 +12,12 @@ use voku\AgentUi\View\TemplateRenderer;
  *     board: BoardSnapshot,
  *     cards: list<CardSnapshot>,
  *     workflow: array<string, WorkflowSnapshot|null>,
+ *     runners?: array<string, RunnerSnapshot|null>,
  *     statuses: list<string>,
  *     kind_counts: array<string, int>,
  *     disagreement_count: int,
+ *     executing_count?: int,
+ *     blocked_count?: int,
  *     csrf_token: string,
  *     filter_query: string,
  *     filter_status: string,
@@ -24,9 +28,12 @@ use voku\AgentUi\View\TemplateRenderer;
 $board = $model['board'];
 $filteredCards = $model['cards'];
 $workflow = $model['workflow'];
+$runners = $model['runners'] ?? [];
 $statuses = $model['statuses'];
 $kindCounts = $model['kind_counts'];
 $disagreementCount = $model['disagreement_count'];
+$executingCount = $model['executing_count'] ?? 0;
+$blockedCount = $model['blocked_count'] ?? 0;
 $csrf = $model['csrf_token'];
 $filterQuery = $model['filter_query'];
 $filterStatus = $model['filter_status'];
@@ -45,8 +52,8 @@ require __DIR__ . '/../layout/header.php';
 <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div>
         <h1><?= TemplateRenderer::escape($board->title ?? 'Board') ?></h1>
-        <p class="lede">Each card shows two owners side by side: <strong>Board</strong> is agent-kanban's lane and status,
-            <strong>Workflow</strong> is agent-loop's lifecycle state and the kind of step it expects next.
+        <p class="lede">Each card shows independently sourced signals side by side: <strong>Board</strong> is agent-kanban's lane and status,
+            <strong>Workflow</strong> is agent-loop's lifecycle state and next action, and <strong>Execution</strong> is optional runner observations.
             This page lays them out and adds no semantics of its own.</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -101,17 +108,27 @@ require __DIR__ . '/../layout/header.php';
                 </select>
             </label>
         </div>
-        <div style="min-width:150px">
+        <div style="min-width:160px">
             <label class="field">
-                <span>Workflow</span>
+                <span>Workflow / Cockpit</span>
                 <select name="workflow">
                     <option value="">Any next step</option>
-                    <?php foreach ($kindCounts as $kind => $count): ?>
-                        <option value="<?= TemplateRenderer::escape((string) $kind) ?>"<?= $filterWorkflow === (string) $kind ? ' selected' : '' ?>>Next: <?= TemplateRenderer::escape(Presentation::label((string) $kind)) ?></option>
-                    <?php endforeach; ?>
+                    <?php if (($kindCounts['decision_required'] ?? 0) > 0 || $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED): ?>
+                        <option value="<?= BoardAction::FILTER_DECISION_REQUIRED ?>"<?= $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED ? ' selected' : '' ?>>Needs my decision</option>
+                    <?php endif; ?>
+                    <?php if ($executingCount > 0 || $filterWorkflow === BoardAction::FILTER_EXECUTING): ?>
+                        <option value="<?= BoardAction::FILTER_EXECUTING ?>"<?= $filterWorkflow === BoardAction::FILTER_EXECUTING ? ' selected' : '' ?>>Currently executing</option>
+                    <?php endif; ?>
+                    <?php if ($blockedCount > 0 || $filterWorkflow === BoardAction::FILTER_BLOCKED): ?>
+                        <option value="<?= BoardAction::FILTER_BLOCKED ?>"<?= $filterWorkflow === BoardAction::FILTER_BLOCKED ? ' selected' : '' ?>>Blocked / Interrupted</option>
+                    <?php endif; ?>
                     <?php if ($disagreementCount > 0 || $filterWorkflow === BoardAction::FILTER_DISAGREEMENT): ?>
                         <option value="<?= BoardAction::FILTER_DISAGREEMENT ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' selected' : '' ?>>Board and workflow disagree</option>
                     <?php endif; ?>
+                    <?php foreach ($kindCounts as $kind => $count): ?>
+                        <?php if ($kind === 'decision_required') { continue; } ?>
+                        <option value="<?= TemplateRenderer::escape((string) $kind) ?>"<?= $filterWorkflow === (string) $kind ? ' selected' : '' ?>>Next: <?= TemplateRenderer::escape(Presentation::label((string) $kind)) ?></option>
+                    <?php endforeach; ?>
                 </select>
             </label>
         </div>
@@ -124,12 +141,22 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php if ($kindCounts !== [] || $disagreementCount > 0): ?>
+<?php if ($kindCounts !== [] || $disagreementCount > 0 || $executingCount > 0 || $blockedCount > 0): ?>
 <nav class="board-summary" aria-label="Workflow summary">
     <?php $decisions = $kindCounts['decision_required'] ?? 0; ?>
-    <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref('decision_required')) ?>"<?= $filterWorkflow === 'decision_required' ? ' aria-current="true"' : '' ?>>
+    <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DECISION_REQUIRED)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED ? ' aria-current="true"' : '' ?>>
         <strong><?= $decisions ?></strong> waiting on a human decision
     </a>
+    <?php if ($executingCount > 0 || $filterWorkflow === BoardAction::FILTER_EXECUTING): ?>
+        <a class="board-summary__item" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_EXECUTING)) ?>"<?= $filterWorkflow === BoardAction::FILTER_EXECUTING ? ' aria-current="true"' : '' ?>>
+            <strong><?= $executingCount ?></strong> actively executing
+        </a>
+    <?php endif; ?>
+    <?php if ($blockedCount > 0 || $filterWorkflow === BoardAction::FILTER_BLOCKED): ?>
+        <a class="board-summary__item board-summary__item--blocked" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_BLOCKED)) ?>"<?= $filterWorkflow === BoardAction::FILTER_BLOCKED ? ' aria-current="true"' : '' ?>>
+            <strong><?= $blockedCount ?></strong> blocked / interrupted
+        </a>
+    <?php endif; ?>
     <a class="board-summary__item<?= $disagreementCount > 0 ? ' board-summary__item--blocked' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DISAGREEMENT)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' aria-current="true"' : '' ?>>
         <strong><?= $disagreementCount ?></strong> board and workflow disagree
     </a>
@@ -179,6 +206,7 @@ require __DIR__ . '/../layout/header.php';
             <?php foreach ($laneCards as $card): ?>
                 <?php
                 $flow = $workflow[$card->id] ?? null;
+                $runnerSnap = $runners[$card->id] ?? null;
                 $cardClass = 'card';
                 if ($flow !== null && $flow->disagreements !== []) {
                     $cardClass .= ' card--blocked';
@@ -191,6 +219,11 @@ require __DIR__ . '/../layout/header.php';
                     <a class="card__title" href="/task/<?= TemplateRenderer::escape($card->id) ?>" style="text-decoration:none;color:inherit;font-weight:600"><?= TemplateRenderer::escape($card->title) ?></a>
                     <?php if ($card->summary !== ''): ?>
                         <p class="small faint" style="margin:4px 0 0;line-height:1.3"><?= TemplateRenderer::escape(mb_substr($card->summary, 0, 90)) ?><?= mb_strlen($card->summary) > 90 ? '…' : '' ?></p>
+                    <?php endif; ?>
+                    <?php if ($flow !== null && $flow->nextActionKind === 'decision_required'): ?>
+                        <div style="margin-top:6px">
+                            <a class="btn btn--small btn--attention" style="font-size:11px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress#ws-overview">⚡ Needs Human Decision →</a>
+                        </div>
                     <?php endif; ?>
                     <dl class="card__owners">
                         <dt>Board</dt>
@@ -214,18 +247,40 @@ require __DIR__ . '/../layout/header.php';
                                 <span class="faint"><?= TemplateRenderer::escape(Presentation::label($flow->mode)) ?></span>
                             <?php endif; ?>
                         </dd>
+                        <?php if ($runnerSnap !== null && $runnerSnap->observationStatus !== null): ?>
+                            <dt>Execution</dt>
+                            <dd>
+                                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($runnerSnap->observationStatus)) ?>">
+                                    Runner: <?= TemplateRenderer::escape(Presentation::label($runnerSnap->observationStatus)) ?>
+                                </span>
+                                <?php if ($runnerSnap->hostId !== null): ?>
+                                    <span class="faint" style="font-size:10px" title="Runner host"><?= TemplateRenderer::escape($runnerSnap->hostId) ?></span>
+                                <?php endif; ?>
+                                <?php if ($runnerSnap->observationStageId !== null): ?>
+                                    <span class="faint" style="font-size:10px">stage: <?= TemplateRenderer::escape($runnerSnap->observationStageId) ?></span>
+                                <?php endif; ?>
+                            </dd>
+                        <?php endif; ?>
                         <?php if ($flow !== null): ?>
                             <dt>Next</dt>
                             <dd title="<?= TemplateRenderer::escape(Presentation::nextActionKindHint($flow->nextActionKind)) ?>">
                                 <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($flow->nextActionKind)) ?>"><?= TemplateRenderer::escape(Presentation::label($flow->nextActionKind)) ?></span>
                             </dd>
+                            <?php if ($flow->nextAction !== '' && $flow->nextAction !== 'none'): ?>
+                                <dd style="margin-top:2px;width:100%">
+                                    <code class="small faint" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:10px;padding:2px 4px;background:var(--surface-muted);border-radius:3px" title="<?= TemplateRenderer::escape($flow->nextAction) ?>"><?= TemplateRenderer::escape($flow->nextAction) ?></code>
+                                </dd>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </dl>
                     <?php foreach ($flow->disagreements ?? [] as $disagreement): ?>
-                        <p class="card__disagreement"><strong><?= TemplateRenderer::escape($disagreement['owner']) ?>:</strong> <?= TemplateRenderer::escape($disagreement['message']) ?></p>
+                        <p class="card__disagreement">
+                            <strong><?= TemplateRenderer::escape($disagreement['owner']) ?>:</strong> <?= TemplateRenderer::escape($disagreement['message']) ?>
+                            <a href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress" style="display:block;margin-top:3px;font-size:10.5px;color:inherit;text-decoration:underline">Open Task Cockpit to reconcile →</a>
+                        </p>
                     <?php endforeach; ?>
-                    <?php if ($card->allowedTransitions !== []): ?>
-                        <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--rule);display:flex;gap:4px;flex-wrap:wrap">
+                    <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap">
+                        <div style="display:flex;gap:4px;flex-wrap:wrap">
                             <?php foreach ($card->allowedTransitions as $targetLane): ?>
                                 <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/move" style="margin:0">
                                     <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
@@ -235,7 +290,8 @@ require __DIR__ . '/../layout/header.php';
                                 </form>
                             <?php endforeach; ?>
                         </div>
-                    <?php endif; ?>
+                        <a class="btn btn--small" style="font-size:10px;padding:2px 6px" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">Cockpit →</a>
+                    </div>
                 </div>
             <?php endforeach; ?>
         </section>

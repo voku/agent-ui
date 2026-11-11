@@ -6,6 +6,15 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Visual work and attention cockpit on the Kanban board (`/board`, #183):
+  - Card view surfaces orthogonal dimensions side by side: authoritative Kanban lane/status, Loop workflow state, canonical next action, outstanding human decisions, and optional fresh Runner execution observations.
+  - Prominent 1-click decision button ("Needs Human Decision →") directly linking to the decision surface (`/task/{id}/progress#ws-overview`) when `decision_required` is projected.
+  - Cockpit quick-filters for "Needs my decision", "Currently executing", "Blocked / Interrupted", and "Board and workflow disagree".
+  - Canonical next action displayed with executable command preview on each card.
+  - Disagreements between owners clearly highlighted with deep-link navigation to the task progress cockpit.
+
 ## [0.20.3] - 2026-11-11
 
 ### Fixed
