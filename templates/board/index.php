@@ -37,6 +37,12 @@ $workflowHref = static fn (string $value): string => '/board?' . http_build_quer
 
 $hasFilter = $filterQuery !== '' || $filterStatus !== '' || $filterPriority !== '' || $filterWorkflow !== '';
 
+/** @var list<CardSnapshot> $decisionCards */
+$decisionCards = array_values(array_filter(
+    $filteredCards,
+    static fn (CardSnapshot $card): bool => ($workflow[$card->id] ?? null)?->nextActionKind === 'decision_required',
+));
+
 $title = 'Board · ' . $board->projectPrefix . ' · agent-ui';
 $nav = 'board';
 $projectLabel = $board->projectPrefix;
@@ -140,6 +146,41 @@ require __DIR__ . '/../layout/header.php';
         </a>
     <?php endforeach; ?>
 </nav>
+<?php endif; ?>
+
+<?php if ($decisionCards !== []): ?>
+<section class="board-decision-queue" id="board-decision-queue" aria-labelledby="board-decision-queue-title">
+    <header class="board-decision-queue__head">
+        <div>
+            <h2 id="board-decision-queue-title">Human decisions waiting</h2>
+            <p>These are agent-loop's current decisions, regardless of their agent-kanban lane. A pending decision never moves a card by itself.</p>
+        </div>
+        <span class="pill pill--attention"><?= count($decisionCards) ?> shown</span>
+    </header>
+    <ul class="board-decision-queue__list">
+        <?php foreach ($decisionCards as $card): ?>
+            <?php $decision = $workflow[$card->id]; ?>
+            <?php if ($decision === null) { continue; } ?>
+            <li class="board-decision-queue__item">
+                <div class="board-decision-queue__identity">
+                    <div>
+                        <span class="board-decision-queue__id"><?= TemplateRenderer::escape($card->id) ?></span>
+                        <strong><?= TemplateRenderer::escape($card->title) ?></strong>
+                    </div>
+                    <a class="btn btn--small" href="/task/<?= TemplateRenderer::escape($card->id) ?>">Inspect decision</a>
+                </div>
+                <p class="board-decision-queue__owner">
+                    <span>agent-kanban lane: <strong><?= TemplateRenderer::escape($card->lane) ?></strong></span>
+                    <span>agent-loop next: <strong><?= TemplateRenderer::escape(Presentation::label($decision->nextActionKind)) ?></strong></span>
+                </p>
+                <details class="board-decision-queue__action">
+                    <summary>Show canonical next action</summary>
+                    <p><?= TemplateRenderer::escape($decision->nextAction) ?></p>
+                </details>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+</section>
 <?php endif; ?>
 
 <?php if ($board->cards === []): ?>
