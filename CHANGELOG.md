@@ -6,6 +6,8 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+## [0.20.3] - 2026-11-11
+
 ### Fixed
 
 - A project whose agent-kanban configuration cannot be resolved now shows a "Board not configured" page with agent-kanban's own message and a link to Setup (HTTP 503) instead of a generic 500 (UI-8128371174099913012).
