@@ -67,7 +67,12 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString('Human decisions waiting', $board->body);
         self::assertStringContainsString('agent-kanban lane: <strong>BACKLOG</strong>', $board->body);
         self::assertStringContainsString('href="/task/APP-1"', $board->body);
-        self::assertStringContainsString('Show canonical next action', $board->body);
+        self::assertStringContainsString('Show owner decision context', $board->body);
+        self::assertStringContainsString('Ambiguity in business requirement for worker output.', $board->body);
+        self::assertStringContainsString('agent-loop Attention: <strong>clarification_required</strong>', $board->body);
+
+        $filteredBoard = $app->handle(new Request('GET', '/board', query: ['workflow' => 'decision_required']));
+        self::assertStringContainsString('id="board-decision-queue"', $filteredBoard->body);
 
         // 1. Task overview page renders Attention in #decision
         $overview = $app->handle(new Request('GET', '/task/APP-1'));
