@@ -53,24 +53,30 @@ final readonly class BoardAction
         $disagreements = 0;
         $humanDecisionCount = 0;
         $pendingAttention = [];
+        $attentionUnavailable = [];
         foreach ($board->cards as $card) {
             $statuses[$card->status] = true;
-            $snapshot = $workflow[$card->id];
-            if ($snapshot === null) {
-                continue;
-            }
-            $kinds[$snapshot->nextActionKind] = ($kinds[$snapshot->nextActionKind] ?? 0) + 1;
-            if ($snapshot->mode === 'governed') {
-                $attention = $this->decisions->pendingAttention($card->id);
-                if ($attention !== null) {
-                    $pendingAttention[$card->id] = $attention;
+            $snapshot = $workflow[$card->id] ?? null;
+            if ($snapshot !== null) {
+                $kinds[$snapshot->nextActionKind] = ($kinds[$snapshot->nextActionKind] ?? 0) + 1;
+                if ($snapshot->disagreements !== []) {
+                    ++$disagreements;
                 }
             }
-            if ($snapshot->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
-                ++$humanDecisionCount;
+
+            // A failed manifest projection does not prove the execution owner
+            // has no Attention. Read it independently for governed/unknown tasks.
+            if ($snapshot === null || $snapshot->mode === 'governed') {
+                $observed = $this->decisions->pendingAttentionObservation($card->id);
+                if (!$observed->available) {
+                    $attentionUnavailable[$card->id] = true;
+                } elseif ($observed->attention !== null) {
+                    $pendingAttention[$card->id] = $observed->attention;
+                }
             }
-            if ($snapshot->disagreements !== []) {
-                ++$disagreements;
+
+            if ($snapshot?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
+                ++$humanDecisionCount;
             }
         }
         ksort($statuses);
@@ -89,6 +95,7 @@ final readonly class BoardAction
             'kind_counts' => $kinds,
             'human_decision_count' => $humanDecisionCount,
             'pending_attention' => $pendingAttention,
+            'attention_unavailable_ids' => array_keys($attentionUnavailable),
             'disagreement_count' => $disagreements,
             'filter_query' => $filterQuery,
             'filter_status' => $filterStatus,
@@ -107,13 +114,10 @@ final readonly class BoardAction
             return false;
         }
         if ($workflowFilter !== '') {
-            if ($workflow === null) {
-                return false;
-            }
             $hit = match ($workflowFilter) {
-                self::FILTER_DISAGREEMENT => $workflow->disagreements !== [],
-                'decision_required' => $workflow->nextActionKind === 'decision_required' || $hasPendingAttention,
-                default => $workflow->nextActionKind === $workflowFilter,
+                self::FILTER_DISAGREEMENT => $workflow !== null && $workflow->disagreements !== [],
+                'decision_required' => $workflow?->nextActionKind === 'decision_required' || $hasPendingAttention,
+                default => $workflow?->nextActionKind === $workflowFilter,
             };
             if (!$hit) {
                 return false;
