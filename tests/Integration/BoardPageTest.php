@@ -78,6 +78,25 @@ final class BoardPageTest extends TestCase
         self::assertStringNotContainsString('Build login system', $disagreements->body);
     }
 
+    public function testCardRendersCockpitDeepLinksAndNextAction(): void
+    {
+        $response = $this->app->handle(new Request('GET', '/board'));
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('/task/APP-1/progress', $response->body);
+        self::assertStringContainsString('Cockpit →', $response->body);
+    }
+
+    public function testCockpitQuickFiltersByExecutingAndBlocked(): void
+    {
+        $executing = $this->app->handle(new Request('GET', '/board', query: ['workflow' => 'executing']));
+        self::assertSame(200, $executing->status);
+
+        $blocked = $this->app->handle(new Request('GET', '/board', query: ['workflow' => 'blocked']));
+        self::assertSame(200, $blocked->status);
+        self::assertStringNotContainsString('Build login system', $blocked->body);
+    }
+
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) {
