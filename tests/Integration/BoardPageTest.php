@@ -6,14 +6,14 @@ namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use voku\AgentUi\Application\Application;
-use voku\AgentUi\Http\Request;
-use voku\AgentUi\Security\CsrfTokenManager;
-use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
-use voku\AgentUi\View\TemplateRenderer;
 use voku\AgentLoop\Execution\AttentionKind;
 use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentUi\Application\Application;
+use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\View\TemplateRenderer;
 
 /**
  * The Board shows agent-kanban's card facts and agent-loop's workflow facts
