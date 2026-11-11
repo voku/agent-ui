@@ -36,7 +36,7 @@
     "php": "^8.3",
     "voku/agent-kanban": "^0.4.6",
     "voku/agent-learning": "^0.19.0",
-    "voku/agent-loop": "^0.20.92",
+    "voku/agent-loop": "^0.20.93",
     "voku/agent-map": "^0.22.3",
     "voku/agent-recall-compiler": "^0.28.0"
   },
