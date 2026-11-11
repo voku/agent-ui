@@ -101,8 +101,13 @@ final class BoardPageTest extends TestCase
     {
         $board = (new BoardProjectionGateway($this->root))->board();
         $attention = new AttentionRequest(
-            'attention-1', 'APP-1', 'run-1', AttentionKind::CLARIFICATION_REQUIRED,
-            'Need explicit user decision.', 'investigate', '2026-11-11T12:00:00Z',
+            'attention-1',
+            'APP-1',
+            'run-1',
+            AttentionKind::CLARIFICATION_REQUIRED,
+            'Need explicit user decision.',
+            'investigate',
+            '2026-11-11T12:00:00Z',
         );
         $html = (new TemplateRenderer(dirname(__DIR__, 2) . '/templates'))->render('board/index', [
             'board' => $board,
