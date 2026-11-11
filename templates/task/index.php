@@ -251,7 +251,7 @@ require __DIR__ . '/../layout/header.php';
                 <div class="small" style="margin-top:6px">
                     <p style="margin:0 0 2px"><strong>Attention ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->id) ?></code></p>
                     <p style="margin:0 0 2px"><strong>Run ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->runId) ?></code></p>
-                    <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records an authoritative human decision in <code class="mono">AttentionResolutionStore</code>, clears the attention flag, and increments the execution attempt so stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> can resume under execution governance. Autonomous agents cannot self-resolve.</p>
+                    <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records a human decision in agent-loop, bound to the exact run, Contract revision, plan, attempt and HEAD you review in the workspace. Stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> then resumes in a new attempt. Agents cannot resolve their own Attention.</p>
                 </div>
             </div>
 

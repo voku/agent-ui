@@ -86,6 +86,7 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString('Attention required: stage investigate', $progress->body);
         self::assertStringContainsString('data-workflow-decision-form', $progress->body);
         self::assertStringContainsString('Resolve Attention', $progress->body);
+        self::assertStringContainsString('data-workspace-decision-badge>decision</span>', $progress->body);
         self::assertStringContainsString('action="/task/APP-1/attention"', $progress->body);
         self::assertStringContainsString('name="response"', $progress->body);
         self::assertStringContainsString('name="execution_plan_digest"', $progress->body);
@@ -145,6 +146,8 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringNotContainsString('Attention required: stage investigate', $freshProgress->body);
         self::assertStringNotContainsString('href="/task/APP-1#decision"', $freshProgress->body);
         self::assertStringContainsString('Attention history', $freshProgress->body);
+        // History alone is not a waiting decision: the badge follows the owner signal.
+        self::assertStringNotContainsString('data-workspace-decision-badge>decision</span>', $freshProgress->body);
         self::assertStringContainsString('Keep the worker output format unchanged.', $freshProgress->body);
 
         $freshJson = $app->handle(new Request('GET', '/task/APP-1/progress.json'));

@@ -159,7 +159,8 @@ $reviewUrl = '/task/' . rawurlencode($card->id) . '/review.html';
         <p class="note">This decision is bound to the current report's SHA-256. Open the full review to inspect its findings; acknowledging does not declare the implementation correct or waive other workflow gates.</p>
         <p class="mono small" style="overflow-wrap:anywhere"><strong>Report SHA-256:</strong> <?= TemplateRenderer::escape($decisions->reviewReportSha256) ?></p>
         <details class="review-frame" open>
-            <summary>agent-loop review page <a class="small" href="<?= TemplateRenderer::escape($reviewUrl) ?>" target="_blank" rel="noopener">open in new tab ↗</a></summary>
+            <summary>agent-loop review page</summary>
+            <p class="small" style="margin:6px 0 0"><a href="<?= TemplateRenderer::escape($reviewUrl) ?>" target="_blank" rel="noopener">Open the review page in a new tab ↗</a></p>
             <iframe title="agent-loop human review page" src="<?= TemplateRenderer::escape($reviewUrl) ?>" sandbox="allow-scripts" loading="lazy"></iframe>
             <p class="small faint">Rendered by agent-loop in an isolated sandbox. It is a reading aid, not authority; only the form below records a decision.</p>
         </details>

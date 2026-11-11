@@ -18,15 +18,15 @@ $csrf = $model['csrf_token'] ?? '';
 $terminalTask = getenv('AGENT_UI_TERMINAL_TASK');
 $terminalOrigin = LocalTerminal::origin();
 $showTerminal = is_string($terminalTask) && $terminalTask === $card->id && $terminalOrigin !== null;
-$title = $card->id . ' · Workflow progress · agent-ui';
+$title = $card->id . ' · Workspace · agent-ui';
 $nav = null;
 $projectLabel = null;
 require __DIR__ . '/../layout/header.php';
 ?>
-<p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Workflow progress</p>
+<p class="crumbs"><a href="/board">Board</a><span>/</span><a href="/task/<?= TemplateRenderer::escape($card->id) ?>"><?= TemplateRenderer::escape($card->id) ?></a><span>/</span>Workspace</p>
 <?php $taskNavCurrent = '/progress'; require __DIR__ . '/../layout/task-context.php'; ?>
 
-<?php $humanWaiting = trim(strip_tags($decisionHtml)) !== ''; ?>
+<?php $humanWaiting = ($model['human_waiting'] ?? false) === true; ?>
 <div class="workspace<?= $showTerminal ? ' workspace--terminal' : '' ?>" data-workspace data-workspace-task="<?= TemplateRenderer::escape($card->id) ?>">
 <?php if ($showTerminal): ?>
 <div class="workspace__toolbar" data-workspace-toolbar hidden role="toolbar" aria-label="Workspace layout">
@@ -203,7 +203,7 @@ require __DIR__ . '/../layout/header.php';
     <p class="eyebrow">Owner-provided prompts</p>
     <div data-workspace-prompts data-workspace-prompts-src="/task/<?= rawurlencode($card->id) ?>/prompts?_fragment=form">
         <section class="panel">
-            <p style="margin:0">Pick an agent-recall-compiler recipe, fill only the arguments it declares, and generate a deterministic prompt for this task. Copy it, or insert it into the terminal without submitting it.</p>
+            <p style="margin:0">Pick an agent-recall-compiler recipe, fill only the arguments it declares, and generate a deterministic prompt for this task. Copy it into your terminal; multi-line prompts are never inserted for you.</p>
             <p class="btn-row" style="margin:12px 0 0"><a class="btn btn--primary btn--small" href="/task/<?= rawurlencode($card->id) ?>/prompts">Open the Prompt Workbench</a> <a class="btn btn--small" href="/task/<?= rawurlencode($card->id) ?>/prompts?recipe=continue-until-done">Continue until done</a></p>
         </section>
     </div>
@@ -239,7 +239,7 @@ require __DIR__ . '/../layout/header.php';
         <span class="small faint">Quick commands</span>
         <div class="codeblock codeblock--compact"><pre id="terminal-cmd-enter">vendor/bin/agent-loop enter <?= TemplateRenderer::escape($card->id) ?> --format=json</pre><button type="button" class="copy" hidden data-copy-target="terminal-cmd-enter">Copy</button><button type="button" class="terminal-insert" hidden data-terminal-insert-target="terminal-cmd-enter" title="Paste into the local terminal without pressing Enter">Insert</button></div>
         <div class="codeblock codeblock--compact"><pre id="terminal-cmd-finish">vendor/bin/agent-loop finish <?= TemplateRenderer::escape($card->id) ?> --format=json</pre><button type="button" class="copy" hidden data-copy-target="terminal-cmd-finish">Copy</button><button type="button" class="terminal-insert" hidden data-terminal-insert-target="terminal-cmd-finish" title="Paste into the local terminal without pressing Enter">Insert</button></div>
-        <p class="small note">Generated prompts in the <a href="#ws-prompts" data-workspace-tab-link="prompts">Prompts</a> panel and the canonical next action above can be inserted the same way. Nothing is submitted for you; terminal output is never workflow authority.</p>
+        <p class="small note">The canonical next action above can be inserted the same way; generated prompts in the <a href="#ws-prompts" data-workspace-tab-link="prompts">Prompts</a> panel are Copy-only. Nothing is submitted for you; terminal output is never workflow authority.</p>
     </div>
     <details class="terminal-tools" data-terminal-tools>
         <summary>Session tools · images, external terminal, environment</summary>
@@ -249,7 +249,7 @@ require __DIR__ . '/../layout/header.php';
             <button type="button" class="btn btn--small" data-terminal-image-clipboard>Paste image from clipboard</button>
             <p class="note">The image is stored privately for this task. Its path is pasted into the terminal without pressing Enter. Drop an image here or choose a file if clipboard access is unavailable.</p>
         </div>
-        <p class="small faint" data-terminal-attach-note hidden><strong>External terminal:</strong> <code id="terminal-attach-cmd" data-terminal-attach-cmd></code></p>
+        <p class="small faint" data-terminal-attach-note hidden><strong>External terminal:</strong> <code id="terminal-attach-cmd" data-terminal-attach-cmd></code> <button type="button" class="copy copy--inline" hidden data-copy-target="terminal-attach-cmd">Copy</button></p>
         <p class="small"><strong>Task:</strong> <code><?= TemplateRenderer::escape($card->id) ?></code> · <strong>Project:</strong> <code>AGENT_UI_PROJECT_ROOT</code> · <strong>Context:</strong> <code>AGENT_LOOP_TASK_ID</code></p>
     </details>
 </aside>

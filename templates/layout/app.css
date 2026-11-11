@@ -1161,6 +1161,7 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .codeblock--compact { margin: 0; }
 .codeblock--compact pre { padding: 7px 46px 7px 10px; font-size: 12px; }
 .terminal-tools { margin-top: 12px; }
+.copy--inline { position: static; margin-left: 6px; vertical-align: middle; }
 .terminal-tools > summary { cursor: pointer; font-size: 13px; color: var(--ink-soft); }
 .workspace__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px; margin: 0 0 14px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); }
 .workspace__toolbar[hidden], .workspace__splitter[hidden], .workspace__height-handle[hidden] { display: none; }
@@ -1212,6 +1213,7 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .decision-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .decision-facts__chip { display: inline-block; margin: 0 4px 4px 0; }
 .decision-reject { margin-top: 14px; }
+.decision-draft { display: block; width: 100%; margin-top: 6px; padding: 8px 10px; border: 1px dashed var(--rule-strong); border-radius: var(--radius-sm); background: var(--surface-alt); color: var(--ink-soft); font: inherit; font-size: 13px; resize: vertical; }
 .decision-reject > summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
 .review-frame { margin: 10px 0 14px; }
 .review-frame > summary { cursor: pointer; font-weight: 600; font-size: 13px; }

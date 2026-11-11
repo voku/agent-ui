@@ -78,7 +78,6 @@ const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
 const maxInsertBytes = 64 * 1024;
-const bracketedPastePrograms = new Set(['bash', 'zsh', 'fish', 'claude', 'codex', 'agy', 'node']);
 // Separate from browser credentials: only this process and the child PHP
 // backend know it. It never travels in browser traffic or JSON responses.
 const internalProxySecret = crypto.randomBytes(32).toString('base64url');
@@ -846,19 +845,18 @@ function requestHandler(req, res) {
                 return deny(res, 400, 'Text must be non-empty and at most 64 KiB.');
             }
             // Control characters other than newline and tab could drive the
-            // terminal; strip them. A trailing newline would submit, so the
-            // text is trimmed and pasted as one bracketed paste without Enter.
-            const text = body.text.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+            // terminal; strip them. Surrounding whitespace (including a trailing
+            // newline that would submit) is trimmed before the newline check.
+            // Tabs become spaces so an inserted line cannot trigger completion.
+            const text = body.text.replace(/\r\n?/g, '\n').replace(/\t/g, ' ').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+            if (text === '') return deny(res, 400, 'Text must contain printable characters.');
             try {
-                // A newline only stays unsubmitted inside a bracketed paste, and
-                // tmux cannot report whether the pane enabled it. Multi-line text
-                // therefore goes only to programs known to enable it.
+                // A newline can act as Enter in any program that has not enabled
+                // bracketed paste, and tmux cannot tell which ones have. Only
+                // single lines are inserted, in every program alike; multi-line
+                // text (prompts) is copied by the human instead.
                 if (text.includes('\n')) {
-                    const current = tmuxCommand(['display-message', '-p', '-t', '=' + session + ':', '#{pane_current_command}']);
-                    const program = current.status === 0 ? path.basename(String(current.stdout).trim()) : '';
-                    if (!bracketedPastePrograms.has(program)) {
-                        return deny(res, 409, 'Multi-line text can only be inserted into a shell or coding CLI that supports bracketed paste (current: ' + (program || 'unknown') + '). Use Copy instead.');
-                    }
+                    return deny(res, 422, 'Only single-line text can be inserted into the terminal. Use Copy for multi-line prompts.');
                 }
                 const buffer = 'agent-ui-insert';
                 const loaded = tmuxCommand(['load-buffer', '-b', buffer, '-'], text);

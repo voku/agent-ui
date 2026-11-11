@@ -815,17 +815,97 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
 
         if (decision.getAttribute('data-decision-digest') !== snapshot.decision_digest) {
             // This fragment is rendered and escaped by the same server template as the initial page.
+            // Keep what the human typed and the last owner message across a
+            // re-render, but only into the same decision: the key includes the
+            // owner identity carried in hidden fields (revision, attempt, HEAD,
+            // decision kind, …). A draft for an older decision is never moved
+            // into a newer one.
+            function formKey(form) {
+                var identity = [];
+                form.querySelectorAll('input[type="hidden"][name]').forEach(function (field) {
+                    if (field.name !== '_csrf' && field.name !== 'return_to') { identity.push(field.name + '=' + field.value); }
+                });
+                identity.sort();
+                return (form.getAttribute('action') || '') + '|' + identity.join('&');
+            }
+            // The complete earlier text, read-only, so nothing the human wrote
+            // is lost (fields allow up to 4000 bytes). It is never submitted.
+            function showDraft(status, text) {
+                var copy = document.createElement('textarea');
+                copy.readOnly = true;
+                copy.rows = 3;
+                copy.className = 'decision-draft';
+                copy.setAttribute('aria-label', 'Your earlier text (not submitted)');
+                copy.value = text;
+                status.insertAdjacentElement('afterend', copy);
+            }
+            var kept = {};
+            var byAction = {};
+            decision.querySelectorAll('form').forEach(function (form) {
+                var fields = {};
+                var typed = [];
+                form.querySelectorAll('textarea[name], input[name]:not([type="hidden"])').forEach(function (field) {
+                    if (field.value === '') { return; }
+                    fields[field.name] = field.value;
+                    if (!field.hasAttribute('data-remember-actor')) { typed.push(field.value); }
+                });
+                // A read-only earlier draft from a previous re-render stays too.
+                var drafts = [];
+                form.querySelectorAll('textarea.decision-draft').forEach(function (draft) {
+                    if (draft.value !== '') { typed.push(draft.value); drafts.push(draft.value); }
+                });
+                var status = form.querySelector('[data-workflow-approval-status]');
+                var message = status && !status.hidden ? (status.getAttribute('data-owner-message') || '') : '';
+                kept[formKey(form)] = { fields: fields, status: message, drafts: drafts };
+                var action = form.getAttribute('action') || '';
+                if (message !== '' || typed.length) { byAction[action] = { status: message, typed: typed }; }
+            });
             decision.innerHTML = snapshot.decision_html;
             decision.setAttribute('data-decision-digest', snapshot.decision_digest);
+            decision.querySelectorAll('form').forEach(function (form) {
+                var status = form.querySelector('[data-workflow-approval-status]');
+                var previous = kept[formKey(form)];
+                if (!previous) {
+                    // The decision changed (new revision, moved HEAD, …). Nothing
+                    // is carried into it, but the owner's refusal and the text
+                    // the human wrote stay visible, read-only.
+                    var earlier = byAction[form.getAttribute('action') || ''];
+                    if (status && earlier) {
+                        var parts = [];
+                        if (earlier.status) { parts.push(earlier.status); }
+                        parts.push('The owner state changed, so this form shows the current decision and nothing was carried over.');
+                        status.hidden = false;
+                        if (earlier.status) { status.setAttribute('data-owner-message', earlier.status); }
+                        status.textContent = parts.join(' ');
+                        if (earlier.typed.length) { showDraft(status, earlier.typed.join('\n\n')); }
+                        var details = form.closest('details');
+                        if (details) { details.open = true; }
+                    }
+                    return;
+                }
+                Object.keys(previous.fields).forEach(function (name) {
+                    var field = form.querySelector('[name="' + name.replace(/"/g, '') + '"]:not([type="hidden"])');
+                    if (field && field.value === '') { field.value = previous.fields[name]; }
+                });
+                if (status && previous.drafts.length) { showDraft(status, previous.drafts.join('\n\n')); }
+                if (status && previous.status) {
+                    status.hidden = false;
+                    status.setAttribute('data-owner-message', previous.status);
+                    status.textContent = previous.status;
+                    var openDetails = form.closest('details');
+                    if (openDetails) { openDetails.open = true; }
+                }
+            });
             document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: decision } }));
         }
 
         var serializedSteps = JSON.stringify(snapshot.steps);
         if (serializedSteps !== lastSteps) {
             renderSteps(snapshot.steps);
-            document.dispatchEvent(new CustomEvent('agent-ui:workflow-progress', { detail: { steps: snapshot.steps, has_human_decision: snapshot.has_human_decision === true } }));
+            document.dispatchEvent(new CustomEvent('agent-ui:workflow-progress', { detail: { steps: snapshot.steps } }));
             lastSteps = serializedSteps;
         }
+        document.dispatchEvent(new CustomEvent('agent-ui:human-decision', { detail: { waiting: snapshot.has_human_decision === true } }));
         currentState = snapshot.state;
     }
 
@@ -892,13 +972,20 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             body: new URLSearchParams(new FormData(form)).toString()
         }).then(function (response) {
             var destination = new URL(response.url);
+            if (!response.ok && response.redirected) {
+                // The POST was answered with a redirect; whether the owner
+                // recorded it is only known from the refreshed owner state.
+                throw new Error('The decision response could not be confirmed. Check the refreshed owner state before retrying.');
+            }
             if (!response.ok && typeof DOMParser === 'function') {
                 // Show the owner's own refusal (stale revision, moved HEAD, …)
                 // instead of a generic failure. Text only; never HTML.
                 return response.text().then(function (html) {
                     var node = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-error-message]');
                     var detail = node ? node.textContent.trim().slice(0, 400) : '';
-                    throw new Error((detail || 'Decision was not confirmed.') + ' Nothing was recorded; the workspace is refreshing.');
+                    throw new Error((detail || 'Decision was not confirmed.') + (response.status < 500
+                        ? ' Nothing was recorded; the workspace is refreshing.'
+                        : ' Check the refreshed owner state before retrying.'));
                 });
             }
             if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
@@ -908,7 +995,10 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             if (feedback) { feedback.textContent = 'Recorded by agent-loop. Refreshing owner state…'; }
             document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
         }).catch(function (error) {
-            if (feedback) { feedback.textContent = error.message || 'Could not record the decision.'; }
+            if (feedback) {
+                feedback.textContent = error.message || 'Could not record the decision.';
+                feedback.setAttribute('data-owner-message', feedback.textContent);
+            }
             document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
         }).then(function () {
             delete form.dataset.pending;
@@ -1027,9 +1117,15 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     function setInsertReady(ready) {
         insertReady = ready;
         document.documentElement.classList.toggle('terminal-ready', ready);
-        document.querySelectorAll('[data-terminal-insert-target]').forEach(function (button) { button.hidden = !ready; });
+        document.querySelectorAll('[data-terminal-insert-target]').forEach(function (button) {
+            // Only single lines are insertable (a newline may act as Enter).
+            var source = document.getElementById(button.getAttribute('data-terminal-insert-target'));
+            var text = source ? source.textContent.trim() : '';
+            button.hidden = !ready || text === '' || text.indexOf('\n') !== -1;
+        });
     }
     document.addEventListener('agent-ui:content-inserted', function () { setInsertReady(insertReady); });
+    document.addEventListener('agent-ui:human-decision', function () { setInsertReady(insertReady); });
     document.addEventListener('click', function (event) {
         var button = event.target instanceof Element ? event.target.closest('[data-terminal-insert-target]') : null;
         if (!button || !insertReady || !csrf || button.disabled) { return; }
@@ -1044,9 +1140,9 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             body: JSON.stringify({ text: text })
         }).then(function (response) {
             if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
-            button.textContent = 'Inserted — press Enter in the terminal';
+            button.textContent = 'Inserted — review it in the terminal';
             button.dataset.inserted = '1';
-            message.textContent = 'Text inserted into the terminal. Nothing was submitted.';
+            message.textContent = 'Line inserted into the terminal. Nothing was submitted; review it before you press Enter.';
         }).catch(function (error) {
             button.textContent = 'Insert failed';
             message.textContent = error.message || 'Could not insert into the terminal.';
@@ -1204,11 +1300,11 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             var count = workspace.querySelector('[data-workspace-step-count]');
             if (count && event.detail && event.detail.steps) { count.textContent = String(event.detail.steps.length); }
         });
-        document.addEventListener('agent-ui:content-inserted', function () {
-            var decision = workspace.querySelector('[data-workflow-decision]');
+        /* The badge follows agent-loop's has_human_decision, never the markup. */
+        document.addEventListener('agent-ui:human-decision', function (event) {
             var overview = workspace.querySelector('[data-workspace-tab="overview"]');
-            if (!decision || !overview) { return; }
-            var waiting = decision.textContent.trim() !== '';
+            if (!overview) { return; }
+            var waiting = event.detail && event.detail.waiting === true;
             var badge = overview.querySelector('[data-workspace-decision-badge]');
             if (waiting && !badge) {
                 badge = document.createElement('span');
@@ -1310,8 +1406,32 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
     }
 
     applyLayout(prefs.layout || 'split');
+    /* A pending human decision must never be hidden by a remembered
+       "Terminal only" layout; show the workflow without saving that. */
+    function revealDecision() {
+        if (workspace.getAttribute('data-layout') !== 'terminal') { return; }
+        workspace.setAttribute('data-layout', 'split');
+        workspace.querySelectorAll('[data-workspace-layout]').forEach(function (button) {
+            button.setAttribute('aria-pressed', String(button.getAttribute('data-workspace-layout') === 'split'));
+        });
+    }
+    if (workspace.querySelector('[data-workspace-decision-badge]') || window.location.hash === '#workflow-approval') { revealDecision(); }
+    var decisionWaiting = Boolean(workspace.querySelector('[data-workspace-decision-badge]'));
+    document.addEventListener('agent-ui:human-decision', function (event) {
+        var waiting = Boolean(event.detail && event.detail.waiting === true);
+        // Reveal once when a decision appears; afterwards the viewer may
+        // deliberately choose "Terminal only" again.
+        if (waiting && !decisionWaiting) { revealDecision(); }
+        decisionWaiting = waiting;
+    });
     applyWidth(typeof prefs.width === 'number' ? prefs.width : 50);
-    if (typeof prefs.height === 'number') { applyHeight(prefs.height); } else if (heightValue) { heightValue.textContent = Math.round(currentHeight()) + 'px'; }
+    if (typeof prefs.height === 'number') { applyHeight(prefs.height); } else {
+        var initialHeight = Math.round(currentHeight());
+        heightHandle.setAttribute('aria-valuenow', String(initialHeight));
+        heightHandle.setAttribute('aria-valuemin', String(MIN_HEIGHT));
+        heightHandle.setAttribute('aria-valuemax', String(maxHeight()));
+        if (heightValue) { heightValue.textContent = initialHeight + 'px'; }
+    }
 
     workspace.querySelectorAll('[data-workspace-layout]').forEach(function (button) {
         button.addEventListener('click', function () { applyLayout(button.getAttribute('data-workspace-layout')); });

@@ -52,6 +52,8 @@ final readonly class WorkflowProgressAction
             'progress' => $progress,
             'decision_html' => $decisionHtml,
             'brief_html' => $briefHtml,
+            // The owner's own signal; the badge must not be inferred from markup.
+            'human_waiting' => $decisions->actions !== [] || $pendingAttention !== null,
             'runner' => $this->runner->status($taskId),
             'csrf_token' => $this->csrf->token(),
             'task_context' => $this->taskContext->forCard($card),

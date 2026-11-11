@@ -34,7 +34,7 @@ $workbench ??= $model['workbench'];
     </div>
     <div class="codeblock">
         <pre id="workbench-prompt" class="workbench__prompt"><?= TemplateRenderer::escape($composition->prompt) ?></pre>
-        <button type="button" class="copy" hidden data-copy-target="workbench-prompt">Copy prompt</button><button type="button" class="terminal-insert" hidden data-terminal-insert-target="workbench-prompt" title="Paste into the local terminal without pressing Enter">Insert in terminal</button>
+        <button type="button" class="copy" hidden data-copy-target="workbench-prompt">Copy prompt</button>
     </div>
 
     <h2 style="margin-top:18px">Provenance</h2>
