@@ -1,9 +1,10 @@
 <?php
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{status: int, heading: string, message: string} $model */
+/** @var array{status: int, heading: string, message: string, note?: ?string} $model */
 $status = $model['status'];
 $heading = $model['heading'];
 $message = $model['message'];
+$note = $model['note'] ?? null;
 $title = $heading . ' · agent-ui';
 $nav = null;
 $projectLabel = null;
@@ -15,7 +16,7 @@ require __DIR__ . '/../layout/header.php';
 </div>
 <section class="panel panel--danger">
     <p data-error-message><?= TemplateRenderer::escape($message) ?></p>
-    <p class="note">This is the UI reporting its own request handling. No owner state was read or changed.</p>
+    <p class="note"><?= TemplateRenderer::escape($note ?? 'This is the UI reporting its own request handling. No owner state was read or changed.') ?></p>
 </section>
 <div class="btn-row">
     <a class="btn btn--primary" href="/">Overview</a>

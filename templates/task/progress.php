@@ -54,6 +54,7 @@ require __DIR__ . '/../layout/header.php';
     <a class="workspace-tabs__tab" href="#ws-steps" data-workspace-tab="steps">Workflow steps <span class="small faint" data-workspace-step-count><?= count($progress->steps) ?></span></a>
     <a class="workspace-tabs__tab" href="#ws-prompts" data-workspace-tab="prompts">Prompts</a>
 </nav>
+<p class="visually-hidden" data-workspace-announce role="status" aria-live="polite"></p>
 <section class="workspace__panel" id="ws-overview" data-workspace-panel="overview" aria-label="Overview">
 <div class="workspace__head" data-workflow-live data-task-id="<?= TemplateRenderer::escape($card->id) ?>" data-progress-url="/task/<?= rawurlencode($card->id) ?>/progress.json">
     <h1>Workspace</h1>

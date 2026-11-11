@@ -842,6 +842,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             var kept = {};
             var byAction = {};
             decision.querySelectorAll('form').forEach(function (form) {
+                if (form.dataset.recorded === '1') { return; }
                 var fields = {};
                 var typed = [];
                 form.querySelectorAll('textarea[name], input[name]:not([type="hidden"])').forEach(function (field) {
@@ -992,6 +993,9 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                 destination.pathname !== window.location.pathname) {
                 throw new Error('Decision was not confirmed. Reload the current owner state before retrying.');
             }
+            // This form's text is now recorded owner state, never a draft for
+            // whatever decision the refresh shows next.
+            form.dataset.recorded = '1';
             if (feedback) { feedback.textContent = 'Recorded by agent-loop. Refreshing owner state…'; }
             document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
         }).catch(function (error) {
@@ -1300,6 +1304,21 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             var count = workspace.querySelector('[data-workspace-step-count]');
             if (count && event.detail && event.detail.steps) { count.textContent = String(event.detail.steps.length); }
         });
+        /* A decision that appears while another tab is open is announced, not
+           only badged, so screen-reader users learn about it too. */
+        var announcer = workspace.querySelector('[data-workspace-announce]');
+        var announcedWaiting = Boolean(workspace.querySelector('[data-workspace-decision-badge]'));
+        document.addEventListener('agent-ui:human-decision', function (event) {
+            var waiting = Boolean(event.detail && event.detail.waiting === true);
+            if (announcer && waiting && !announcedWaiting) {
+                var overviewTab = workspace.querySelector('[data-workspace-tab="overview"]');
+                if (overviewTab && overviewTab.getAttribute('aria-selected') !== 'true') {
+                    announcer.textContent = 'agent-loop is waiting for a human decision. Open the Overview tab to review it.';
+                }
+            }
+            if (!waiting && announcer) { announcer.textContent = ''; }
+            announcedWaiting = waiting;
+        });
         /* The badge follows agent-loop's has_human_decision, never the markup. */
         document.addEventListener('agent-ui:human-decision', function (event) {
             var overview = workspace.querySelector('[data-workspace-tab="overview"]');
@@ -1335,6 +1354,21 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             })
             .catch(function () { host.innerHTML = fallback; promptsLoaded = false; })
             .then(function () { host.removeAttribute('aria-busy'); });
+    }
+
+    /* ---- the owner limits reasons and responses in bytes, not characters ---- */
+    if (typeof TextEncoder === 'function') {
+        var encoder = new TextEncoder();
+        document.addEventListener('input', function (event) {
+            var field = event.target;
+            if (!(field instanceof HTMLTextAreaElement) || !field.closest('[data-workflow-decision]')) { return; }
+            var limit = Number(field.getAttribute('maxlength'));
+            if (!limit) { return; }
+            var bytes = encoder.encode(field.value).length;
+            field.setCustomValidity(bytes > limit
+                ? 'agent-loop accepts at most ' + limit + ' bytes here (this text has ' + bytes + '; accented and non-Latin characters count as several bytes).'
+                : '');
+        });
     }
 
     /* ---- remembered actor name for decision forms ---- */
