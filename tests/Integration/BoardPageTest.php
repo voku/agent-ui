@@ -7,8 +7,15 @@ namespace voku\AgentUi\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGatewayInterface;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\View\TemplateRenderer;
 
 /**
  * The Board shows agent-kanban's card facts and agent-loop's workflow facts
@@ -89,12 +96,83 @@ final class BoardPageTest extends TestCase
 
     public function testCockpitQuickFiltersByExecutingAndBlocked(): void
     {
+        $createdBlocked = $this->app->handle(new Request('POST', '/board/new', body: [
+            '_csrf' => (new CsrfTokenManager())->token(),
+            'card_id' => 'APP-2',
+            'title' => 'Blocked database migration',
+            'lane' => 'BLOCKED',
+            'status' => 'blocked',
+        ]));
+        self::assertSame(303, $createdBlocked->status);
+
         $executing = $this->app->handle(new Request('GET', '/board', query: ['workflow' => 'executing']));
         self::assertSame(200, $executing->status);
+        self::assertStringNotContainsString('Build login system', $executing->body);
 
         $blocked = $this->app->handle(new Request('GET', '/board', query: ['workflow' => 'blocked']));
         self::assertSame(200, $blocked->status);
         self::assertStringNotContainsString('Build login system', $blocked->body);
+        self::assertStringContainsString('Blocked database migration', $blocked->body);
+    }
+
+    public function testCockpitMatchesRunnerWorkingAndInterruptedObservations(): void
+    {
+        $interruptedRunner = $this->createStub(RunnerGatewayInterface::class);
+        $interruptedRunner->method('isInstalled')->willReturn(true);
+        $interruptedRunner->method('status')->willReturn(new RunnerSnapshot(
+            installed: true,
+            diagnostic: null,
+            profile: 'standard',
+            currentStageId: 'build',
+            currentAttempt: 1,
+            attentionId: null,
+            complete: false,
+            hostId: 'codex',
+            observationStatus: 'interrupted',
+            observationStageId: 'build',
+            observationAttempt: 1,
+            allowRun: false,
+            allowResume: true,
+            allowCancel: true,
+        ));
+
+        $templates = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $board = new BoardProjectionGateway($this->root);
+        $mutation = new CardMutationGateway($this->root);
+        $workflow = new WorkflowProjectionGateway($this->root);
+        $csrf = new CsrfTokenManager();
+
+        $action = new BoardAction($board, $mutation, $workflow, $csrf, $templates, $interruptedRunner);
+
+        $blockedResponse = $action(new Request('GET', '/board', query: ['workflow' => 'blocked']));
+        self::assertSame(200, $blockedResponse->status);
+        self::assertStringContainsString('Build login system', $blockedResponse->body);
+        self::assertStringContainsString('blocked / interrupted', $blockedResponse->body);
+
+        $workingRunner = $this->createStub(RunnerGatewayInterface::class);
+        $workingRunner->method('isInstalled')->willReturn(true);
+        $workingRunner->method('status')->willReturn(new RunnerSnapshot(
+            installed: true,
+            diagnostic: null,
+            profile: 'standard',
+            currentStageId: 'build',
+            currentAttempt: 1,
+            attentionId: null,
+            complete: false,
+            hostId: 'codex',
+            observationStatus: 'working',
+            observationStageId: 'build',
+            observationAttempt: 1,
+            allowRun: false,
+            allowResume: true,
+            allowCancel: true,
+        ));
+
+        $workingAction = new BoardAction($board, $mutation, $workflow, $csrf, $templates, $workingRunner);
+        $executingResponse = $workingAction(new Request('GET', '/board', query: ['workflow' => 'executing']));
+        self::assertSame(200, $executingResponse->status);
+        self::assertStringContainsString('Build login system', $executingResponse->body);
+        self::assertStringContainsString('actively executing', $executingResponse->body);
     }
 
     private function removeDirectory(string $path): void

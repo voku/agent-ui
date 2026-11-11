@@ -9,7 +9,7 @@ use RuntimeException;
 use voku\AgentLoopRunner\Application\RunnerControlService;
 use voku\AgentLoopRunner\Application\RunnerStatus;
 
-final readonly class RunnerGateway
+final readonly class RunnerGateway implements RunnerGatewayInterface
 {
     public function __construct(private string $projectRoot)
     {

@@ -13,7 +13,7 @@ use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
-use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGatewayInterface;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
@@ -26,7 +26,7 @@ final readonly class BoardAction
         private WorkflowProjectionGateway $workflow,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
-        private ?RunnerGateway $runner = null,
+        private ?RunnerGatewayInterface $runner = null,
         private FlashNotice $notice = new FlashNotice(),
     ) {
     }
@@ -80,14 +80,13 @@ final readonly class BoardAction
                 if ($snapshot->disagreements !== []) {
                     ++$disagreements;
                 }
-                if ($snapshot->state === 'blocked' || $card->lane === 'BLOCKED') {
+                if ($snapshot->state === 'blocked' || $card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
                     ++$blockedCount;
                 }
-            } elseif ($card->lane === 'BLOCKED') {
+            } elseif ($card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
                 ++$blockedCount;
             }
-            if (($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'working')
-                || ($snapshot !== null && in_array($snapshot->nextActionKind, ['command', 'command_template'], true))) {
+            if ($runnerSnapshot !== null && $runnerSnapshot->installed && $runnerSnapshot->observationStatus === 'working') {
                 ++$executingCount;
             }
         }
@@ -144,9 +143,10 @@ final readonly class BoardAction
             $hit = match ($workflowFilter) {
                 self::FILTER_DISAGREEMENT => $workflow !== null && $workflow->disagreements !== [],
                 self::FILTER_DECISION_REQUIRED => $workflow !== null && $workflow->nextActionKind === 'decision_required',
-                self::FILTER_EXECUTING => ($runner !== null && $runner->observationStatus === 'working')
-                    || ($workflow !== null && in_array($workflow->nextActionKind, ['command', 'command_template'], true)),
-                self::FILTER_BLOCKED => ($workflow !== null && $workflow->state === 'blocked') || $card->lane === 'BLOCKED',
+                self::FILTER_EXECUTING => $runner !== null && $runner->installed && $runner->observationStatus === 'working',
+                self::FILTER_BLOCKED => ($workflow !== null && $workflow->state === 'blocked')
+                    || $card->lane === 'BLOCKED'
+                    || ($runner !== null && $runner->observationStatus === 'interrupted'),
                 default => $workflow !== null && $workflow->nextActionKind === $workflowFilter,
             };
             if (!$hit) {

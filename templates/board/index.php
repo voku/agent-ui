@@ -141,7 +141,7 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php if ($kindCounts !== [] || $disagreementCount > 0 || $executingCount > 0): ?>
+<?php if ($kindCounts !== [] || $disagreementCount > 0 || $executingCount > 0 || $blockedCount > 0): ?>
 <nav class="board-summary" aria-label="Workflow summary">
     <?php $decisions = $kindCounts['decision_required'] ?? 0; ?>
     <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DECISION_REQUIRED)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED ? ' aria-current="true"' : '' ?>>
@@ -150,6 +150,11 @@ require __DIR__ . '/../layout/header.php';
     <?php if ($executingCount > 0 || $filterWorkflow === BoardAction::FILTER_EXECUTING): ?>
         <a class="board-summary__item" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_EXECUTING)) ?>"<?= $filterWorkflow === BoardAction::FILTER_EXECUTING ? ' aria-current="true"' : '' ?>>
             <strong><?= $executingCount ?></strong> actively executing
+        </a>
+    <?php endif; ?>
+    <?php if ($blockedCount > 0 || $filterWorkflow === BoardAction::FILTER_BLOCKED): ?>
+        <a class="board-summary__item board-summary__item--blocked" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_BLOCKED)) ?>"<?= $filterWorkflow === BoardAction::FILTER_BLOCKED ? ' aria-current="true"' : '' ?>>
+            <strong><?= $blockedCount ?></strong> blocked / interrupted
         </a>
     <?php endif; ?>
     <a class="board-summary__item<?= $disagreementCount > 0 ? ' board-summary__item--blocked' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DISAGREEMENT)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' aria-current="true"' : '' ?>>
