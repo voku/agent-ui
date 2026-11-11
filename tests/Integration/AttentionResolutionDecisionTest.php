@@ -60,6 +60,15 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(AttentionKind::CLARIFICATION_REQUIRED, $attention->kind);
         self::assertSame('Ambiguity in business requirement for worker output.', $attention->message);
 
+        // The same decision appears in the Board inbox without changing the Kanban lane.
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertStringContainsString('id="board-decision-queue"', $board->body);
+        self::assertStringContainsString('Human decisions waiting', $board->body);
+        self::assertStringContainsString('agent-kanban lane: <strong>BACKLOG</strong>', $board->body);
+        self::assertStringContainsString('href="/task/APP-1"', $board->body);
+        self::assertStringContainsString('Show canonical next action', $board->body);
+
         // 1. Task overview page renders Attention in #decision
         $overview = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $overview->status);
@@ -139,6 +148,11 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertCount(1, $history);
         self::assertSame('operator-alice', $history[0]->actor);
         self::assertSame('Keep the worker output format unchanged.', $history[0]->response);
+
+        // Once Loop resolves the Attention, the Board decision inbox disappears.
+        $afterBoard = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $afterBoard->status);
+        self::assertStringNotContainsString('id="board-decision-queue"', $afterBoard->body);
 
         // Subsequent page view: No attention panel or decision link
         $freshProgress = $app->handle(new Request('GET', '/task/APP-1/progress'));
