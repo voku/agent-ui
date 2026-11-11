@@ -4,6 +4,15 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Fixed
+
+- A project whose agent-kanban configuration cannot be resolved now shows a "Board not configured" page with agent-kanban's own message and a link to Setup (HTTP 503) instead of a generic 500 (UI-8128371174099913012).
+- A decision that was just recorded is never shown as an unsubmitted draft for the decision that follows it.
+- A human decision that appears while the Workflow steps or Prompts tab is open is announced through a live status region, in addition to the Overview badge.
+- Decision reasons and responses enforce agent-loop's 4000-byte limit in the browser, counting multi-byte characters; the server check stays authoritative.
+
 ## [0.20.2] - 2026-11-11
 
 ### Added

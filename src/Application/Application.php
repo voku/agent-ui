@@ -6,6 +6,7 @@ namespace voku\AgentUi\Application;
 
 use InvalidArgumentException;
 use Throwable;
+use voku\AgentKanban\Exception\ConfigurationException as BoardConfigurationException;
 use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Feature\Commands\CommandsAction;
 use voku\AgentUi\Feature\Context\ContextAction;
@@ -225,6 +226,15 @@ final readonly class Application
                     $request,
                 ),
             };
+        } catch (BoardConfigurationException $exception) {
+            // agent-kanban's typed answer that this project has no resolvable
+            // board. Its own message says what to configure; the UI only shows it.
+            return $this->errorPage(
+                503,
+                'Board not configured',
+                $exception->getMessage(),
+                'Reported by agent-kanban for this project. Nothing was changed. Configure the board, or open Setup to see what this project has installed.',
+            );
         } catch (InvalidArgumentException $exception) {
             return $request->method === 'POST'
                 ? $this->errorPage(400, 'Request rejected', $exception->getMessage())
@@ -243,13 +253,14 @@ final readonly class Application
      * the operator onto an unstyled stub with no navigation, so the fastest
      * route back into the app was the browser's back button.
      */
-    private function errorPage(int $status, string $heading, string $message): Response
+    private function errorPage(int $status, string $heading, string $message, ?string $note = null): Response
     {
         try {
             return Response::html($this->templates->render('error/index', [
                 'status' => $status,
                 'heading' => $heading,
                 'message' => $message,
+                'note' => $note,
             ]), $status);
         } catch (Throwable) {
             // The layout itself is unavailable; say so rather than rendering nothing.
