@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final readonly class Router
 {
-    /** @return array{route: 'health'|'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'commands'|'knowledge'|'knowledge_dream'|'knowledge_dream_write'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'search'|'task'|'task_progress'|'task_progress_json'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'approve'|'review_ack'|'learning'|'attention'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
+    /** @return array{route: 'health'|'home'|'board'|'board_new'|'board_create'|'setup'|'prompts'|'commands'|'knowledge'|'knowledge_dream'|'knowledge_dream_write'|'knowledge_finding'|'knowledge_proposal'|'knowledge_guidance'|'map'|'map_graph'|'map_symbol'|'map_context'|'map_source'|'map_impact'|'search'|'task'|'task_progress'|'task_progress_json'|'task_edit'|'task_update'|'task_move'|'task_claim'|'task_release'|'task_contract'|'task_contract_propose'|'task_prompts'|'task_learning'|'context'|'work'|'evidence'|'history'|'handoff'|'task_review_html'|'approve'|'reject'|'review_ack'|'learning'|'attention'|'runner_run'|'runner_resume'|'runner_cancel'|'setup_install'|'setup_remove'|'setup_sync_policy'|'setup_sync_git', task_id?: string, knowledge_id?: string, agent?: string} */
     public function match(Request $request): array
     {
         if ($request->method === 'GET' || $request->method === 'HEAD') {
@@ -85,6 +85,9 @@ final readonly class Router
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/progress\.json$#')) !== null) {
                 return ['route' => 'task_progress_json', 'task_id' => $taskId];
             }
+            if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/review\.html$#')) !== null) {
+                return ['route' => 'task_review_html', 'task_id' => $taskId];
+            }
             if (($taskId = $this->taskId($request->path, '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)$#')) !== null) {
                 return ['route' => 'task', 'task_id' => $taskId];
             }
@@ -141,6 +144,7 @@ final readonly class Router
                 'task_release' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/release$#',
                 'task_contract_propose' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/contract$#',
                 'approve' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/approve$#',
+                'reject' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/reject$#',
                 'review_ack' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/review-ack$#',
                 'learning' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/learning$#',
                 'attention' => '#^/task/([A-Za-z][A-Za-z0-9]*-[0-9]+)/attention$#',

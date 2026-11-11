@@ -194,6 +194,7 @@ final readonly class Application
                 'task' => ($this->task)($route['task_id'] ?? ''),
                 'task_progress' => ($this->progress)($route['task_id'] ?? ''),
                 'task_progress_json' => $this->progress->json($route['task_id'] ?? ''),
+                'task_review_html' => $this->progress->reviewHtml($route['task_id'] ?? ''),
                 'task_edit' => $this->task->edit($route['task_id'] ?? ''),
                 'task_update' => $this->task->update($route['task_id'] ?? '', $request),
                 'task_move' => $this->task->move($route['task_id'] ?? '', $request),
@@ -208,7 +209,7 @@ final readonly class Application
                 'evidence' => ($this->evidence)($route['task_id'] ?? ''),
                 'history' => ($this->history)($route['task_id'] ?? ''),
                 'handoff' => Response::redirect('/task/' . rawurlencode($route['task_id'] ?? '') . '/prompts?recipe=continue-until-done'),
-                'approve', 'review_ack', 'learning', 'attention' => ($this->humanDecision)(
+                'approve', 'reject', 'review_ack', 'learning', 'attention' => ($this->humanDecision)(
                     $route['task_id'] ?? '',
                     $route['route'],
                     $request,

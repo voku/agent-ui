@@ -68,8 +68,9 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString('Execution stage investigate requires human attention', $overviewMain);
         self::assertStringContainsString('Ambiguity in business requirement for worker output.', $overviewMain);
         self::assertStringContainsString((string) $attention->id, $overviewMain);
-        self::assertStringContainsString('action="/task/APP-1/attention"', $overviewMain);
-        self::assertStringContainsString('name="actor"', $overviewMain);
+        // The overview leads to the one resolver that shows the bound identity.
+        self::assertStringContainsString('href="/task/APP-1/progress#workflow-approval"', $overviewMain);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $overviewMain);
 
         // 2. Persistent header links to #decision across all task subviews
         foreach (['', '/progress', '/contract', '/context', '/work', '/evidence', '/history', '/prompts', '/learning', '/edit'] as $view) {
@@ -85,6 +86,10 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString('Attention required: stage investigate', $progress->body);
         self::assertStringContainsString('data-workflow-decision-form', $progress->body);
         self::assertStringContainsString('Resolve Attention', $progress->body);
+        self::assertStringContainsString('action="/task/APP-1/attention"', $progress->body);
+        self::assertStringContainsString('name="response"', $progress->body);
+        self::assertStringContainsString('name="execution_plan_digest"', $progress->body);
+        self::assertStringContainsString('name="head_commit" value="' . trim($this->git('rev-parse HEAD')) . '"', $progress->body);
 
         // 4. Progress json refresh includes human decision indicator and decision HTML
         $json = $app->handle(new Request('GET', '/task/APP-1/progress.json'));
@@ -117,8 +122,9 @@ final class AttentionResolutionDecisionTest extends TestCase
             '_csrf' => $csrf,
             'attention_id' => $attention->id,
             'actor' => 'operator-alice',
+            'response' => 'Keep the worker output format unchanged.',
             'return_to' => 'progress',
-        ]));
+        ] + $this->reviewed('APP-1')));
 
         self::assertSame(303, $response->status);
         self::assertSame('/task/APP-1/progress', $response->headers['Location'] ?? '');
@@ -128,12 +134,18 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertNull($projection->attention, 'Attention must be cleared in owner execution state.');
         self::assertSame(2, $projection->currentAttempt, 'Execution attempt must be incremented.');
         self::assertNull($gateway->pendingAttention('APP-1'));
+        $history = $gateway->attentionResolutions('APP-1');
+        self::assertCount(1, $history);
+        self::assertSame('operator-alice', $history[0]->actor);
+        self::assertSame('Keep the worker output format unchanged.', $history[0]->response);
 
         // Subsequent page view: No attention panel or decision link
         $freshProgress = $app->handle(new Request('GET', '/task/APP-1/progress'));
         self::assertSame(200, $freshProgress->status);
         self::assertStringNotContainsString('Attention required: stage investigate', $freshProgress->body);
         self::assertStringNotContainsString('href="/task/APP-1#decision"', $freshProgress->body);
+        self::assertStringContainsString('Attention history', $freshProgress->body);
+        self::assertStringContainsString('Keep the worker output format unchanged.', $freshProgress->body);
 
         $freshJson = $app->handle(new Request('GET', '/task/APP-1/progress.json'));
         $data = json_decode($freshJson->body, true, 512, JSON_THROW_ON_ERROR);
@@ -181,10 +193,10 @@ final class AttentionResolutionDecisionTest extends TestCase
             '_csrf' => (new CsrfTokenManager())->token(),
             'attention_id' => 'attention:non-existent-id',
             'actor' => 'operator',
-        ]));
+        ] + $this->reviewed('APP-1')));
 
         self::assertSame(400, $response->status);
-        self::assertStringContainsString('No matching pending Attention exists for this execution.', $response->body);
+        self::assertStringContainsString('The Attention you reviewed has changed', $response->body);
     }
 
     public function testResolutionFailsClosedOnStaleResolution(): void
@@ -195,22 +207,62 @@ final class AttentionResolutionDecisionTest extends TestCase
 
         $csrf = (new CsrfTokenManager())->token();
 
+        $reviewed = $this->reviewed('APP-1');
+
         // First resolution succeeds
         $first = $app->handle(new Request('POST', '/task/APP-1/attention', body: [
             '_csrf' => $csrf,
             'attention_id' => $attention->id,
             'actor' => 'operator',
-        ]));
+        ] + $reviewed));
         self::assertSame(303, $first->status);
 
-        // Stale retry with same attention ID is rejected
+        // Replaying the same reviewed page is rejected
         $stale = $app->handle(new Request('POST', '/task/APP-1/attention', body: [
             '_csrf' => $csrf,
             'attention_id' => $attention->id,
             'actor' => 'operator',
-        ]));
+        ] + $reviewed));
         self::assertSame(400, $stale->status);
-        self::assertStringContainsString('No matching pending Attention exists for this execution.', $stale->body);
+        self::assertStringContainsString('The Attention you reviewed has changed', $stale->body);
+    }
+
+    public function testResolutionFailsClosedWhenRepositoryHeadMovedSinceReview(): void
+    {
+        $app = $this->createTaskWithPendingAttention('APP-1', StageOutcome::NEEDS_CLARIFICATION, 'Clarification needed');
+        $attention = (new HumanDecisionGateway($this->root))->pendingAttention('APP-1');
+        self::assertNotNull($attention);
+        $reviewed = $this->reviewed('APP-1');
+
+        $this->git('commit --allow-empty -qm moved-head');
+
+        $response = $app->handle(new Request('POST', '/task/APP-1/attention', body: [
+            '_csrf' => (new CsrfTokenManager())->token(),
+            'attention_id' => $attention->id,
+            'actor' => 'operator',
+        ] + $reviewed));
+        self::assertSame(400, $response->status);
+        self::assertStringContainsString('The Attention you reviewed has changed', $response->body);
+        self::assertNotNull((new HumanDecisionGateway($this->root))->pendingAttention('APP-1'), 'Nothing may be recorded.');
+    }
+
+    /**
+     * The owner identity the workspace form carries for the Attention a human reviewed.
+     *
+     * @return array<string, string>
+     */
+    private function reviewed(string $taskId): array
+    {
+        $decision = (new HumanDecisionGateway($this->root))->attentionDecision($taskId);
+        self::assertNotNull($decision, 'Precondition: agent-loop must project a resolvable Attention.');
+
+        return [
+            'revision' => (string) $decision->contractRevision,
+            'execution_plan_digest' => $decision->executionPlanDigest,
+            'attempt' => (string) $decision->attempt,
+            'candidate_revision' => $decision->candidateRevision,
+            'head_commit' => $decision->headCommit ?? '',
+        ];
     }
 
     private function createTaskWithPendingAttention(string $taskId, StageOutcome $outcome, string $message): Application

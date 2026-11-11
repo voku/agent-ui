@@ -8,17 +8,16 @@ use InvalidArgumentException;
 use Throwable;
 use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Execution\AttentionResolution;
-use voku\AgentLoop\Execution\AttentionResolutionStore;
-use voku\AgentLoop\Execution\ExecutionArtifactValue;
 use voku\AgentLoop\Execution\ExecutionGateway;
-use voku\AgentLoop\Execution\ExecutionPlanStore;
-use voku\AgentLoop\ProjectLayout;
+use voku\AgentLoop\GitWorkTree;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoop\Workflow\WorkflowAttentionProjection;
 use voku\AgentLoop\Workflow\WorkflowContractApprovalPresentation;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjection;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjector;
 use voku\AgentLoop\Workflow\WorkflowHumanDecisionService;
+use voku\AgentLoop\Workflow\WorkflowHumanReviewCommand;
 
 final readonly class HumanDecisionGateway
 {
@@ -116,27 +115,59 @@ final readonly class HumanDecisionGateway
         return $this->service->availableActions($taskId);
     }
 
-    public function approve(string $taskId, string $actor, int $expectedRevision): void
+    /**
+     * The repository HEAD a human reviews a decision against.
+     *
+     * The value is only echoed back to agent-loop, which refuses the decision
+     * when HEAD moved; the UI never compares commits itself.
+     */
+    public function headCommit(): ?string
+    {
+        try {
+            return GitWorkTree::headCommit($this->projectRoot);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function approve(string $taskId, string $actor, int $expectedRevision, ?string $expectedHead = null): void
     {
         if ($expectedRevision < 1) {
-            throw new \InvalidArgumentException('A positive expected Contract revision is required.');
+            throw new InvalidArgumentException('A positive expected Contract revision is required.');
         }
 
-        $contract = $this->contractStore->find($taskId);
-        if ($contract === null || $contract->revision !== $expectedRevision) {
-            throw new \InvalidArgumentException('Contract revision changed; reload the page before approving.');
+        try {
+            $this->service->approveContract($taskId, $actor, $expectedRevision, $expectedHead);
+        } catch (\RuntimeException $exception) {
+            throw new InvalidArgumentException('Contract approval refused by agent-loop: ' . $exception->getMessage(), previous: $exception);
+        }
+    }
+
+    public function reject(string $taskId, string $actor, int $expectedRevision, string $reason, ?string $expectedHead = null): void
+    {
+        if ($expectedRevision < 1) {
+            throw new InvalidArgumentException('A positive expected Contract revision is required.');
         }
 
-        $approveContract = new \ReflectionMethod($this->service, 'approveContract');
-        $arguments = [$taskId, $actor];
-        if ($approveContract->getNumberOfParameters() >= 3) {
-            $arguments[] = $expectedRevision;
+        try {
+            $this->service->rejectContract($taskId, $actor, $expectedRevision, $reason, $expectedHead);
+        } catch (\RuntimeException $exception) {
+            throw new InvalidArgumentException('Contract rejection refused by agent-loop: ' . $exception->getMessage(), previous: $exception);
         }
+    }
 
-        // Older installed agent-loop releases accept only task and actor. The
-        // check above keeps those releases safe for stale form submissions;
-        // newer releases receive the revision for the owner's atomic check.
-        $approveContract->invokeArgs($this->service, $arguments);
+    /**
+     * The owner-rendered human review page, or null when agent-loop cannot
+     * render one for the current task state. The HTML is a disposable view,
+     * never decision authority.
+     */
+    public function reviewHtml(string $taskId): ?string
+    {
+        try {
+            return (new WorkflowHumanReviewCommand($this->projectRoot))->render($taskId);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public function acknowledgeReview(string $taskId, string $reportSha256, string $actor): void
@@ -165,107 +196,68 @@ final readonly class HumanDecisionGateway
         }
     }
 
-    /** @return list<AttentionResolution> */
+    /**
+     * The exact owner state a human reviews before resolving Attention:
+     * identity, Contract revision, scope, plan digest, attempt and HEAD.
+     */
+    public function attentionDecision(string $taskId): ?WorkflowAttentionProjection
+    {
+        try {
+            return $this->service->pendingAttention($taskId);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** @return list<AttentionResolution> oldest first, as agent-loop orders them */
     public function attentionResolutions(string $taskId): array
     {
         try {
-            $dir = (new ProjectLayout($this->projectRoot))->executionAttentionResolutionsRoot($taskId);
+            return $this->service->attentionResolutions($taskId);
         } catch (Throwable) {
             return [];
         }
-        if (!is_dir($dir)) {
-            return [];
-        }
-
-        $entries = scandir($dir);
-        if ($entries === false) {
-            return [];
-        }
-
-        $resolutions = [];
-        foreach ($entries as $entry) {
-            if ($entry === '.' || $entry === '..' || !str_ends_with($entry, '.json')) {
-                continue;
-            }
-            $path = $dir . '/' . $entry;
-            $json = @file_get_contents($path);
-            if (!is_string($json)) {
-                continue;
-            }
-            try {
-                $data = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue;
-            }
-            if (!is_array($data) || ($data['schema_version'] ?? null) !== '1.0' || ($data['kind'] ?? null) !== 'execution_attention_resolution') {
-                continue;
-            }
-            $revision = $data['contract_revision'] ?? null;
-            $attempt = $data['attempt'] ?? null;
-            if (!is_int($revision) || $revision < 1 || !is_int($attempt) || $attempt < 1) {
-                continue;
-            }
-
-            try {
-                $resolutions[] = new AttentionResolution(
-                    ExecutionArtifactValue::string($data['attention_id'] ?? null, $path . '#attention_id'),
-                    ExecutionArtifactValue::string($data['task_id'] ?? null, $path . '#task_id'),
-                    ExecutionArtifactValue::string($data['run_id'] ?? null, $path . '#run_id'),
-                    $revision,
-                    ExecutionArtifactValue::sha256($data['execution_plan_digest'] ?? null, $path . '#execution_plan_digest'),
-                    ExecutionArtifactValue::string($data['stage_id'] ?? null, $path . '#stage_id'),
-                    $attempt,
-                    ExecutionArtifactValue::string($data['actor'] ?? null, $path . '#actor'),
-                    ExecutionArtifactValue::string($data['resolved_at'] ?? null, $path . '#resolved_at'),
-                );
-            } catch (Throwable) {
-                continue;
-            }
-        }
-
-        usort(
-            $resolutions,
-            static fn(AttentionResolution $left, AttentionResolution $right): int => strcmp($left->resolvedAt, $right->resolvedAt),
-        );
-
-        return $resolutions;
     }
 
-    public function resolveAttention(string $taskId, string $attentionId, string $actor): void
+    /**
+     * Resolve the Attention the human reviewed, and only that one.
+     *
+     * The reviewed identity comes back from the form. It must still match the
+     * owner's current projection; agent-loop then re-checks the same identity
+     * under its own locks, so a stale page cannot resolve a newer interruption.
+     *
+     * @param array{contract_revision: int, execution_plan_digest: string, attempt: int, candidate_revision: string, head_commit: ?string} $reviewed
+     */
+    public function resolveAttention(string $taskId, string $attentionId, string $actor, ?string $response, array $reviewed): void
     {
         $attentionId = trim($attentionId);
         if ($attentionId === '') {
             throw new InvalidArgumentException('A non-empty attention ID is required.');
         }
-
         $actor = trim($actor);
         if ($actor === '') {
             throw new InvalidArgumentException('A non-empty actor is required to resolve Attention.');
         }
 
-        $gateway = new ExecutionGateway($this->projectRoot);
         try {
-            $projection = $gateway->projection($taskId);
+            $current = $this->service->pendingAttention($taskId);
         } catch (Throwable $exception) {
-            throw new InvalidArgumentException('No execution exists for task ' . $taskId . '.', previous: $exception);
+            throw new InvalidArgumentException('Attention is no longer current: ' . $exception->getMessage(), previous: $exception);
+        }
+        if ($current === null
+            || $current->attention->id !== $attentionId
+            || $current->contractRevision !== $reviewed['contract_revision']
+            || !hash_equals($current->executionPlanDigest, $reviewed['execution_plan_digest'])
+            || $current->attempt !== $reviewed['attempt']
+            || $current->candidateRevision !== $reviewed['candidate_revision']
+            || $current->headCommit !== $reviewed['head_commit']) {
+            throw new InvalidArgumentException('The Attention you reviewed has changed; reload the workspace before resolving it.');
         }
 
-        $attention = $projection->attention;
-        if ($attention === null || $attention->id !== $attentionId) {
-            throw new InvalidArgumentException('No matching pending Attention exists for this execution.');
-        }
-
-        $plan = (new ExecutionPlanStore($this->projectRoot))->load($taskId);
         try {
-            (new AttentionResolutionStore($this->projectRoot))->record(
-                $plan,
-                $attention,
-                $projection->currentAttempt,
-                $actor,
-            );
-            $gateway->resolveAttention($taskId, $attentionId);
+            $this->service->resolveAttention($taskId, $attentionId, $actor, $response, $current);
         } catch (Throwable $exception) {
-            throw new InvalidArgumentException('Attention resolution failed: ' . $exception->getMessage(), previous: $exception);
+            throw new InvalidArgumentException('Attention resolution refused by agent-loop: ' . $exception->getMessage(), previous: $exception);
         }
     }
 }

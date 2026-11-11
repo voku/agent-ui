@@ -289,7 +289,7 @@ final class WorkflowProgressTest extends TestCase
         ));
 
         self::assertSame(400, $response->status);
-        self::assertStringContainsString('Contract revision changed; reload the page before approving.', $response->body);
+        self::assertStringContainsString('Contract revision changed since it was reviewed (reviewed 1, current 2)', $response->body);
         $contract = $contracts->find('UI-36');
         self::assertNotNull($contract);
         self::assertSame(2, $contract->revision);

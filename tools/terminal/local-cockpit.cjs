@@ -77,6 +77,8 @@ function ensureAttachmentDirectory() {
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
+const maxInsertBytes = 64 * 1024;
+const bracketedPastePrograms = new Set(['bash', 'zsh', 'fish', 'claude', 'codex', 'agy', 'node']);
 // Separate from browser credentials: only this process and the child PHP
 // backend know it. It never travels in browser traffic or JSON responses.
 const internalProxySecret = crypto.randomBytes(32).toString('base64url');
@@ -831,6 +833,45 @@ function requestHandler(req, res) {
             }
         });
     }
+    if (req.method === 'POST' && req.url === '/_local/session/insert') {
+        if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
+            !equal(req.headers['x-agent-ui-csrf'], csrfToken)) return deny(res, 403, 'Origin and CSRF token required.');
+        if (Number(req.headers['content-length'] || 0) > maxInsertBytes + 1024) return deny(res, 413, 'Text is too large.');
+        return readJsonBody(req, res, maxInsertBytes + 1024).then((body) => {
+            if (body === null || res.writableEnded) return;
+            if (!terminalAvailable || inspectSession().state !== 'session_running') {
+                return deny(res, 409, 'Start an available task session before inserting text.');
+            }
+            if (!body || typeof body.text !== 'string' || body.text.trim() === '' || Buffer.byteLength(body.text, 'utf8') > maxInsertBytes) {
+                return deny(res, 400, 'Text must be non-empty and at most 64 KiB.');
+            }
+            // Control characters other than newline and tab could drive the
+            // terminal; strip them. A trailing newline would submit, so the
+            // text is trimmed and pasted as one bracketed paste without Enter.
+            const text = body.text.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+            try {
+                // A newline only stays unsubmitted inside a bracketed paste, and
+                // tmux cannot report whether the pane enabled it. Multi-line text
+                // therefore goes only to programs known to enable it.
+                if (text.includes('\n')) {
+                    const current = tmuxCommand(['display-message', '-p', '-t', '=' + session + ':', '#{pane_current_command}']);
+                    const program = current.status === 0 ? path.basename(String(current.stdout).trim()) : '';
+                    if (!bracketedPastePrograms.has(program)) {
+                        return deny(res, 409, 'Multi-line text can only be inserted into a shell or coding CLI that supports bracketed paste (current: ' + (program || 'unknown') + '). Use Copy instead.');
+                    }
+                }
+                const buffer = 'agent-ui-insert';
+                const loaded = tmuxCommand(['load-buffer', '-b', buffer, '-'], text);
+                if (loaded.status !== 0) throw new Error('load-buffer failed');
+                const pasted = tmuxCommand(['paste-buffer', '-p', '-d', '-b', buffer, '-t', '=' + session + ':']);
+                if (pasted.status !== 0) throw new Error('paste-buffer failed');
+                return json(res, 200, { inserted_bytes: Buffer.byteLength(text, 'utf8'), submitted: false });
+            } catch (error) {
+                console.error('Terminal insert failed:', error.message);
+                return deny(res, 503, 'Text could not be inserted into the terminal.');
+            }
+        });
+    }
     if (req.method === 'POST' && req.url === '/_local/attachment') {
         return receiveAttachment(req, res);
     }
@@ -968,11 +1009,11 @@ function getStatus(url) {
         request.setTimeout(1000, () => request.destroy());
     });
 }
-function tmuxCommand(args) {
+function tmuxCommand(args, input) {
     const env = { ...process.env, TMUX: '' };
     delete env.TMUX_TMPDIR;
     const result = spawnSync('tmux', ['-L', 'agent-ui', '-f', '/dev/null', ...args], {
-        encoding: 'utf8', timeout: 5000, env,
+        encoding: 'utf8', timeout: 5000, env, input,
     });
     if (result.error) throw new Error('tmux is unavailable or did not respond.');
     return result;

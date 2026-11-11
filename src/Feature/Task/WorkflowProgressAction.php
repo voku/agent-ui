@@ -58,6 +58,29 @@ final readonly class WorkflowProgressAction
         ]));
     }
 
+    /**
+     * agent-loop's disposable human review page, served as an isolated document.
+     *
+     * The CSP sandbox gives the owner's HTML an opaque origin with no network,
+     * forms or navigation, so its own small script can run but cannot read this
+     * control plane's session or act on its behalf. The HTML is not authority:
+     * decisions are still recorded only through the typed forms of the workspace.
+     */
+    public function reviewHtml(string $taskId): Response
+    {
+        $card = $this->board->card($taskId);
+        $html = $this->decisions->reviewHtml($card->id);
+        if ($html === null) {
+            throw new InvalidArgumentException('agent-loop has no human review page for this task in its current state.');
+        }
+
+        return new Response($html, 200, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-store',
+            'Content-Security-Policy' => "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+        ]);
+    }
+
     /** A bounded, read-only refresh of the same owner projections as the page. */
     public function json(string $taskId): Response
     {
@@ -162,6 +185,9 @@ final readonly class WorkflowProgressAction
             'human_decisions' => $decisions,
             'contract' => $contract,
             'pending_attention' => $pendingAttention,
+            'attention_decision' => $pendingAttention === null ? null : $this->decisions->attentionDecision($card->id),
+            'attention_history' => $this->decisions->attentionResolutions($card->id),
+            'head_commit' => $this->decisions->headCommit(),
             'csrf_token' => $this->csrf->token(),
         ]);
     }

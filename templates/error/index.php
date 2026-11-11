@@ -14,7 +14,7 @@ require __DIR__ . '/../layout/header.php';
     <h1><?= TemplateRenderer::escape($heading) ?></h1>
 </div>
 <section class="panel panel--danger">
-    <p><?= TemplateRenderer::escape($message) ?></p>
+    <p data-error-message><?= TemplateRenderer::escape($message) ?></p>
     <p class="note">This is the UI reporting its own request handling. No owner state was read or changed.</p>
 </section>
 <div class="btn-row">

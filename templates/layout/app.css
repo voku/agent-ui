@@ -1133,10 +1133,100 @@ details.raw[open] > summary { margin-bottom: 10px; }
 
 /* --- Code search, source viewing and impact visualization (Map surface) --- */
 
-.workflow-cockpit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.workflow-cockpit__progress { min-width: 0; }
-.workflow-cockpit__terminal { position: sticky; top: 18px; min-width: 0; }
-.workflow-cockpit__terminal iframe { display: block; width: 100%; height: min(68vh, 720px); min-height: 360px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #111; }
+/* ---------- task workspace ----------
+ * The progress page is the developer workspace: workflow panels on one side,
+ * the local CLI terminal on the other. Without JavaScript every panel renders
+ * in order and the tabs are plain in-page links; with it the tabs switch
+ * panels and the toolbar, splitter and height handle resize the terminal.
+ * Sizes are viewer preferences only and never reach an owner. */
+.wrap:has(.workspace--terminal) { max-width: none; padding-left: 20px; padding-right: 20px; }
+.workspace { --ws-terminal-width: 50%; --ws-terminal-height: min(68vh, 720px); min-width: 0; }
+.workspace--terminal { display: grid; grid-template-columns: minmax(320px, 1fr) 12px minmax(360px, var(--ws-terminal-width)); grid-template-rows: auto 1fr; column-gap: 0; align-items: start; }
+.workspace--terminal .workspace__toolbar { grid-column: 1 / -1; grid-row: 1; }
+.workspace--terminal .workspace__work { grid-column: 1; grid-row: 2; }
+.workspace--terminal .workspace__splitter { grid-column: 2; grid-row: 2; }
+.workspace--terminal .workspace__terminal { grid-column: 3; grid-row: 2; }
+.workspace[data-layout="stack"] .workspace__terminal { grid-column: 1; grid-row: 3; }
+.workspace[data-layout="terminal"] .workspace__terminal { grid-column: 1; grid-row: 2; }
+.workspace__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 0 0 12px; }
+.workspace__head h1 { margin: 0; font-size: 20px; }
+.workspace__head .lede { margin: 0; font-size: 13px; }
+.workspace__work { min-width: 0; padding-right: 8px; }
+.workspace__terminal { position: sticky; top: 14px; min-width: 0; margin: 0; }
+.terminal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 10px; }
+.terminal-head__actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.terminal-start { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.terminal-start[hidden] { display: none; }
+.terminal-quick { display: grid; gap: 6px; margin-top: 8px; }
+.codeblock--compact { margin: 0; }
+.codeblock--compact pre { padding: 7px 46px 7px 10px; font-size: 12px; }
+.terminal-tools { margin-top: 12px; }
+.terminal-tools > summary { cursor: pointer; font-size: 13px; color: var(--ink-soft); }
+.workspace__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px; margin: 0 0 14px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); }
+.workspace__toolbar[hidden], .workspace__splitter[hidden], .workspace__height-handle[hidden] { display: none; }
+.workspace__toolbar output { min-width: 4.5ch; text-align: center; }
+.segmented { display: inline-flex; align-items: center; gap: 4px; }
+.segmented .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.btn--ghost { border-color: transparent; background: transparent; }
+.workspace__splitter { align-self: stretch; min-height: 160px; cursor: col-resize; position: relative; touch-action: none; border-radius: 6px; }
+.workspace__splitter::before { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; border-radius: 2px; background: var(--rule); transition: background .12s ease; }
+.workspace__splitter:hover::before, .workspace__splitter:focus-visible::before, .workspace--resizing .workspace__splitter::before { background: var(--accent); }
+.workspace__splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.workspace__frame { position: relative; height: var(--ws-terminal-height); min-height: 220px; }
+.workspace__frame iframe, .workflow-cockpit__terminal iframe { display: block; width: 100%; height: 100%; min-height: 220px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #111; }
+.workspace__height-handle { height: 12px; margin: 2px 0 6px; cursor: row-resize; position: relative; touch-action: none; border-radius: 6px; }
+.workspace__height-handle::before { content: ""; position: absolute; left: 35%; right: 35%; top: 5px; height: 2px; border-radius: 2px; background: var(--rule-strong); }
+.workspace__height-handle:hover::before, .workspace__height-handle:focus-visible::before, .workspace--resizing .workspace__height-handle::before { background: var(--accent); }
+.workspace__height-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* An iframe swallows pointer events; while dragging, the page keeps them. */
+.workspace--resizing, .workspace--resizing * { user-select: none; }
+.workspace--resizing iframe { pointer-events: none; }
+.workspace[data-layout="stack"] { grid-template-columns: minmax(0, 1fr); }
+.workspace[data-layout="stack"] .workspace__splitter { display: none; }
+.workspace[data-layout="stack"] .workspace__terminal { position: static; margin-top: 18px; }
+.workspace[data-layout="terminal"] { grid-template-columns: minmax(0, 1fr); }
+.workspace[data-layout="terminal"] .workspace__work, .workspace[data-layout="terminal"] .workspace__splitter { display: none; }
+.workspace[data-layout="terminal"] .workspace__terminal { position: static; }
+.workspace[data-layout="work"] { grid-template-columns: minmax(0, 1fr); }
+.workspace[data-layout="work"] .workspace__terminal, .workspace[data-layout="work"] .workspace__splitter { display: none; }
+.workspace__terminal:fullscreen { padding: 12px; overflow: auto; background: var(--bg); }
+.workspace__terminal:fullscreen .workspace__frame { height: calc(100vh - 120px); }
+/* Tabs: links without JavaScript, a tab strip with it. */
+.workspace-tabs { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; padding: 6px 0; border-bottom: 1px solid var(--rule); background: var(--bg); }
+.workspace-tabs__tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; color: var(--ink-soft); font-weight: 600; font-size: 13.5px; text-decoration: none; border: 1px solid transparent; border-bottom: none; }
+.workspace-tabs__tab:hover { color: var(--accent); }
+.workspace-tabs__tab[aria-selected="true"] { color: var(--ink); background: var(--surface); border-color: var(--rule); }
+.workspace-tabs__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.workspace-tabs__badge { font-size: 10.5px; padding: 1px 6px; }
+.workspace__panel { min-width: 0; scroll-margin-top: 60px; }
+.workspace__panel + .workspace__panel { margin-top: 28px; }
+.workspace--tabs .workspace__panel + .workspace__panel { margin-top: 0; }
+.workspace__panel[hidden] { display: none; }
+/* The embedded workbench is one column beside the terminal. */
+.workspace .workbench { grid-template-columns: minmax(0, 1fr); }
+.workspace .workbench__side { position: static; max-height: none; overflow: visible; margin-top: 0; }
+/* Decision details the human reviews. */
+.decision-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin: 12px 0 6px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-sm); font-size: 12.5px; }
+.decision-facts > div { min-width: 0; }
+.decision-facts dt { color: var(--ink-faint); font-size: 11.5px; }
+.decision-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.decision-facts__chip { display: inline-block; margin: 0 4px 4px 0; }
+.decision-reject { margin-top: 14px; }
+.decision-reject > summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+.review-frame { margin: 10px 0 14px; }
+.review-frame > summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.review-frame iframe { display: block; width: 100%; height: min(70vh, 640px); margin-top: 8px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #fff; }
+.attention-history { margin-top: 14px; }
+.attention-history > summary { cursor: pointer; }
+.attention-history__list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.attention-history__list li { padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); }
+.attention-history__response { margin: 6px 0 0; padding: 4px 10px; border-left: 3px solid var(--accent); color: var(--ink-soft); white-space: pre-wrap; font-size: 13px; }
+/* Insert-into-terminal sits beside Copy and appears only while a session runs. */
+.terminal-insert { position: absolute; top: 7px; right: 64px; font: inherit; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); cursor: pointer; }
+.terminal-insert:hover { background: var(--accent); color: var(--bg); }
+.terminal-insert[data-inserted="1"] { background: var(--accent); color: var(--bg); }
+.codeblock:has(.terminal-insert:not([hidden])) pre { padding-right: 190px; }
+.codeblock--compact:has(.terminal-insert:not([hidden])) pre { padding-right: 130px; }
 .codex-app-server { margin: 14px 0; }
 .codex-app-server__prompt { display: grid; gap: 8px; margin-top: 12px; }
 .codex-app-server__prompt textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); padding: 9px 10px; color: var(--ink); background: var(--surface); font: inherit; }
@@ -1150,8 +1240,13 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .codex-app-server__activity li { padding: 4px 0; color: var(--ink-soft); font-size: 12px; }
 .codex-app-server__activity time { color: var(--ink-faint); font-family: var(--mono); margin-right: 8px; }
 @media (max-width: 860px) {
-    .workflow-cockpit { grid-template-columns: minmax(0, 1fr); }
-    .workflow-cockpit__terminal { position: static; grid-row: 1; }
+    .workspace--terminal, .workspace[data-layout] { grid-template-columns: minmax(0, 1fr); }
+    .workspace__splitter { display: none; }
+    .workspace--terminal .workspace__work, .workspace--terminal .workspace__terminal { grid-column: 1; }
+    .workspace--terminal .workspace__terminal { position: static; grid-row: 2; }
+    .workspace--terminal .workspace__work { grid-row: 3; }
+    .workspace__work { padding-right: 0; }
+    .codeblock:has(.terminal-insert:not([hidden])) pre { padding-right: 14px; padding-top: 40px; }
 }
 
 .check { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--ink-soft); }

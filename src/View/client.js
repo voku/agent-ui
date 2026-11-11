@@ -36,9 +36,9 @@ enhanceCopyButtons(document);
  * POSTing the same form to the same endpoint for the server-rendered result
  * fragment. The browser composes nothing: every byte of the preview is what
  * Generate returns. */
-(function () {
-    var form = document.querySelector('[data-prompt-workbench]');
-    if (!form || !window.fetch || !window.FormData || !window.URLSearchParams) { return; }
+function enhancePromptWorkbench(form) {
+    if (!form || form.dataset.workbenchReady === '1' || !window.fetch || !window.FormData || !window.URLSearchParams) { return; }
+    form.dataset.workbenchReady = '1';
     var result = form.querySelector('[data-prompt-result]');
     var status = form.querySelector('[data-prompt-status]');
     var empty = form.querySelector('[data-prompt-empty]');
@@ -111,6 +111,7 @@ enhanceCopyButtons(document);
             result.innerHTML = payload.html;
             result.removeAttribute('aria-busy');
             enhanceCopyButtons(result);
+            document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: result } }));
             say(payload.ok ? 'Preview is current.' : 'The owner refused this prompt; see why below.');
         }).catch(function (error) {
             if (error && error.name === 'AbortError') { return; }
@@ -149,7 +150,8 @@ enhanceCopyButtons(document);
     });
 
     showRecipe(selectedRecipe());
-}());
+}
+enhancePromptWorkbench(document.querySelector('[data-prompt-workbench]'));
 
 /* Graph connection highlighting on node hover */
 document.querySelectorAll('.graph-node-link').forEach(function (node) {
@@ -815,12 +817,13 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             // This fragment is rendered and escaped by the same server template as the initial page.
             decision.innerHTML = snapshot.decision_html;
             decision.setAttribute('data-decision-digest', snapshot.decision_digest);
+            document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: decision } }));
         }
 
         var serializedSteps = JSON.stringify(snapshot.steps);
         if (serializedSteps !== lastSteps) {
             renderSteps(snapshot.steps);
-            document.dispatchEvent(new CustomEvent('agent-ui:workflow-progress', { detail: { steps: snapshot.steps } }));
+            document.dispatchEvent(new CustomEvent('agent-ui:workflow-progress', { detail: { steps: snapshot.steps, has_human_decision: snapshot.has_human_decision === true } }));
             lastSteps = serializedSteps;
         }
         currentState = snapshot.state;
@@ -889,6 +892,15 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             body: new URLSearchParams(new FormData(form)).toString()
         }).then(function (response) {
             var destination = new URL(response.url);
+            if (!response.ok && typeof DOMParser === 'function') {
+                // Show the owner's own refusal (stale revision, moved HEAD, …)
+                // instead of a generic failure. Text only; never HTML.
+                return response.text().then(function (html) {
+                    var node = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-error-message]');
+                    var detail = node ? node.textContent.trim().slice(0, 400) : '';
+                    throw new Error((detail || 'Decision was not confirmed.') + ' Nothing was recorded; the workspace is refreshing.');
+                });
+            }
             if (!response.ok || !response.redirected || destination.origin !== window.location.origin ||
                 destination.pathname !== window.location.pathname) {
                 throw new Error('Decision was not confirmed. Reload the current owner state before retrying.');
@@ -897,6 +909,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
         }).catch(function (error) {
             if (feedback) { feedback.textContent = error.message || 'Could not record the decision.'; }
+            document.dispatchEvent(new Event('agent-ui:workflow-refresh-request'));
         }).then(function () {
             delete form.dataset.pending;
             if (button && form.isConnected) { button.disabled = false; }
@@ -971,6 +984,7 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                     state.textContent += ' · terminal transport unavailable';
                     if (typeof snapshot.terminal_error === 'string') { state.textContent += '. ' + snapshot.terminal_error; }
                 }
+                setInsertReady(running && available);
                 toggle.hidden = !running || !available;
                 stop.hidden = !running;
                 start.hidden = !missing;
@@ -1007,6 +1021,40 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
             })
             .then(function () { if (requestGeneration === generation) { timer = window.setTimeout(refreshSession, document.hidden ? 30000 : 5000); } });
     }
+    /* Insert text into the running session without pressing Enter. The
+       human still reads it in the terminal and submits it deliberately. */
+    var insertReady = false;
+    function setInsertReady(ready) {
+        insertReady = ready;
+        document.documentElement.classList.toggle('terminal-ready', ready);
+        document.querySelectorAll('[data-terminal-insert-target]').forEach(function (button) { button.hidden = !ready; });
+    }
+    document.addEventListener('agent-ui:content-inserted', function () { setInsertReady(insertReady); });
+    document.addEventListener('click', function (event) {
+        var button = event.target instanceof Element ? event.target.closest('[data-terminal-insert-target]') : null;
+        if (!button || !insertReady || !csrf || button.disabled) { return; }
+        var source = document.getElementById(button.getAttribute('data-terminal-insert-target'));
+        var text = source ? source.textContent.trim() : '';
+        if (text === '') { return; }
+        var original = button.textContent;
+        button.disabled = true;
+        window.fetch('/_local/session/insert', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Agent-Ui-Csrf': csrf },
+            body: JSON.stringify({ text: text })
+        }).then(function (response) {
+            if (!response.ok) { return response.text().then(function (detail) { throw new Error(detail.slice(0, 200)); }); }
+            button.textContent = 'Inserted — press Enter in the terminal';
+            button.dataset.inserted = '1';
+            message.textContent = 'Text inserted into the terminal. Nothing was submitted.';
+        }).catch(function (error) {
+            button.textContent = 'Insert failed';
+            message.textContent = error.message || 'Could not insert into the terminal.';
+        }).then(function () {
+            window.setTimeout(function () { button.textContent = original; delete button.dataset.inserted; button.disabled = false; }, 2200);
+        });
+    });
+
     function action(name, payload) {
         if (busy || !csrf) { return; }
         busy = true;
@@ -1094,6 +1142,253 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
         if (window.confirm('Stop this coding-host session? This can interrupt its work and does not close the task.')) { action('stop', {}); }
     });
     refreshSession();
+}());
+
+/* Task workspace: panels beside a resizable terminal.
+ *
+ * Tabs, layout, terminal width and height are per-viewer conveniences kept in
+ * localStorage (best effort). Nothing here reaches an owner, and without
+ * JavaScript every panel simply renders in order. */
+(function enhanceWorkspace() {
+    var workspace = document.querySelector('[data-workspace]');
+    if (!workspace) { return; }
+    var storageKey = 'agent-ui.workspace.v1';
+    var prefs = {};
+    try { prefs = JSON.parse(window.localStorage.getItem(storageKey) || '{}') || {}; } catch (ignore) { prefs = {}; }
+    function save() { try { window.localStorage.setItem(storageKey, JSON.stringify(prefs)); } catch (ignore) { /* private mode */ } }
+
+    /* ---- tabs ---- */
+    var tabs = Array.prototype.slice.call(workspace.querySelectorAll('[data-workspace-tab]'));
+    var panels = Array.prototype.slice.call(workspace.querySelectorAll('[data-workspace-panel]'));
+    var tablist = workspace.querySelector('[data-workspace-tabs]');
+    function selectTab(name, focus) {
+        if (!panels.some(function (panel) { return panel.getAttribute('data-workspace-panel') === name; })) { name = 'overview'; }
+        tabs.forEach(function (tab) {
+            var active = tab.getAttribute('data-workspace-tab') === name;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+            if (active && focus) { tab.focus(); }
+        });
+        panels.forEach(function (panel) { panel.hidden = panel.getAttribute('data-workspace-panel') !== name; });
+        prefs.tab = name; save();
+        if (name === 'prompts') { loadPrompts(); }
+        if (name === 'steps') { window.dispatchEvent(new Event('resize')); }
+    }
+    if (tablist && tabs.length) {
+        workspace.classList.add('workspace--tabs');
+        tablist.setAttribute('role', 'tablist');
+        tabs.forEach(function (tab) {
+            var name = tab.getAttribute('data-workspace-tab');
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', 'ws-' + name);
+            tab.addEventListener('click', function (event) { event.preventDefault(); selectTab(name, false); });
+            tab.addEventListener('keydown', function (event) {
+                var index = tabs.indexOf(tab);
+                var next = event.key === 'ArrowRight' ? index + 1 : event.key === 'ArrowLeft' ? index - 1
+                    : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : null;
+                if (next === null) { return; }
+                event.preventDefault();
+                selectTab(tabs[(next + tabs.length) % tabs.length].getAttribute('data-workspace-tab'), true);
+            });
+        });
+        panels.forEach(function (panel) { panel.setAttribute('role', 'tabpanel'); });
+        var hash = window.location.hash.replace('#ws-', '');
+        var wanted = ['overview', 'steps', 'prompts'].indexOf(hash) !== -1 ? hash : (prefs.tab || 'overview');
+        /* An open human decision always wins over a remembered tab. */
+        if (workspace.querySelector('[data-workspace-decision-badge]') || window.location.hash === '#workflow-approval') { wanted = 'overview'; }
+        selectTab(wanted, false);
+        document.querySelectorAll('[data-workspace-tab-link]').forEach(function (link) {
+            link.addEventListener('click', function (event) { event.preventDefault(); selectTab(link.getAttribute('data-workspace-tab-link'), true); });
+        });
+        document.addEventListener('agent-ui:workflow-progress', function (event) {
+            var count = workspace.querySelector('[data-workspace-step-count]');
+            if (count && event.detail && event.detail.steps) { count.textContent = String(event.detail.steps.length); }
+        });
+        document.addEventListener('agent-ui:content-inserted', function () {
+            var decision = workspace.querySelector('[data-workflow-decision]');
+            var overview = workspace.querySelector('[data-workspace-tab="overview"]');
+            if (!decision || !overview) { return; }
+            var waiting = decision.textContent.trim() !== '';
+            var badge = overview.querySelector('[data-workspace-decision-badge]');
+            if (waiting && !badge) {
+                badge = document.createElement('span');
+                badge.className = 'pill pill--attention workspace-tabs__badge';
+                badge.setAttribute('data-workspace-decision-badge', '');
+                badge.textContent = 'decision';
+                overview.appendChild(badge);
+            } else if (!waiting && badge) { badge.remove(); }
+        });
+    }
+
+    /* ---- prompts panel: the same owner-driven workbench form, loaded on demand ---- */
+    var promptsLoaded = false;
+    function loadPrompts() {
+        var host = workspace.querySelector('[data-workspace-prompts]');
+        if (promptsLoaded || !host || typeof window.fetch !== 'function') { return; }
+        promptsLoaded = true;
+        var fallback = host.innerHTML;
+        host.setAttribute('aria-busy', 'true');
+        window.fetch(host.getAttribute('data-workspace-prompts-src'), { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+            .then(function (response) { if (!response.ok) { throw new Error('unavailable'); } return response.text(); })
+            .then(function (html) {
+                host.innerHTML = html;
+                var form = host.querySelector('[data-prompt-workbench]');
+                enhancePromptWorkbench(form);
+                enhanceCopyButtons(host);
+                document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: host } }));
+            })
+            .catch(function () { host.innerHTML = fallback; promptsLoaded = false; })
+            .then(function () { host.removeAttribute('aria-busy'); });
+    }
+
+    /* ---- remembered actor name for decision forms ---- */
+    function fillActors(root) {
+        if (!prefs.actor) { return; }
+        root.querySelectorAll('input[data-remember-actor]').forEach(function (input) { if (input.value === '') { input.value = prefs.actor; } });
+    }
+    fillActors(document);
+    document.addEventListener('agent-ui:content-inserted', function (event) { fillActors(event.detail && event.detail.root ? event.detail.root : document); });
+    document.addEventListener('change', function (event) {
+        var input = event.target;
+        if (input instanceof HTMLInputElement && input.hasAttribute('data-remember-actor') && input.value.trim() !== '') {
+            prefs.actor = input.value.trim().slice(0, 200); save();
+        }
+    });
+
+    /* ---- terminal layout ---- */
+    var terminal = workspace.querySelector('[data-terminal-panel]');
+    var toolbar = workspace.querySelector('[data-workspace-toolbar]');
+    var splitter = workspace.querySelector('[data-workspace-splitter]');
+    var heightHandle = workspace.querySelector('[data-workspace-height-handle]');
+    var heightValue = workspace.querySelector('[data-workspace-height-value]');
+    if (!terminal || !toolbar || !splitter || !heightHandle) { return; }
+    toolbar.hidden = false;
+    splitter.hidden = false;
+    heightHandle.hidden = false;
+
+    var MIN_HEIGHT = 220;
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function maxHeight() { return Math.max(MIN_HEIGHT, Math.round(window.innerHeight * 1.5)); }
+
+    function applyLayout(layout) {
+        if (['split', 'stack', 'terminal', 'work'].indexOf(layout) === -1) { layout = 'split'; }
+        workspace.setAttribute('data-layout', layout);
+        workspace.querySelectorAll('[data-workspace-layout]').forEach(function (button) {
+            button.setAttribute('aria-pressed', String(button.getAttribute('data-workspace-layout') === layout));
+        });
+        prefs.layout = layout; save();
+    }
+    function applyWidth(percent) {
+        percent = clamp(Math.round(percent), 20, 80);
+        workspace.style.setProperty('--ws-terminal-width', percent + '%');
+        splitter.setAttribute('aria-valuenow', String(percent));
+        splitter.setAttribute('aria-valuetext', 'Terminal ' + percent + '% of the width');
+        prefs.width = percent; save();
+    }
+    function applyHeight(px) {
+        px = clamp(Math.round(px), MIN_HEIGHT, maxHeight());
+        workspace.style.setProperty('--ws-terminal-height', px + 'px');
+        heightHandle.setAttribute('aria-valuenow', String(px));
+        heightHandle.setAttribute('aria-valuemin', String(MIN_HEIGHT));
+        heightHandle.setAttribute('aria-valuemax', String(maxHeight()));
+        heightHandle.setAttribute('aria-valuetext', 'Terminal ' + px + ' pixels high');
+        if (heightValue) { heightValue.textContent = px + 'px'; }
+        prefs.height = px; save();
+    }
+    function currentHeight() {
+        var frame = workspace.querySelector('[data-workspace-frame]');
+        return frame ? frame.getBoundingClientRect().height : 480;
+    }
+    /* Fill the window: bring the terminal to the top of the viewport and
+       size the frame to what remains below its own header. */
+    function fitHeight() {
+        var frame = workspace.querySelector('[data-workspace-frame]');
+        if (!frame) { return; }
+        var offset = frame.getBoundingClientRect().top - terminal.getBoundingClientRect().top;
+        applyHeight(window.innerHeight - offset - 60);
+        terminal.scrollIntoView({ block: 'start' });
+    }
+
+    applyLayout(prefs.layout || 'split');
+    applyWidth(typeof prefs.width === 'number' ? prefs.width : 50);
+    if (typeof prefs.height === 'number') { applyHeight(prefs.height); } else if (heightValue) { heightValue.textContent = Math.round(currentHeight()) + 'px'; }
+
+    workspace.querySelectorAll('[data-workspace-layout]').forEach(function (button) {
+        button.addEventListener('click', function () { applyLayout(button.getAttribute('data-workspace-layout')); });
+    });
+    workspace.querySelectorAll('[data-workspace-height]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var step = button.getAttribute('data-workspace-height');
+            if (step === 'fit') { fitHeight(); return; }
+            applyHeight(currentHeight() + Number(step) * 80);
+        });
+    });
+    var reset = workspace.querySelector('[data-workspace-reset]');
+    if (reset) {
+        reset.addEventListener('click', function () {
+            delete prefs.width; delete prefs.height; delete prefs.layout; save();
+            workspace.style.removeProperty('--ws-terminal-width');
+            workspace.style.removeProperty('--ws-terminal-height');
+            applyLayout('split'); applyWidth(50);
+            if (heightValue) { heightValue.textContent = Math.round(currentHeight()) + 'px'; }
+        });
+    }
+    var fullscreen = workspace.querySelector('[data-workspace-fullscreen]');
+    if (fullscreen) {
+        if (typeof terminal.requestFullscreen !== 'function') { fullscreen.hidden = true; }
+        fullscreen.addEventListener('click', function () {
+            if (document.fullscreenElement) { document.exitFullscreen(); } else { terminal.requestFullscreen().catch(function () { /* denied */ }); }
+        });
+        document.addEventListener('fullscreenchange', function () {
+            fullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen terminal';
+        });
+    }
+
+    /* Pointer drags; the iframe would swallow pointer events, so it is
+       disabled for the duration of a drag (see .workspace--resizing). */
+    function drag(handle, onMove) {
+        handle.addEventListener('pointerdown', function (event) {
+            if (event.button !== 0) { return; }
+            event.preventDefault();
+            handle.setPointerCapture(event.pointerId);
+            workspace.classList.add('workspace--resizing');
+            function move(moveEvent) { onMove(moveEvent); }
+            function end() {
+                workspace.classList.remove('workspace--resizing');
+                handle.removeEventListener('pointermove', move);
+                handle.removeEventListener('pointerup', end);
+                handle.removeEventListener('pointercancel', end);
+            }
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', end);
+            handle.addEventListener('pointercancel', end);
+        });
+    }
+    drag(splitter, function (event) {
+        var box = workspace.getBoundingClientRect();
+        applyWidth(((box.right - event.clientX) / box.width) * 100);
+    });
+    drag(heightHandle, function (event) {
+        var frame = workspace.querySelector('[data-workspace-frame]');
+        if (frame) { applyHeight(event.clientY - frame.getBoundingClientRect().top); }
+    });
+    splitter.addEventListener('keydown', function (event) {
+        var width = Number(splitter.getAttribute('aria-valuenow')) || 50;
+        var step = event.shiftKey ? 10 : 2;
+        var next = event.key === 'ArrowLeft' ? width + step : event.key === 'ArrowRight' ? width - step
+            : event.key === 'Home' ? 80 : event.key === 'End' ? 20 : null;
+        if (next === null) { return; }
+        event.preventDefault();
+        applyWidth(next);
+    });
+    heightHandle.addEventListener('keydown', function (event) {
+        var step = event.shiftKey ? 120 : 40;
+        var next = event.key === 'ArrowDown' ? currentHeight() + step : event.key === 'ArrowUp' ? currentHeight() - step
+            : event.key === 'End' ? maxHeight() : event.key === 'Home' ? MIN_HEIGHT : null;
+        if (next === null) { return; }
+        event.preventDefault();
+        applyHeight(next);
+    });
 }());
 
 /* Provider-neutral structured activity; governed Loop state remains separate. */

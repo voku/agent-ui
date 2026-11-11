@@ -4,6 +4,26 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+- Task workspace (`/task/{id}/progress`) reworked around the CLI terminal (UI-483895334605852449):
+  - Resizable terminal beside the workflow: keyboard- and pointer-operable width splitter and height handle, side-by-side / stacked / terminal-only / workflow-only layouts, fit-to-window and fullscreen, remembered per viewer (localStorage, best effort); the same tmux session is kept throughout.
+  - Workflow panels as tabs (Overview with decisions, Workflow steps with graph and list, Prompts); without JavaScript every panel renders in order and the tabs are in-page links.
+  - Prompt Workbench embedded in the Prompts panel from the same server-rendered form (`GET /task/{id}/prompts?_fragment=form`).
+  - "Insert in terminal" for the canonical next action, quick `enter`/`finish` commands and generated prompts via a CSRF-protected `POST /_local/session/insert` (tmux bracketed paste, never presses Enter; multi-line text only into shells/coding CLIs that support bracketed paste).
+- Human decisions on owner-typed APIs:
+  - Reject a candidate Contract revision with a reason (`POST /task/{id}/reject`), bound to the reviewed revision and repository HEAD.
+  - Resolve Attention with an optional response for the resumed stage, bound to the reviewed run, Contract revision, plan digest, attempt, candidate and HEAD; the workspace shows that identity and the Attention history.
+  - agent-loop's human review page rendered in a CSP-sandboxed document (`GET /task/{id}/review.html`), shown inline with the review acknowledgement as a reading aid only.
+  - Owner refusals (stale revision, moved HEAD, …) are shown verbatim on enhanced decision forms; the approver name is remembered per viewer.
+
+### Changed
+
+- Attention resolutions are read through `WorkflowHumanDecisionService` instead of parsing agent-loop's private resolution files; Contract approval passes the expected revision and HEAD directly to the owner.
+- The task overview links to the workspace for Attention resolution instead of rendering a second, identity-less form.
+
 ## [0.20.1] - 2026-11-10
 
 ### Fixed

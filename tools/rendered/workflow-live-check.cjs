@@ -31,7 +31,8 @@ const captureGraph = () => {
         const staticPage = await staticContext.newPage();
         await staticPage.goto(base + '/task/UI-36/progress');
         assert.ok(await staticPage.locator('[data-progress-list] > li').count() > 0);
-        assert.equal(await staticPage.locator('[data-workflow-decision] button[type=submit]').count(), 1);
+        assert.equal(await staticPage.locator('[data-workflow-decision] form[action$="/approve"] button[type=submit]').count(), 1);
+        assert.equal(await staticPage.locator('[data-workflow-decision] form[action$="/reject"] textarea[name="reason"]').count(), 1);
         assert.equal(await staticPage.locator('[data-workflow-brief]').count(), 1);
         await staticPage.locator('[data-workflow-brief]').getByText('Contract authority').waitFor();
         assert.equal(await staticPage.locator('[data-workflow-brief]').getByText('Not approved · revision 1').count(), 1);
@@ -77,7 +78,7 @@ const captureGraph = () => {
         await page.goto(base + '/task/UI-36/progress');
         await page.waitForFunction(() => document.querySelector('[data-workflow-live-status]').textContent === 'Live workflow updates connected.');
         await page.waitForFunction(() => window.__workflowTestGraph && window.__workflowTestGraph.nodes().length > 0);
-        const actorInput = page.locator('[data-workflow-decision] input[name="actor"]');
+        const actorInput = page.locator('[data-workflow-decision] form[action$="/approve"] input[name="actor"]');
         await actorInput.fill('unfinished reviewer');
         const refresh = page.waitForResponse((response) => response.url().endsWith('/progress.json'));
         await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
@@ -97,7 +98,7 @@ const captureGraph = () => {
         const originalDigest = await page.locator('[data-workflow-decision]').getAttribute('data-decision-digest');
         const originalBriefDigest = await page.locator('[data-workflow-brief]').getAttribute('data-brief-digest');
         const originalAction = await page.locator('[data-task-next-action]').textContent();
-        const csrf = await page.locator('[data-workflow-decision] input[name="_csrf"]').inputValue();
+        const csrf = await page.locator('[data-workflow-decision] form[action$="/approve"] input[name="_csrf"]').inputValue();
         const approval = await context.request.post(base + '/task/UI-36/approve', {
             form: { _csrf: csrf, actor: 'browser-fixture', return_to: 'progress', revision: '1' },
             maxRedirects: 0
@@ -156,6 +157,8 @@ const captureGraph = () => {
         emptyProjection.steps = [];
         await emptyPage.route('**/progress.json', (route) => route.fulfill({ json: emptyProjection }));
         await emptyPage.goto(base + '/task/UI-37/progress');
+        // The timeline lives in the workspace's "Workflow steps" panel.
+        await emptyPage.click('[data-workspace-tab="steps"]');
         await emptyPage.waitForFunction(() => document.querySelector('[data-workflow-live-status]').textContent === 'Live workflow updates connected.');
         assert.equal(await emptyPage.locator('[data-progress-empty]').isVisible(), true);
         assert.equal(await emptyPage.locator('[data-workflow-graph]').isVisible(), false);
