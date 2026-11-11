@@ -13,6 +13,8 @@ use voku\AgentUi\View\TemplateRenderer;
  *     workflow: array<string, WorkflowSnapshot|null>,
  *     statuses: list<string>,
  *     kind_counts: array<string, int>,
+ *     human_decision_count: int,
+ *     pending_attention: array<string, \voku\AgentLoop\Execution\AttentionRequest>,
  *     disagreement_count: int,
  *     csrf_token: string,
  *     filter_query: string,
@@ -26,6 +28,8 @@ $filteredCards = $model['cards'];
 $workflow = $model['workflow'];
 $statuses = $model['statuses'];
 $kindCounts = $model['kind_counts'];
+$humanDecisionCount = $model['human_decision_count'];
+$pendingAttention = $model['pending_attention'];
 $disagreementCount = $model['disagreement_count'];
 $csrf = $model['csrf_token'];
 $filterQuery = $model['filter_query'];
@@ -40,7 +44,8 @@ $hasFilter = $filterQuery !== '' || $filterStatus !== '' || $filterPriority !== 
 /** @var list<CardSnapshot> $decisionCards */
 $decisionCards = array_values(array_filter(
     $filteredCards,
-    static fn (CardSnapshot $card): bool => ($workflow[$card->id] ?? null)?->nextActionKind === 'decision_required',
+    static fn (CardSnapshot $card): bool => ($workflow[$card->id] ?? null)?->nextActionKind === 'decision_required'
+        || isset($pendingAttention[$card->id]),
 ));
 
 $title = 'Board · ' . $board->projectPrefix . ' · agent-ui';
@@ -113,8 +118,11 @@ require __DIR__ . '/../layout/header.php';
                 <select name="workflow">
                     <option value="">Any next step</option>
                     <?php foreach ($kindCounts as $kind => $count): ?>
-                        <option value="<?= TemplateRenderer::escape((string) $kind) ?>"<?= $filterWorkflow === (string) $kind ? ' selected' : '' ?>>Next: <?= TemplateRenderer::escape(Presentation::label((string) $kind)) ?></option>
+                        <option value="<?= TemplateRenderer::escape((string) $kind) ?>"<?= $filterWorkflow === (string) $kind ? ' selected' : '' ?>><?= $kind === 'decision_required' ? 'Human decision / Attention' : 'Next: ' . TemplateRenderer::escape(Presentation::label((string) $kind)) ?></option>
                     <?php endforeach; ?>
+                    <?php if ($humanDecisionCount > 0 && !isset($kindCounts['decision_required'])): ?>
+                        <option value="decision_required"<?= $filterWorkflow === 'decision_required' ? ' selected' : '' ?>>Human decision / Attention</option>
+                    <?php endif; ?>
                     <?php if ($disagreementCount > 0 || $filterWorkflow === BoardAction::FILTER_DISAGREEMENT): ?>
                         <option value="<?= BoardAction::FILTER_DISAGREEMENT ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' selected' : '' ?>>Board and workflow disagree</option>
                     <?php endif; ?>
@@ -130,11 +138,11 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php if ($kindCounts !== [] || $disagreementCount > 0): ?>
+<?php if ($kindCounts !== [] || $disagreementCount > 0 || $humanDecisionCount > 0): ?>
 <nav class="board-summary" aria-label="Workflow summary">
-    <?php $decisions = $kindCounts['decision_required'] ?? 0; ?>
+    <?php $decisions = $humanDecisionCount; ?>
     <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref('decision_required')) ?>"<?= $filterWorkflow === 'decision_required' ? ' aria-current="true"' : '' ?>>
-        <strong><?= $decisions ?></strong> waiting on a human decision
+        <strong><?= $decisions ?></strong> require a human decision / Attention
     </a>
     <a class="board-summary__item<?= $disagreementCount > 0 ? ' board-summary__item--blocked' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DISAGREEMENT)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' aria-current="true"' : '' ?>>
         <strong><?= $disagreementCount ?></strong> board and workflow disagree
@@ -170,11 +178,17 @@ require __DIR__ . '/../layout/header.php';
                     <a class="btn btn--small" href="/task/<?= TemplateRenderer::escape($card->id) ?>">Inspect decision</a>
                 </div>
                 <p class="board-decision-queue__owner">
+                    <?php if (isset($pendingAttention[$card->id])): ?>
+                        <span>agent-loop Attention: <strong><?= TemplateRenderer::escape($pendingAttention[$card->id]->kind->value) ?></strong></span>
+                    <?php endif; ?>
                     <span>agent-kanban lane: <strong><?= TemplateRenderer::escape($card->lane) ?></strong></span>
                     <span>agent-loop next: <strong><?= TemplateRenderer::escape(Presentation::label($decision->nextActionKind)) ?></strong></span>
                 </p>
                 <details class="board-decision-queue__action">
-                    <summary>Show canonical next action</summary>
+                    <summary>Show owner decision context</summary>
+                    <?php if (isset($pendingAttention[$card->id])): ?>
+                        <p><?= TemplateRenderer::escape($pendingAttention[$card->id]->message) ?></p>
+                    <?php endif; ?>
                     <p><?= TemplateRenderer::escape($decision->nextAction) ?></p>
                 </details>
             </li>
