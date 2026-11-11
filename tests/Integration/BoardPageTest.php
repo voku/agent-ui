@@ -9,6 +9,11 @@ use RuntimeException;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\View\TemplateRenderer;
+use voku\AgentLoop\Execution\AttentionKind;
+use voku\AgentLoop\Execution\AttentionRequest;
+use voku\AgentLoop\Workflow\TaskContractStore;
 
 /**
  * The Board shows agent-kanban's card facts and agent-loop's workflow facts
@@ -76,6 +81,50 @@ final class BoardPageTest extends TestCase
         self::assertStringNotContainsString('Build login system', $decisions->body);
         self::assertStringContainsString('No cards match the active filters.', $decisions->body);
         self::assertStringNotContainsString('Build login system', $disagreements->body);
+    }
+
+    public function testCorruptOwnerProjectionIsReportedAsIncompleteRatherThanEmpty(): void
+    {
+        $contractPath = (new TaskContractStore($this->root))->path('APP-1');
+        self::assertTrue(is_dir(dirname($contractPath)) || mkdir(dirname($contractPath), 0o775, true));
+        self::assertNotFalse(file_put_contents($contractPath, '{broken JSON'));
+
+        $response = $this->app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Decision visibility incomplete.', $response->body);
+        self::assertStringContainsString('Affected cards:', $response->body);
+        self::assertStringContainsString('confirmed waiting; Attention visibility incomplete', $response->body);
+        self::assertStringNotContainsString('id="board-decision-queue"', $response->body);
+    }
+
+    public function testKnownPendingAttentionRendersEvenWithoutWorkflowSnapshot(): void
+    {
+        $board = (new BoardProjectionGateway($this->root))->board();
+        $attention = new AttentionRequest(
+            'attention-1', 'APP-1', 'run-1', AttentionKind::CLARIFICATION_REQUIRED,
+            'Need explicit user decision.', 'investigate', '2026-11-11T12:00:00Z',
+        );
+        $html = (new TemplateRenderer(dirname(__DIR__, 2) . '/templates'))->render('board/index', [
+            'board' => $board,
+            'cards' => $board->cards,
+            'workflow' => ['APP-1' => null],
+            'statuses' => ['todo'],
+            'kind_counts' => [],
+            'human_decision_count' => 1,
+            'pending_attention' => ['APP-1' => $attention],
+            'attention_unavailable_ids' => [],
+            'disagreement_count' => 0,
+            'filter_query' => '',
+            'filter_status' => '',
+            'filter_priority' => '',
+            'filter_workflow' => '',
+            'csrf_token' => (new CsrfTokenManager())->token(),
+        ]);
+
+        self::assertStringContainsString('id="board-decision-queue"', $html);
+        self::assertStringContainsString('href="/task/APP-1#decision"', $html);
+        self::assertStringContainsString('Need explicit user decision.', $html);
+        self::assertStringContainsString('agent-loop workflow projection: <strong>unavailable</strong>', $html);
     }
 
     private function removeDirectory(string $path): void
