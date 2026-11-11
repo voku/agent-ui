@@ -142,7 +142,7 @@ require __DIR__ . '/../layout/header.php';
 <nav class="board-summary" aria-label="Workflow summary">
     <?php $decisions = $humanDecisionCount; ?>
     <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref('decision_required')) ?>"<?= $filterWorkflow === 'decision_required' ? ' aria-current="true"' : '' ?>>
-        <strong><?= $decisions ?></strong> require a human decision / Attention
+        <strong><?= $decisions ?></strong> waiting on a human decision
     </a>
     <a class="board-summary__item<?= $disagreementCount > 0 ? ' board-summary__item--blocked' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DISAGREEMENT)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' aria-current="true"' : '' ?>>
         <strong><?= $disagreementCount ?></strong> board and workflow disagree
