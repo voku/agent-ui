@@ -11,6 +11,7 @@ use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
@@ -22,6 +23,7 @@ final readonly class BoardAction
         private BoardProjectionGateway $board,
         private CardMutationGateway $mutation,
         private WorkflowProjectionGateway $workflow,
+        private HumanDecisionGateway $decisions,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private FlashNotice $notice = new FlashNotice(),
@@ -49,6 +51,8 @@ final readonly class BoardAction
         $statuses = [];
         $kinds = [];
         $disagreements = 0;
+        $humanDecisionCount = 0;
+        $pendingAttention = [];
         foreach ($board->cards as $card) {
             $statuses[$card->status] = true;
             $snapshot = $workflow[$card->id];
@@ -56,6 +60,15 @@ final readonly class BoardAction
                 continue;
             }
             $kinds[$snapshot->nextActionKind] = ($kinds[$snapshot->nextActionKind] ?? 0) + 1;
+            if ($snapshot->mode === 'governed') {
+                $attention = $this->decisions->pendingAttention($card->id);
+                if ($attention !== null) {
+                    $pendingAttention[$card->id] = $attention;
+                }
+            }
+            if ($snapshot->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
+                ++$humanDecisionCount;
+            }
             if ($snapshot->disagreements !== []) {
                 ++$disagreements;
             }
@@ -65,7 +78,7 @@ final readonly class BoardAction
 
         $cards = array_values(array_filter(
             $board->cards,
-            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id], $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
+            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id], isset($pendingAttention[$card->id]), $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
         ));
 
         return Response::html($this->templates->render('board/index', [
@@ -74,6 +87,8 @@ final readonly class BoardAction
             'workflow' => $workflow,
             'statuses' => array_keys($statuses),
             'kind_counts' => $kinds,
+            'human_decision_count' => $humanDecisionCount,
+            'pending_attention' => $pendingAttention,
             'disagreement_count' => $disagreements,
             'filter_query' => $filterQuery,
             'filter_status' => $filterStatus,
@@ -83,7 +98,7 @@ final readonly class BoardAction
         ]));
     }
 
-    private function matches(CardSnapshot $card, ?WorkflowSnapshot $workflow, string $query, string $status, string $priority, string $workflowFilter): bool
+    private function matches(CardSnapshot $card, ?WorkflowSnapshot $workflow, bool $hasPendingAttention, string $query, string $status, string $priority, string $workflowFilter): bool
     {
         if ($status !== '' && $card->status !== $status) {
             return false;
@@ -95,9 +110,11 @@ final readonly class BoardAction
             if ($workflow === null) {
                 return false;
             }
-            $hit = $workflowFilter === self::FILTER_DISAGREEMENT
-                ? $workflow->disagreements !== []
-                : $workflow->nextActionKind === $workflowFilter;
+            $hit = match ($workflowFilter) {
+                self::FILTER_DISAGREEMENT => $workflow->disagreements !== [],
+                'decision_required' => $workflow->nextActionKind === 'decision_required' || $hasPendingAttention,
+                default => $workflow->nextActionKind === $workflowFilter,
+            };
             if (!$hit) {
                 return false;
             }
