@@ -15,6 +15,7 @@ use voku\AgentUi\View\TemplateRenderer;
  *     kind_counts: array<string, int>,
  *     human_decision_count: int,
  *     pending_attention: array<string, \voku\AgentLoop\Execution\AttentionRequest>,
+ *     attention_unavailable_ids: list<string>,
  *     disagreement_count: int,
  *     csrf_token: string,
  *     filter_query: string,
@@ -30,6 +31,7 @@ $statuses = $model['statuses'];
 $kindCounts = $model['kind_counts'];
 $humanDecisionCount = $model['human_decision_count'];
 $pendingAttention = $model['pending_attention'];
+$attentionUnavailableIds = $model['attention_unavailable_ids'];
 $disagreementCount = $model['disagreement_count'];
 $csrf = $model['csrf_token'];
 $filterQuery = $model['filter_query'];
@@ -138,11 +140,11 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php if ($kindCounts !== [] || $disagreementCount > 0 || $humanDecisionCount > 0): ?>
+<?php if ($kindCounts !== [] || $disagreementCount > 0 || $humanDecisionCount > 0 || $attentionUnavailableIds !== []): ?>
 <nav class="board-summary" aria-label="Workflow summary">
     <?php $decisions = $humanDecisionCount; ?>
     <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref('decision_required')) ?>"<?= $filterWorkflow === 'decision_required' ? ' aria-current="true"' : '' ?>>
-        <strong><?= $decisions ?></strong> waiting on a human decision
+        <strong><?= $decisions ?></strong> <?= $attentionUnavailableIds !== [] ? 'confirmed waiting; Attention visibility incomplete' : 'waiting on a human decision' ?>
     </a>
     <a class="board-summary__item<?= $disagreementCount > 0 ? ' board-summary__item--blocked' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DISAGREEMENT)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DISAGREEMENT ? ' aria-current="true"' : '' ?>>
         <strong><?= $disagreementCount ?></strong> board and workflow disagree
@@ -156,6 +158,21 @@ require __DIR__ . '/../layout/header.php';
 </nav>
 <?php endif; ?>
 
+<?php if ($attentionUnavailableIds !== []): ?>
+<section class="panel" role="status" aria-label="Attention availability" style="margin-bottom:16px">
+    <p class="note" style="margin:0">
+        <strong>Decision visibility incomplete.</strong>
+        agent-loop Attention could not be verified for <?= count($attentionUnavailableIds) ?> card(s).
+        Confirmed decisions are shown below, but the count is not authoritative until the owner projection is available.
+        Affected cards:
+        <?php foreach (array_slice($attentionUnavailableIds, 0, 5) as $unavailableId): ?>
+            <a href="/task/<?= TemplateRenderer::escape($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a>
+        <?php endforeach; ?>
+        <?= count($attentionUnavailableIds) > 5 ? 'and ' . (count($attentionUnavailableIds) - 5) . ' more' : '' ?>
+    </p>
+</section>
+<?php endif; ?>
+
 <?php if ($decisionCards !== []): ?>
 <section class="board-decision-queue" id="board-decision-queue" aria-labelledby="board-decision-queue-title">
     <header class="board-decision-queue__head">
@@ -167,29 +184,36 @@ require __DIR__ . '/../layout/header.php';
     </header>
     <ul class="board-decision-queue__list">
         <?php foreach ($decisionCards as $card): ?>
-            <?php $decision = $workflow[$card->id]; ?>
-            <?php if ($decision === null) { continue; } ?>
+            <?php $decision = $workflow[$card->id] ?? null; ?>
             <li class="board-decision-queue__item">
                 <div class="board-decision-queue__identity">
                     <div>
                         <span class="board-decision-queue__id"><?= TemplateRenderer::escape($card->id) ?></span>
                         <strong><?= TemplateRenderer::escape($card->title) ?></strong>
                     </div>
-                    <a class="btn btn--small" href="/task/<?= TemplateRenderer::escape($card->id) ?>">Inspect decision</a>
+                    <a class="btn btn--small" href="/task/<?= TemplateRenderer::escape($card->id) ?>#decision">Inspect decision</a>
                 </div>
                 <p class="board-decision-queue__owner">
                     <?php if (isset($pendingAttention[$card->id])): ?>
                         <span>agent-loop Attention: <strong><?= TemplateRenderer::escape($pendingAttention[$card->id]->kind->value) ?></strong></span>
                     <?php endif; ?>
                     <span>agent-kanban lane: <strong><?= TemplateRenderer::escape($card->lane) ?></strong></span>
-                    <span>agent-loop next: <strong><?= TemplateRenderer::escape(Presentation::label($decision->nextActionKind)) ?></strong></span>
+                    <?php if ($decision !== null): ?>
+                        <span>agent-loop next: <strong><?= TemplateRenderer::escape(Presentation::label($decision->nextActionKind)) ?></strong></span>
+                    <?php else: ?>
+                        <span>agent-loop workflow projection: <strong>unavailable</strong></span>
+                    <?php endif; ?>
                 </p>
                 <details class="board-decision-queue__action">
                     <summary>Show owner decision context</summary>
                     <?php if (isset($pendingAttention[$card->id])): ?>
                         <p><?= TemplateRenderer::escape($pendingAttention[$card->id]->message) ?></p>
                     <?php endif; ?>
-                    <p><?= TemplateRenderer::escape($decision->nextAction) ?></p>
+                    <?php if ($decision !== null): ?>
+                        <p><?= TemplateRenderer::escape($decision->nextAction) ?></p>
+                    <?php else: ?>
+                        <p>Canonical next action unavailable; inspect the live task owner state before acting.</p>
+                    <?php endif; ?>
                 </details>
             </li>
         <?php endforeach; ?>
