@@ -84,7 +84,7 @@ async function run() {
     const headers = { 'X-Agent-Ui-Internal-Secret': secret };
     const permitted = await request(port, taskPath, headers);
     assert.equal(permitted.status, 200, 'authenticated Node-to-PHP traffic must still render tasks');
-    assert.ok(permitted.body.includes('Workflow progress'));
+    assert.ok(permitted.body.includes('Workspace'));
     assert.ok(permitted.body.includes('Approve revision 1'));
     assert.ok(!permitted.body.includes(secret), 'secret must not appear in HTML');
     assert.equal(permitted.headers['x-agent-ui-internal-secret'], undefined, 'do not reflect the private header');

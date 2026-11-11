@@ -178,6 +178,8 @@ async function run() {
     })).status, { token: csrf });
     assert.equal(malformed, 415, 'fake image payload is not accepted');
 
+    // Image attachment lives in the collapsed "Session tools" section.
+    await page.locator('[data-terminal-tools] > summary').click();
     await page.locator('[data-terminal-image-file]').setInputFiles({
         name: 'screenshot.png', mimeType: 'image/png', buffer: png,
     });
