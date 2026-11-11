@@ -54,7 +54,9 @@ final class RouterTest extends TestCase
         yield 'evidence' => [new Request('GET', '/task/ABC-12/evidence'), ['route' => 'evidence', 'task_id' => 'ABC-12']];
         yield 'history' => [new Request('GET', '/task/ABC-12/history'), ['route' => 'history', 'task_id' => 'ABC-12']];
         yield 'handoff' => [new Request('GET', '/task/ABC-12/handoff'), ['route' => 'handoff', 'task_id' => 'ABC-12']];
+        yield 'task review html' => [new Request('GET', '/task/abc-12/review.html'), ['route' => 'task_review_html', 'task_id' => 'ABC-12']];
         yield 'approve' => [new Request('POST', '/task/abc-12/approve'), ['route' => 'approve', 'task_id' => 'ABC-12']];
+        yield 'reject' => [new Request('POST', '/task/abc-12/reject'), ['route' => 'reject', 'task_id' => 'ABC-12']];
         yield 'review ack' => [new Request('POST', '/task/ABC-12/review-ack'), ['route' => 'review_ack', 'task_id' => 'ABC-12']];
         yield 'learning decision' => [new Request('POST', '/task/ABC-12/learning'), ['route' => 'learning', 'task_id' => 'ABC-12']];
         yield 'attention' => [new Request('POST', '/task/ABC-12/attention'), ['route' => 'attention', 'task_id' => 'ABC-12']];

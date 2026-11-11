@@ -62,7 +62,7 @@ $taskNavId = $taskContext->taskId;
         </div>
         <div class="codeblock">
             <pre id="task-context-next" data-task-next-action><?= TemplateRenderer::escape($taskContext->nextAction) ?></pre>
-            <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button>
+            <button type="button" class="copy" hidden data-copy-target="task-context-next">Copy</button><button type="button" class="terminal-insert" hidden data-terminal-insert-target="task-context-next" title="Paste into the local terminal without pressing Enter">Insert in terminal</button>
         </div>
         <?php $cmdRef = Presentation::commandReference($taskContext->nextAction); ?>
         <p class="small note" data-task-command-reference<?= $cmdRef === null ? ' hidden' : '' ?> style="margin-top:6px">

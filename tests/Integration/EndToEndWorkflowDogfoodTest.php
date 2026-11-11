@@ -160,8 +160,9 @@ final class EndToEndWorkflowDogfoodTest extends TestCase
             '_csrf' => $csrf,
             'attention_id' => $attention->id,
             'actor' => 'lead-operator-dan',
+            'response' => 'Proceed with the existing worker contract.',
             'return_to' => 'progress',
-        ]));
+        ] + $this->reviewedAttention('DOGFOOD-1')));
         self::assertSame(303, $resolveResponse->status);
 
         // Canonical owner verification: Attention cleared, attempt advanced
@@ -318,6 +319,21 @@ final class EndToEndWorkflowDogfoodTest extends TestCase
         $output = shell_exec('cd ' . escapeshellarg($this->root) . ' && git ' . $arguments . ' 2>&1');
 
         return is_string($output) ? $output : '';
+    }
+
+    /** @return array<string, string> the owner identity the workspace form carries */
+    private function reviewedAttention(string $taskId): array
+    {
+        $decision = (new HumanDecisionGateway($this->root))->attentionDecision($taskId);
+        self::assertNotNull($decision);
+
+        return [
+            'revision' => (string) $decision->contractRevision,
+            'execution_plan_digest' => $decision->executionPlanDigest,
+            'attempt' => (string) $decision->attempt,
+            'candidate_revision' => $decision->candidateRevision,
+            'head_commit' => $decision->headCommit ?? '',
+        ];
     }
 
     private function removeDirectory(string $path): void

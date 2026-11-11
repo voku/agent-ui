@@ -251,20 +251,12 @@ require __DIR__ . '/../layout/header.php';
                 <div class="small" style="margin-top:6px">
                     <p style="margin:0 0 2px"><strong>Attention ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->id) ?></code></p>
                     <p style="margin:0 0 2px"><strong>Run ID:</strong> <code class="mono"><?= TemplateRenderer::escape($pendingAttention->runId) ?></code></p>
-                    <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records an authoritative human decision in <code class="mono">AttentionResolutionStore</code>, clears the attention flag, and increments the execution attempt so stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> can resume under execution governance. Autonomous agents cannot self-resolve.</p>
+                    <p style="margin:0"><strong>Authority &amp; Consequences:</strong> Resolving records a human decision in agent-loop, bound to the exact run, Contract revision, plan, attempt and HEAD you review in the workspace. Stage <code class="mono"><?= TemplateRenderer::escape($pendingAttention->stageId ?? 'execution') ?></code> then resumes in a new attempt. Agents cannot resolve their own Attention.</p>
                 </div>
             </div>
 
-            <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/attention" style="margin-bottom:16px">
-                <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
-                <input type="hidden" name="attention_id" value="<?= TemplateRenderer::escape($pendingAttention->id) ?>">
-                <h3>Resolve Attention and continue stage</h3>
-                <p class="note" style="margin:0 0 10px">Human authority required. Provide your name or identifier to record the resolution.</p>
-                <div class="form__row">
-                    <label class="field"><span>Resolved by</span><input required maxlength="200" name="actor" autocomplete="name" placeholder="who is resolving"></label>
-                    <button class="btn btn--primary" type="submit">Resolve Attention</button>
-                </div>
-            </form>
+<p style="margin:0 0 16px"><a class="btn btn--primary" href="/task/<?= rawurlencode($card->id) ?>/progress#workflow-approval">Review and resolve in the workspace →</a></p>
+            <p class="small note" style="margin:-8px 0 16px">The workspace shows the exact Contract revision, scope, attempt and repository HEAD agent-loop binds the resolution to, and lets you pass a response to the resumed stage.</p>
         <?php endif; ?>
 
         <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>

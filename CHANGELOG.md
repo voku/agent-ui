@@ -4,6 +4,29 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.2] - 2026-11-11
+
+### Added
+
+- Task workspace (`/task/{id}/progress`) reworked around the CLI terminal (UI-483895334605852449):
+  - Resizable terminal beside the workflow: keyboard- and pointer-operable width splitter and height handle, side-by-side / stacked / terminal-only / workflow-only layouts, fit-to-window and fullscreen, remembered per viewer (localStorage, best effort); the same tmux session is kept throughout.
+  - Workflow panels as tabs (Overview with decisions, Workflow steps with graph and list, Prompts); without JavaScript every panel renders in order and the tabs are in-page links.
+  - Prompt Workbench embedded in the Prompts panel from the same server-rendered form (`GET /task/{id}/prompts?_fragment=form`).
+  - "Insert in terminal" for single-line text such as the canonical next action and the quick `enter`/`finish` commands, via a CSRF-protected `POST /_local/session/insert` (never presses Enter; works the same for any CLI or shell). Multi-line prompts stay Copy-only, because a newline can act as Enter in programs without bracketed paste.
+- Human decisions on owner-typed APIs:
+  - Reject a candidate Contract revision with a reason (`POST /task/{id}/reject`), bound to the reviewed revision and repository HEAD.
+  - Resolve Attention with an optional response for the resumed stage, bound to the reviewed run, Contract revision, plan digest, attempt, candidate and HEAD; the workspace shows that identity and the Attention history.
+  - agent-loop's human review page rendered in a CSP-sandboxed document (`GET /task/{id}/review.html`), shown inline with the review acknowledgement as a reading aid only.
+  - Owner refusals (stale revision, moved HEAD, …) are shown verbatim on enhanced decision forms and stay visible across the live refresh; typed reasons/responses are restored only into the same decision and otherwise shown complete and read-only, never carried into a newer decision; the approver name is remembered per viewer.
+  - A pending decision always reveals the workflow panels, even when the viewer saved the terminal-only layout.
+
+### Changed
+
+- Require `voku/agent-loop` `^0.20.91` for the typed human-decision API.
+- Attention resolutions are read through `WorkflowHumanDecisionService` instead of parsing agent-loop's private resolution files; Contract approval passes the expected revision (and, from the workspace, the reviewed HEAD) directly to the owner.
+- The task overview links to the workspace for Attention resolution instead of rendering a second, identity-less form.
+- `POST /task/{id}/attention` now requires the reviewed identity (`revision`, `execution_plan_digest`, `attempt`, `candidate_revision`, `head_commit`) rendered by the workspace form; requests without it, including pages opened before the upgrade, are refused and nothing is recorded.
+
 ## [0.20.1] - 2026-11-10
 
 ### Fixed

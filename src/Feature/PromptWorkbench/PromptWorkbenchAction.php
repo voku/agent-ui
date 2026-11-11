@@ -152,6 +152,13 @@ final readonly class PromptWorkbenchAction
             return Response::html($this->templates->render('prompts/_result', ['workbench' => $workbench]), $status);
         }
 
+        // The task workspace embeds the same form beside the terminal. It asks
+        // for the form region only; recipes, fields and results are still the
+        // owner-driven markup of this page.
+        if ($request->method === 'GET' && $card !== null && ($request->query['_fragment'] ?? '') === 'form') {
+            return Response::html($this->templates->render('prompts/_form', ['workbench' => $workbench]), $status);
+        }
+
         return Response::html($this->templates->render('prompts/index', [
             'workbench' => $workbench,
             'task_context' => $card === null ? null : $this->taskContext->forCard($card),

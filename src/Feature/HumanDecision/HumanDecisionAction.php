@@ -20,7 +20,7 @@ final readonly class HumanDecisionAction
     ) {
     }
 
-    /** @param 'approve'|'review_ack'|'learning'|'attention' $route */
+    /** @param 'approve'|'reject'|'review_ack'|'learning'|'attention' $route */
     public function __invoke(string $taskId, string $route, Request $request): Response
     {
         $this->csrf->assertValid($request->body['_csrf'] ?? null);
@@ -29,6 +29,7 @@ final readonly class HumanDecisionAction
 
         $recorded = match ($route) {
             'approve' => $this->approve($taskId, $actor, $request),
+            'reject' => $this->reject($taskId, $actor, $request),
             'review_ack' => $this->acknowledgeReview($taskId, $actor, $request),
             'learning' => $this->learning($taskId, $actor, $request),
             'attention' => $this->attention($taskId, $actor, $request),
@@ -41,19 +42,46 @@ final readonly class HumanDecisionAction
 
     private function approve(string $taskId, string $actor, Request $request): string
     {
-        $reviewed = $request->body['revision'] ?? null;
-        if (!is_string($reviewed) || preg_match('/^[1-9][0-9]*$/D', $reviewed) !== 1) {
-            throw new InvalidArgumentException('A positive Contract revision is required to approve this task.');
-        }
-
-        $revision = filter_var($reviewed, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if (!is_int($revision)) {
-            throw new InvalidArgumentException('A positive Contract revision is required to approve this task.');
-        }
-
-        $this->decisions->approve($taskId, $actor, $revision);
+        $revision = $this->revision($request, 'approve');
+        $this->decisions->approve($taskId, $actor, $revision, $this->reviewedHead($request));
 
         return sprintf('agent-loop recorded the Contract approval for %s by %s.', $taskId, $actor);
+    }
+
+    private function reject(string $taskId, string $actor, Request $request): string
+    {
+        $revision = $this->revision($request, 'reject');
+        $reason = $this->required($request, 'reason', 4000);
+        $this->decisions->reject($taskId, $actor, $revision, $reason, $this->reviewedHead($request));
+
+        return sprintf('agent-loop recorded the rejection of Contract revision %d for %s by %s. Revise the Contract before work continues.', $revision, $taskId, $actor);
+    }
+
+    private function revision(Request $request, string $verb): int
+    {
+        $reviewed = $request->body['revision'] ?? null;
+        $revision = is_string($reviewed) && preg_match('/^[1-9][0-9]*$/D', $reviewed) === 1
+            ? filter_var($reviewed, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+            : false;
+        if (!is_int($revision)) {
+            throw new InvalidArgumentException(sprintf('A positive Contract revision is required to %s this task.', $verb));
+        }
+
+        return $revision;
+    }
+
+    /** The HEAD the human reviewed; agent-loop refuses the decision when it moved. */
+    private function reviewedHead(Request $request): ?string
+    {
+        $head = trim($request->body['head_commit'] ?? '');
+        if ($head === '') {
+            return null;
+        }
+        if (preg_match('/^[a-f0-9]{40,64}$/D', $head) !== 1) {
+            throw new InvalidArgumentException('The reviewed repository HEAD is malformed; reload the page.');
+        }
+
+        return $head;
     }
 
     private function acknowledgeReview(string $taskId, string $actor, Request $request): string
@@ -90,9 +118,28 @@ final readonly class HumanDecisionAction
     private function attention(string $taskId, string $actor, Request $request): string
     {
         $attentionId = $this->required($request, 'attention_id', 120);
-        $this->decisions->resolveAttention($taskId, $attentionId, $actor);
+        $responseValue = trim($request->body['response'] ?? '');
+        $response = $responseValue === '' ? null : $this->required($request, 'response', 4000);
+        $revision = $this->revision($request, 'resolve Attention for');
+        $attempt = filter_var($request->body['attempt'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!is_int($attempt)) {
+            throw new InvalidArgumentException('The reviewed execution attempt is missing; reload the page.');
+        }
+        // A null HEAD (no Git checkout) is part of the reviewed identity too;
+        // agent-loop compares it with the current HEAD under its own lock.
+        $head = $this->reviewedHead($request);
 
-        return sprintf('agent-loop recorded the Attention resolution for %s (%s) by %s.', $taskId, $attentionId, $actor);
+        $this->decisions->resolveAttention($taskId, $attentionId, $actor, $response, [
+            'contract_revision' => $revision,
+            'execution_plan_digest' => $this->required($request, 'execution_plan_digest', 80),
+            'attempt' => $attempt,
+            'candidate_revision' => $this->required($request, 'candidate_revision', 200),
+            'head_commit' => $head,
+        ]);
+
+        return $response === null
+            ? sprintf('agent-loop recorded the Attention resolution for %s (%s) by %s.', $taskId, $attentionId, $actor)
+            : sprintf('agent-loop recorded the Attention resolution for %s (%s) by %s with a response for the resumed stage.', $taskId, $attentionId, $actor);
     }
 
     private function returnPath(string $taskId, Request $request): string

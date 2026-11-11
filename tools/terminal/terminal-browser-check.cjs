@@ -114,7 +114,8 @@ async function run() {
     const page = await context.newPage();
     await page.goto(accessUrl);
     await page.waitForURL('**/task/UI-36/progress');
-    assert.equal(await page.getByRole('link', { name: 'Open task prompts' }).getAttribute('href'), '/task/UI-36/prompts');
+    // Prompts live in the workspace's Prompts panel; without JS it links to the full workbench.
+    assert.equal(await page.locator('[data-workspace-prompts] a[href="/task/UI-36/prompts"]').count(), 1);
     assert.equal(await page.locator('[data-agent-activity]').count(), 0);
     const prompts = await context.newPage();
     await prompts.addInitScript(() => {
@@ -140,7 +141,7 @@ async function run() {
         Cookie: cookie, 'X-Agent-Ui-Internal-Secret': 'attacker-controlled',
     });
     assert.equal(injectedHeader.status, 200, 'browser cannot override the private gateway credential');
-    assert.ok(injectedHeader.body.includes('Workflow progress'));
+    assert.ok(injectedHeader.body.includes('Workspace'));
     assert.equal(injectedHeader.headers['x-agent-ui-internal-secret'], undefined);
 
     const csrf = JSON.parse(sessionResponse.body).csrf;
@@ -184,13 +185,13 @@ async function run() {
     assert.equal(await child.evaluate(() => { try { return Boolean(parent.document.body); } catch (_) { return false; } }), false, 'terminal script cannot read the workflow page');
     await until(() => command('tmux', ['-L', 'agent-ui', 'display-message', '-p', '-t', '=' + session + ':', '#{session_attached}']).stdout.trim() === '1', 'terminal connection');
     await page.locator('[data-terminal-state]').getByText('tmux session running').waitFor();
-    const [graphBox, terminalBox] = await Promise.all([page.locator('[data-workflow-graph]').boundingBox(), page.locator('[data-terminal-panel]').boundingBox()]);
-    assert.ok(terminalBox.x >= graphBox.x + graphBox.width, 'desktop workflow and terminal appear side by side');
+    const [workBox, terminalBox] = await Promise.all([page.locator('[data-workspace-work]').boundingBox(), page.locator('[data-terminal-panel]').boundingBox()]);
+    assert.ok(terminalBox.x >= workBox.x + workBox.width, 'desktop workflow and terminal appear side by side');
     // One browser page provides the owner-backed briefing, human decision and
     // interactive PTY without inventing a second workflow authority.
     assert.equal(await page.locator('[data-workflow-brief]').count(), 1);
     assert.equal(await page.locator('[data-workflow-brief]').getByText('Contract authority').count(), 1);
-    assert.equal(await page.locator('[data-workflow-decision] button[type="submit"]').count(), 1);
+    assert.equal(await page.locator('[data-workflow-decision] form[action$="/approve"] button[type="submit"]').count(), 1);
     assert.equal(await page.locator('[data-workflow-brief] a[href="#workflow-terminal"]').count(), 1);
     const briefBounds = await page.locator('[data-workflow-brief]').boundingBox();
     assert.ok(briefBounds.x + briefBounds.width <= terminalBox.x + 2, 'HTML briefing remains beside the terminal');

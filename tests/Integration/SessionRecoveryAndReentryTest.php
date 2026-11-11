@@ -74,7 +74,7 @@ final class SessionRecoveryAndReentryTest extends TestCase
                 'attention_id' => $attention->id,
                 'actor' => 'sarah-reviewer',
                 'return_to' => 'progress',
-            ],
+            ] + $this->reviewed('REC-1'),
         ));
         self::assertSame(303, $resolveResponse->status);
         self::assertSame('/task/REC-1/progress', $resolveResponse->headers['Location']);
@@ -117,7 +117,7 @@ final class SessionRecoveryAndReentryTest extends TestCase
                 'attention_id' => $attention->id,
                 'actor' => 'maintainer-dan',
                 'return_to' => 'progress',
-            ],
+            ] + $this->reviewed('REC-2'),
         ));
 
         // Now inspect Workflow Progress cockpit
@@ -153,7 +153,7 @@ final class SessionRecoveryAndReentryTest extends TestCase
                 '_csrf' => $csrf,
                 'attention_id' => $attention->id,
                 'actor' => 'maintainer-dan',
-            ],
+            ] + $this->reviewed('REC-3'),
         ));
 
         // Handoff route redirects to prompts with continue-until-done recipe query
@@ -172,6 +172,21 @@ final class SessionRecoveryAndReentryTest extends TestCase
         self::assertStringContainsString('Continue until done', $promptsResponse->body);
         self::assertStringContainsString('name="arg_done_condition"', $promptsResponse->body);
         self::assertStringContainsString('All approved acceptance criteria and validation pass without errors.', $promptsResponse->body);
+    }
+
+    /** @return array<string, string> the owner identity the workspace form carries */
+    private function reviewed(string $taskId): array
+    {
+        $decision = (new HumanDecisionGateway($this->root))->attentionDecision($taskId);
+        self::assertNotNull($decision);
+
+        return [
+            'revision' => (string) $decision->contractRevision,
+            'execution_plan_digest' => $decision->executionPlanDigest,
+            'attempt' => (string) $decision->attempt,
+            'candidate_revision' => $decision->candidateRevision,
+            'head_commit' => $decision->headCommit ?? '',
+        ];
     }
 
     private function createTaskWithPendingAttention(

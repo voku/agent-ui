@@ -77,6 +77,7 @@ function ensureAttachmentDirectory() {
 const accessToken = crypto.randomBytes(32).toString('base64url');
 const cookieSecret = crypto.randomBytes(32).toString('base64url');
 const csrfToken = crypto.randomBytes(32).toString('base64url');
+const maxInsertBytes = 64 * 1024;
 // Separate from browser credentials: only this process and the child PHP
 // backend know it. It never travels in browser traffic or JSON responses.
 const internalProxySecret = crypto.randomBytes(32).toString('base64url');
@@ -831,6 +832,44 @@ function requestHandler(req, res) {
             }
         });
     }
+    if (req.method === 'POST' && req.url === '/_local/session/insert') {
+        if (req.headers.origin !== expectedOrigin || req.headers['content-type'] !== 'application/json' ||
+            !equal(req.headers['x-agent-ui-csrf'], csrfToken)) return deny(res, 403, 'Origin and CSRF token required.');
+        if (Number(req.headers['content-length'] || 0) > maxInsertBytes + 1024) return deny(res, 413, 'Text is too large.');
+        return readJsonBody(req, res, maxInsertBytes + 1024).then((body) => {
+            if (body === null || res.writableEnded) return;
+            if (!terminalAvailable || inspectSession().state !== 'session_running') {
+                return deny(res, 409, 'Start an available task session before inserting text.');
+            }
+            if (!body || typeof body.text !== 'string' || body.text.trim() === '' || Buffer.byteLength(body.text, 'utf8') > maxInsertBytes) {
+                return deny(res, 400, 'Text must be non-empty and at most 64 KiB.');
+            }
+            // Control characters other than newline and tab could drive the
+            // terminal; strip them. Surrounding whitespace (including a trailing
+            // newline that would submit) is trimmed before the newline check.
+            // Tabs become spaces so an inserted line cannot trigger completion.
+            const text = body.text.replace(/\r\n?/g, '\n').replace(/\t/g, ' ').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+            if (text === '') return deny(res, 400, 'Text must contain printable characters.');
+            try {
+                // A newline can act as Enter in any program that has not enabled
+                // bracketed paste, and tmux cannot tell which ones have. Only
+                // single lines are inserted, in every program alike; multi-line
+                // text (prompts) is copied by the human instead.
+                if (text.includes('\n')) {
+                    return deny(res, 422, 'Only single-line text can be inserted into the terminal. Use Copy for multi-line prompts.');
+                }
+                const buffer = 'agent-ui-insert';
+                const loaded = tmuxCommand(['load-buffer', '-b', buffer, '-'], text);
+                if (loaded.status !== 0) throw new Error('load-buffer failed');
+                const pasted = tmuxCommand(['paste-buffer', '-p', '-d', '-b', buffer, '-t', '=' + session + ':']);
+                if (pasted.status !== 0) throw new Error('paste-buffer failed');
+                return json(res, 200, { inserted_bytes: Buffer.byteLength(text, 'utf8'), submitted: false });
+            } catch (error) {
+                console.error('Terminal insert failed:', error.message);
+                return deny(res, 503, 'Text could not be inserted into the terminal.');
+            }
+        });
+    }
     if (req.method === 'POST' && req.url === '/_local/attachment') {
         return receiveAttachment(req, res);
     }
@@ -968,11 +1007,11 @@ function getStatus(url) {
         request.setTimeout(1000, () => request.destroy());
     });
 }
-function tmuxCommand(args) {
+function tmuxCommand(args, input) {
     const env = { ...process.env, TMUX: '' };
     delete env.TMUX_TMPDIR;
     const result = spawnSync('tmux', ['-L', 'agent-ui', '-f', '/dev/null', ...args], {
-        encoding: 'utf8', timeout: 5000, env,
+        encoding: 'utf8', timeout: 5000, env, input,
     });
     if (result.error) throw new Error('tmux is unavailable or did not respond.');
     return result;

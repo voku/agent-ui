@@ -53,7 +53,7 @@ $workbench ??= $model['workbench'];
     </dl>
     <?php if ($workflow->nextAction !== null): ?>
         <h2 style="margin-top:18px">Canonical next action</h2>
-        <div class="codeblock"><pre id="workbench-next"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><button type="button" class="copy" hidden data-copy-target="workbench-next">Copy</button></div>
+        <div class="codeblock"><pre id="workbench-next"><?= TemplateRenderer::escape($workflow->nextAction) ?></pre><button type="button" class="copy" hidden data-copy-target="workbench-next">Copy</button><button type="button" class="terminal-insert" hidden data-terminal-insert-target="workbench-next" title="Paste into the local terminal without pressing Enter">Insert in terminal</button></div>
         <?php $cmdRef = Presentation::commandReference($workflow->nextAction); ?>
         <?php if ($cmdRef !== null): ?>
             <p class="small note" style="margin-top:6px"><a href="/commands#<?= TemplateRenderer::escape($cmdRef) ?>">View command reference: <code><?= TemplateRenderer::escape($cmdRef) ?></code> →</a></p>
