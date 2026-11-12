@@ -14,7 +14,7 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
-use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionReader;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
@@ -25,7 +25,7 @@ final readonly class TaskAction
 {
     public function __construct(
         private BoardProjectionGateway $board,
-        private WorkflowProjectionGateway $workflow,
+        private WorkflowProjectionReader $workflow,
         private HumanDecisionGateway $decisions,
         private RunnerGateway $runner,
         private ContextExplanationGateway $context,
