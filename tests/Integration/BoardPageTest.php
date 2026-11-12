@@ -205,7 +205,7 @@ final class BoardPageTest extends TestCase
             'investigate',
             '2026-11-11T12:00:00Z',
         );
-        $html = (new TemplateRenderer(dirname(__DIR__, 2) . '/templates'))->render('board/index', [
+        $model = [
             'board' => $board,
             'cards' => $board->cards,
             'workflow' => ['APP-1' => null],
@@ -223,12 +223,26 @@ final class BoardPageTest extends TestCase
             'filter_priority' => '',
             'filter_workflow' => '',
             'csrf_token' => (new CsrfTokenManager())->token(),
-        ]);
+        ];
+
+        $renderer = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $html = $renderer->render('board/index', $model);
 
         self::assertStringContainsString('id="board-decision-queue"', $html);
         self::assertStringContainsString('href="/task/APP-1#decision"', $html);
         self::assertStringContainsString('Need explicit user decision.', $html);
         self::assertStringContainsString('agent-loop workflow projection: <strong>unavailable</strong>', $html);
+
+        // Unknown Attention is not a confirmed decision; every affected card
+        // must remain discoverable even when it falls outside the filter.
+        $model['attention_unavailable_ids'] = ['APP-1', 'APP-2', 'APP-3', 'APP-4', 'APP-5', 'APP-6', 'APP-7'];
+        $model['filter_workflow'] = 'decision_required';
+        $overflow = $renderer->render('board/index', $model);
+        self::assertStringContainsString('<summary>Show 2 more affected cards</summary>', $overflow);
+        foreach ($model['attention_unavailable_ids'] as $taskId) {
+            self::assertStringContainsString('href="/task/' . $taskId . '"', $overflow);
+        }
+        self::assertStringContainsString('<details>', $overflow);
     }
 
     private function removeDirectory(string $path): void
