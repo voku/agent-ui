@@ -14,6 +14,7 @@ use voku\AgentLoop\Workflow\HostFrontDoorApplication;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
 
@@ -60,12 +61,18 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(AttentionKind::CLARIFICATION_REQUIRED, $attention->kind);
         self::assertSame('Ambiguity in business requirement for worker output.', $attention->message);
 
-        // The same decision appears in the Board inbox without changing the Kanban lane.
+        // The Board inbox reflects the authoritative Kanban lane, which may have
+        // advanced to READY when governed work began.
         $board = $app->handle(new Request('GET', '/board'));
         self::assertSame(200, $board->status);
         self::assertStringContainsString('id="board-decision-queue"', $board->body);
         self::assertStringContainsString('Human decisions waiting', $board->body);
-        self::assertStringContainsString('agent-kanban lane: <strong>BACKLOG</strong>', $board->body);
+        $boardProjection = (new BoardProjectionGateway($this->root))->board();
+        self::assertCount(1, $boardProjection->cards);
+        self::assertStringContainsString(
+            'agent-kanban lane: <strong>' . $boardProjection->cards[0]->lane . '</strong>',
+            $board->body,
+        );
         self::assertStringContainsString('href="/task/APP-1#decision"', $board->body);
         self::assertStringContainsString('Show owner decision context', $board->body);
         self::assertStringContainsString('Ambiguity in business requirement for worker output.', $board->body);
