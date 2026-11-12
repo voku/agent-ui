@@ -13,10 +13,20 @@ use voku\AgentLoop\Execution\StageResult;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionReader;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\View\TemplateRenderer;
 
 /**
  * Human Attention Resolution workflow integration tests.
@@ -124,6 +134,49 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertTrue($data['has_human_decision'] ?? false);
         self::assertIsString($data['decision_html'] ?? null);
         self::assertStringContainsString((string) $attention->id, $data['decision_html']);
+    }
+
+    public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
+    {
+        $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Please clarify <the format> & its escaping.',
+        );
+
+        $board = new BoardProjectionGateway($this->root);
+        $decisions = new HumanDecisionGateway($this->root);
+        self::assertNotNull($decisions->pendingAttention('APP-1'));
+
+        // Fault injection at the manifest-projection boundary. The real
+        // ExecutionGateway remains usable and owns the pending Attention.
+        $unavailableWorkflow = $this->createStub(WorkflowProjectionReader::class);
+        $unavailableWorkflow->method('task')->willThrowException(
+            new RuntimeException('Manifest owner unavailable.'),
+        );
+
+        $action = new TaskAction(
+            $board,
+            $unavailableWorkflow,
+            $decisions,
+            new RunnerGateway($this->root),
+            new ContextExplanationGateway($this->root),
+            new TaskTransparencyGateway($this->root),
+            new CardMutationGateway($this->root),
+            new MapProjectionGateway($this->root),
+            new TaskContextComposer($board, new WorkflowProjectionGateway($this->root), $decisions),
+            new CsrfTokenManager(),
+            new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
+        );
+
+        $response = $action('APP-1');
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="decision"', $response->body);
+        self::assertStringContainsString('Workflow projection unavailable', $response->body);
+        self::assertStringContainsString('Please clarify &lt;the format&gt; &amp; its escaping.', $response->body);
+        self::assertStringNotContainsString('Please clarify <the format>', $response->body);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $response->body);
+        self::assertStringNotContainsString('agent-loop · canonical next action', $response->body);
     }
 
     public function testAuthorizedAttentionResolutionRecordsDecisionAndResumesAttempt(): void
