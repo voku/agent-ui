@@ -14,6 +14,8 @@ use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGatewayInterface;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Security\CsrfTokenManager;
 use voku\AgentUi\View\TemplateRenderer;
 
@@ -26,12 +28,22 @@ final readonly class BoardAction
         private HumanDecisionGateway $decisions,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
+        private ?RunnerGatewayInterface $runner = null,
         private FlashNotice $notice = new FlashNotice(),
     ) {
     }
 
     /** Filter value for cards whose board and workflow owners disagree. */
     public const string FILTER_DISAGREEMENT = 'disagreement';
+
+    /** Filter value for cards waiting on a human decision or approval. */
+    public const string FILTER_DECISION_REQUIRED = 'decision_required';
+
+    /** Filter value for cards currently undergoing execution. */
+    public const string FILTER_EXECUTING = 'executing';
+
+    /** Filter value for cards in blocked or interrupted state. */
+    public const string FILTER_BLOCKED = 'blocked';
 
     public function __invoke(?Request $request = null): Response
     {
@@ -48,34 +60,52 @@ final readonly class BoardAction
         // card agent-loop cannot project keeps rendering from the board alone.
         $workflow = $this->workflow->tasks(array_map(static fn(CardSnapshot $card): string => $card->id, $board->cards));
 
+        /** @var array<string, RunnerSnapshot|null> $runners */
+        $runners = [];
+        if ($this->runner !== null && $this->runner->isInstalled()) {
+            foreach ($board->cards as $card) {
+                $runners[$card->id] = $this->runner->status($card->id);
+            }
+        }
+
         $statuses = [];
         $kinds = [];
         $disagreements = 0;
+        $executingCount = 0;
+        $blockedCount = 0;
         $humanDecisionCount = 0;
         $pendingAttention = [];
         $attentionUnavailable = [];
         foreach ($board->cards as $card) {
             $statuses[$card->status] = true;
             $snapshot = $workflow[$card->id] ?? null;
+            $runnerSnapshot = $runners[$card->id] ?? null;
             if ($snapshot !== null) {
                 $kinds[$snapshot->nextActionKind] = ($kinds[$snapshot->nextActionKind] ?? 0) + 1;
                 if ($snapshot->disagreements !== []) {
                     ++$disagreements;
                 }
+                if ($snapshot->state === 'blocked' || $card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
+                    ++$blockedCount;
+                }
+            } elseif ($card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
+                ++$blockedCount;
+            }
+            if ($runnerSnapshot !== null && $runnerSnapshot->installed && $runnerSnapshot->observationStatus === 'working') {
+                ++$executingCount;
             }
 
-            // A failed manifest projection does not prove the execution owner
-            // has no Attention. Read it independently for governed/unknown tasks.
+            // Pending Attention is owned by Execution even when workflow projection fails.
             if ($snapshot === null || $snapshot->mode === 'governed') {
-                $observed = $this->decisions->pendingAttentionObservation($card->id);
-                if (!$observed->available) {
+                $observation = $this->decisions->pendingAttentionObservation($card->id);
+                if (!$observation->available) {
                     $attentionUnavailable[$card->id] = true;
-                } elseif ($observed->attention !== null) {
-                    $pendingAttention[$card->id] = $observed->attention;
+                } elseif ($observation->attention !== null) {
+                    $pendingAttention[$card->id] = $observation->attention;
                 }
             }
 
-            if ($snapshot?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
+            if ($snapshot?->nextActionKind === self::FILTER_DECISION_REQUIRED || isset($pendingAttention[$card->id])) {
                 ++$humanDecisionCount;
             }
         }
@@ -84,19 +114,31 @@ final readonly class BoardAction
 
         $cards = array_values(array_filter(
             $board->cards,
-            fn(CardSnapshot $card): bool => $this->matches($card, $workflow[$card->id], isset($pendingAttention[$card->id]), $filterQuery, $filterStatus, $filterPriority, $filterWorkflow),
+            fn(CardSnapshot $card): bool => $this->matches(
+                $card,
+                $workflow[$card->id] ?? null,
+                $runners[$card->id] ?? null,
+                isset($pendingAttention[$card->id]),
+                $filterQuery,
+                $filterStatus,
+                $filterPriority,
+                $filterWorkflow,
+            ),
         ));
 
         return Response::html($this->templates->render('board/index', [
             'board' => $board,
             'cards' => $cards,
             'workflow' => $workflow,
+            'runners' => $runners,
             'statuses' => array_keys($statuses),
             'kind_counts' => $kinds,
             'human_decision_count' => $humanDecisionCount,
             'pending_attention' => $pendingAttention,
             'attention_unavailable_ids' => array_keys($attentionUnavailable),
             'disagreement_count' => $disagreements,
+            'executing_count' => $executingCount,
+            'blocked_count' => $blockedCount,
             'filter_query' => $filterQuery,
             'filter_status' => $filterStatus,
             'filter_priority' => $filterPriority,
@@ -105,8 +147,16 @@ final readonly class BoardAction
         ]));
     }
 
-    private function matches(CardSnapshot $card, ?WorkflowSnapshot $workflow, bool $hasPendingAttention, string $query, string $status, string $priority, string $workflowFilter): bool
-    {
+    private function matches(
+        CardSnapshot $card,
+        ?WorkflowSnapshot $workflow,
+        ?RunnerSnapshot $runner,
+        bool $hasPendingAttention,
+        string $query,
+        string $status,
+        string $priority,
+        string $workflowFilter,
+    ): bool {
         if ($status !== '' && $card->status !== $status) {
             return false;
         }
@@ -116,8 +166,12 @@ final readonly class BoardAction
         if ($workflowFilter !== '') {
             $hit = match ($workflowFilter) {
                 self::FILTER_DISAGREEMENT => $workflow !== null && $workflow->disagreements !== [],
-                'decision_required' => $workflow?->nextActionKind === 'decision_required' || $hasPendingAttention,
-                default => $workflow?->nextActionKind === $workflowFilter,
+                self::FILTER_DECISION_REQUIRED => $workflow?->nextActionKind === self::FILTER_DECISION_REQUIRED || $hasPendingAttention,
+                self::FILTER_EXECUTING => $runner !== null && $runner->installed && $runner->observationStatus === 'working',
+                self::FILTER_BLOCKED => ($workflow !== null && $workflow->state === 'blocked')
+                    || $card->lane === 'BLOCKED'
+                    || ($runner !== null && $runner->observationStatus === 'interrupted'),
+                default => $workflow !== null && $workflow->nextActionKind === $workflowFilter,
             };
             if (!$hit) {
                 return false;

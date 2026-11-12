@@ -110,7 +110,7 @@ final readonly class Application
         $this->home = new HomeAction($board, $workflow, $setup, $learning, $map, $runner, $templates);
         $this->setup = new SetupAction($setup, $csrf, $templates);
         $this->commands = new CommandsAction($commandCatalog, $templates);
-        $this->board = new BoardAction($board, $mutation, $workflow, $decisions, $csrf, $templates);
+        $this->board = new BoardAction($board, $mutation, $workflow, $decisions, $csrf, $templates, $runner);
         $this->knowledge = new KnowledgeAction($learning, $taskContext, new DeliveredPrecedentComposer($context, $learning), $templates, $board);
         $this->dream = new DreamAction(new DreamGateway($projectRoot), $csrf, $templates, board: $board);
         $this->map = new MapAction($map, $templates, $codeSearch, $source);

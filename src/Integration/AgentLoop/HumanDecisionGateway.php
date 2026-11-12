@@ -187,13 +187,11 @@ final readonly class HumanDecisionGateway
 
     public function pendingAttention(string $taskId): ?AttentionRequest
     {
-        // Preserve the previous nullable consumer API. Board callers that must
-        // distinguish owner unavailability use the typed observation below.
         return $this->pendingAttentionObservation($taskId)->attention;
     }
 
     /**
-     * Never turn owner projection failure into an authoritative "no Attention".
+     * An unavailable owner projection is not proof that no decision is pending.
      */
     public function pendingAttentionObservation(string $taskId): PendingAttentionObservation
     {
