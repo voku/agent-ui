@@ -192,8 +192,17 @@ require __DIR__ . '/../layout/header.php';
         <?php foreach (array_slice($attentionUnavailableIds, 0, 5) as $unavailableId): ?>
             <a href="/task/<?= TemplateRenderer::escape($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a>
         <?php endforeach; ?>
-        <?= count($attentionUnavailableIds) > 5 ? 'and ' . (count($attentionUnavailableIds) - 5) . ' more' : '' ?>
     </p>
+    <?php if (count($attentionUnavailableIds) > 5): ?>
+        <details>
+            <summary>Show <?= count($attentionUnavailableIds) - 5 ?> more affected cards</summary>
+            <ul>
+                <?php foreach (array_slice($attentionUnavailableIds, 5) as $unavailableId): ?>
+                    <li><a href="/task/<?= rawurlencode($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a></li>
+                <?php endforeach; ?>
+            </ul>
+        </details>
+    <?php endif; ?>
 </section>
 <?php endif; ?>
 
