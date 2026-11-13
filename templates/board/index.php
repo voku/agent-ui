@@ -15,6 +15,9 @@ use voku\AgentUi\View\TemplateRenderer;
  *     runners?: array<string, RunnerSnapshot|null>,
  *     statuses: list<string>,
  *     kind_counts: array<string, int>,
+ *     human_decision_count: int,
+ *     pending_attention: array<string, \voku\AgentLoop\Execution\AttentionRequest>,
+ *     attention_unavailable_ids: list<string>,
  *     disagreement_count: int,
  *     executing_count?: int,
  *     blocked_count?: int,
@@ -31,6 +34,9 @@ $workflow = $model['workflow'];
 $runners = $model['runners'] ?? [];
 $statuses = $model['statuses'];
 $kindCounts = $model['kind_counts'];
+$humanDecisionCount = $model['human_decision_count'];
+$pendingAttention = $model['pending_attention'];
+$attentionUnavailableIds = $model['attention_unavailable_ids'];
 $disagreementCount = $model['disagreement_count'];
 $executingCount = $model['executing_count'] ?? 0;
 $blockedCount = $model['blocked_count'] ?? 0;
@@ -113,7 +119,7 @@ require __DIR__ . '/../layout/header.php';
                 <span>Workflow / Cockpit</span>
                 <select name="workflow">
                     <option value="">Any next step</option>
-                    <?php if (($kindCounts['decision_required'] ?? 0) > 0 || $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED): ?>
+                    <?php if ($humanDecisionCount > 0 || $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED): ?>
                         <option value="<?= BoardAction::FILTER_DECISION_REQUIRED ?>"<?= $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED ? ' selected' : '' ?>>Needs my decision</option>
                     <?php endif; ?>
                     <?php if ($executingCount > 0 || $filterWorkflow === BoardAction::FILTER_EXECUTING): ?>
@@ -141,11 +147,11 @@ require __DIR__ . '/../layout/header.php';
     </form>
 </section>
 
-<?php if ($kindCounts !== [] || $disagreementCount > 0 || $executingCount > 0 || $blockedCount > 0): ?>
+<?php if ($kindCounts !== [] || $disagreementCount > 0 || $executingCount > 0 || $blockedCount > 0 || $humanDecisionCount > 0 || $attentionUnavailableIds !== []): ?>
 <nav class="board-summary" aria-label="Workflow summary">
-    <?php $decisions = $kindCounts['decision_required'] ?? 0; ?>
+    <?php $decisions = $humanDecisionCount; ?>
     <a class="board-summary__item<?= $decisions > 0 ? ' board-summary__item--attention' : '' ?>" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_DECISION_REQUIRED)) ?>"<?= $filterWorkflow === BoardAction::FILTER_DECISION_REQUIRED ? ' aria-current="true"' : '' ?>>
-        <strong><?= $decisions ?></strong> waiting on a human decision
+        <strong><?= $decisions ?></strong> <?= $attentionUnavailableIds !== [] ? 'confirmed waiting; Attention visibility incomplete' : 'waiting on a human decision' ?>
     </a>
     <?php if ($executingCount > 0 || $filterWorkflow === BoardAction::FILTER_EXECUTING): ?>
         <a class="board-summary__item" href="<?= TemplateRenderer::escape($workflowHref(BoardAction::FILTER_EXECUTING)) ?>"<?= $filterWorkflow === BoardAction::FILTER_EXECUTING ? ' aria-current="true"' : '' ?>>
@@ -167,6 +173,30 @@ require __DIR__ . '/../layout/header.php';
         </a>
     <?php endforeach; ?>
 </nav>
+<?php endif; ?>
+
+<?php if ($attentionUnavailableIds !== []): ?>
+<section class="panel" role="status" aria-label="Attention availability" style="margin-bottom:16px">
+    <p class="note" style="margin:0">
+        <strong>Decision visibility incomplete.</strong>
+        agent-loop Attention could not be verified for <?= count($attentionUnavailableIds) ?> card(s).
+        Confirmed decisions are shown below, but the count is not authoritative until the owner projection is available.
+        Affected cards:
+        <?php foreach (array_slice($attentionUnavailableIds, 0, 5) as $unavailableId): ?>
+            <a href="/task/<?= rawurlencode($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a>
+        <?php endforeach; ?>
+    </p>
+    <?php if (count($attentionUnavailableIds) > 5): ?>
+        <details>
+            <summary>Show <?= count($attentionUnavailableIds) - 5 ?> more affected cards</summary>
+            <ul>
+                <?php foreach (array_slice($attentionUnavailableIds, 5) as $unavailableId): ?>
+                    <li><a href="/task/<?= rawurlencode($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a></li>
+                <?php endforeach; ?>
+            </ul>
+        </details>
+    <?php endif; ?>
+</section>
 <?php endif; ?>
 
 <?php if ($board->cards === []): ?>
@@ -210,7 +240,7 @@ require __DIR__ . '/../layout/header.php';
                 $cardClass = 'card';
                 if ($flow !== null && $flow->disagreements !== []) {
                     $cardClass .= ' card--blocked';
-                } elseif ($flow !== null && $flow->nextActionKind === 'decision_required') {
+                } elseif ($flow?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
                     $cardClass .= ' card--attention';
                 }
                 ?>
@@ -220,10 +250,19 @@ require __DIR__ . '/../layout/header.php';
                     <?php if ($card->summary !== ''): ?>
                         <p class="small faint" style="margin:4px 0 0;line-height:1.3"><?= TemplateRenderer::escape(mb_substr($card->summary, 0, 90)) ?><?= mb_strlen($card->summary) > 90 ? '…' : '' ?></p>
                     <?php endif; ?>
-                    <?php if ($flow !== null && $flow->nextActionKind === 'decision_required'): ?>
+                    <?php if ($flow?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])): ?>
                         <div style="margin-top:6px">
-                            <a class="btn btn--small btn--attention" style="font-size:11px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress#ws-overview">⚡ Needs Human Decision →</a>
+                            <a class="btn btn--small btn--attention" style="font-size:11px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px" href="/task/<?= rawurlencode($card->id) ?><?= isset($pendingAttention[$card->id]) ? '#decision' : '/progress#ws-overview' ?>">Needs Human Decision</a>
                         </div>
+                    <?php endif; ?>
+                    <?php if (isset($pendingAttention[$card->id])): ?>
+                        <details class="small" style="margin-top:6px">
+                            <summary>Execution Attention: <?= TemplateRenderer::escape(Presentation::label($pendingAttention[$card->id]->kind->value)) ?></summary>
+                            <p><?= TemplateRenderer::escape($pendingAttention[$card->id]->message) ?></p>
+                            <?php if ($flow === null): ?>
+                                <p class="faint">Canonical next action unavailable. Inspect owner state before acting.</p>
+                            <?php endif; ?>
+                        </details>
                     <?php endif; ?>
                     <dl class="card__owners">
                         <dt>Board</dt>

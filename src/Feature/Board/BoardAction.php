@@ -11,6 +11,7 @@ use voku\AgentUi\Http\Response;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
+use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGatewayInterface;
@@ -24,6 +25,7 @@ final readonly class BoardAction
         private BoardProjectionGateway $board,
         private CardMutationGateway $mutation,
         private WorkflowProjectionGateway $workflow,
+        private HumanDecisionGateway $decisions,
         private CsrfTokenManager $csrf,
         private TemplateRenderer $templates,
         private ?RunnerGatewayInterface $runner = null,
@@ -71,6 +73,9 @@ final readonly class BoardAction
         $disagreements = 0;
         $executingCount = 0;
         $blockedCount = 0;
+        $humanDecisionCount = 0;
+        $pendingAttention = [];
+        $attentionUnavailable = [];
         foreach ($board->cards as $card) {
             $statuses[$card->status] = true;
             $snapshot = $workflow[$card->id] ?? null;
@@ -89,6 +94,20 @@ final readonly class BoardAction
             if ($runnerSnapshot !== null && $runnerSnapshot->installed && $runnerSnapshot->observationStatus === 'working') {
                 ++$executingCount;
             }
+
+            // Pending Attention is owned by Execution even when workflow projection fails.
+            if ($snapshot === null || $snapshot->mode === 'governed') {
+                $observation = $this->decisions->pendingAttentionObservation($card->id);
+                if (!$observation->available) {
+                    $attentionUnavailable[$card->id] = true;
+                } elseif ($observation->attention !== null) {
+                    $pendingAttention[$card->id] = $observation->attention;
+                }
+            }
+
+            if ($snapshot?->nextActionKind === self::FILTER_DECISION_REQUIRED || isset($pendingAttention[$card->id])) {
+                ++$humanDecisionCount;
+            }
         }
         ksort($statuses);
         ksort($kinds);
@@ -99,6 +118,7 @@ final readonly class BoardAction
                 $card,
                 $workflow[$card->id] ?? null,
                 $runners[$card->id] ?? null,
+                isset($pendingAttention[$card->id]),
                 $filterQuery,
                 $filterStatus,
                 $filterPriority,
@@ -113,6 +133,9 @@ final readonly class BoardAction
             'runners' => $runners,
             'statuses' => array_keys($statuses),
             'kind_counts' => $kinds,
+            'human_decision_count' => $humanDecisionCount,
+            'pending_attention' => $pendingAttention,
+            'attention_unavailable_ids' => array_keys($attentionUnavailable),
             'disagreement_count' => $disagreements,
             'executing_count' => $executingCount,
             'blocked_count' => $blockedCount,
@@ -128,6 +151,7 @@ final readonly class BoardAction
         CardSnapshot $card,
         ?WorkflowSnapshot $workflow,
         ?RunnerSnapshot $runner,
+        bool $hasPendingAttention,
         string $query,
         string $status,
         string $priority,
@@ -142,7 +166,7 @@ final readonly class BoardAction
         if ($workflowFilter !== '') {
             $hit = match ($workflowFilter) {
                 self::FILTER_DISAGREEMENT => $workflow !== null && $workflow->disagreements !== [],
-                self::FILTER_DECISION_REQUIRED => $workflow !== null && $workflow->nextActionKind === 'decision_required',
+                self::FILTER_DECISION_REQUIRED => $workflow?->nextActionKind === self::FILTER_DECISION_REQUIRED || $hasPendingAttention,
                 self::FILTER_EXECUTING => $runner !== null && $runner->installed && $runner->observationStatus === 'working',
                 self::FILTER_BLOCKED => ($workflow !== null && $workflow->state === 'blocked')
                     || $card->lane === 'BLOCKED'

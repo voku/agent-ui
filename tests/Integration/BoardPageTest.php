@@ -6,11 +6,15 @@ namespace voku\AgentUi\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use voku\AgentLoop\Execution\AttentionKind;
+use voku\AgentLoop\Execution\AttentionRequest;
+use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Http\Request;
 use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
+use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGatewayInterface;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
@@ -142,7 +146,7 @@ final class BoardPageTest extends TestCase
         $workflow = new WorkflowProjectionGateway($this->root);
         $csrf = new CsrfTokenManager();
 
-        $action = new BoardAction($board, $mutation, $workflow, $csrf, $templates, $interruptedRunner);
+        $action = new BoardAction($board, $mutation, $workflow, new HumanDecisionGateway($this->root), $csrf, $templates, $interruptedRunner);
 
         $blockedResponse = $action(new Request('GET', '/board', query: ['workflow' => 'blocked']));
         self::assertSame(200, $blockedResponse->status);
@@ -168,11 +172,79 @@ final class BoardPageTest extends TestCase
             allowCancel: true,
         ));
 
-        $workingAction = new BoardAction($board, $mutation, $workflow, $csrf, $templates, $workingRunner);
+        $workingAction = new BoardAction($board, $mutation, $workflow, new HumanDecisionGateway($this->root), $csrf, $templates, $workingRunner);
         $executingResponse = $workingAction(new Request('GET', '/board', query: ['workflow' => 'executing']));
         self::assertSame(200, $executingResponse->status);
         self::assertStringContainsString('Build login system', $executingResponse->body);
         self::assertStringContainsString('actively executing', $executingResponse->body);
+    }
+
+    public function testCorruptOwnerProjectionIsReportedAsIncompleteRatherThanEmpty(): void
+    {
+        $contractPath = (new TaskContractStore($this->root))->path('APP-1');
+        self::assertTrue(is_dir(dirname($contractPath)) || mkdir(dirname($contractPath), 0o775, true));
+        self::assertNotFalse(file_put_contents($contractPath, '{broken JSON'));
+
+        $response = $this->app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Decision visibility incomplete.', $response->body);
+        self::assertStringContainsString('Affected cards:', $response->body);
+        self::assertStringContainsString('confirmed waiting; Attention visibility incomplete', $response->body);
+        self::assertStringNotContainsString('Execution Attention:', $response->body);
+    }
+
+    public function testKnownPendingAttentionRendersEvenWithoutWorkflowSnapshot(): void
+    {
+        $board = (new BoardProjectionGateway($this->root))->board();
+        $attention = new AttentionRequest(
+            'attention-1',
+            'APP-1',
+            'run-1',
+            AttentionKind::CLARIFICATION_REQUIRED,
+            'Need explicit user decision.',
+            'investigate',
+            '2026-11-11T12:00:00Z',
+        );
+        $model = [
+            'board' => $board,
+            'cards' => $board->cards,
+            'workflow' => ['APP-1' => null],
+            'statuses' => ['todo'],
+            'kind_counts' => [],
+            'human_decision_count' => 1,
+            'pending_attention' => ['APP-1' => $attention],
+            'attention_unavailable_ids' => [],
+            'disagreement_count' => 0,
+            'runners' => [],
+            'executing_count' => 0,
+            'blocked_count' => 0,
+            'filter_query' => '',
+            'filter_status' => '',
+            'filter_priority' => '',
+            'filter_workflow' => '',
+            'csrf_token' => (new CsrfTokenManager())->token(),
+        ];
+
+        $renderer = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
+        $html = $renderer->render('board/index', $model);
+
+        self::assertStringContainsString('card--attention', $html);
+        self::assertStringContainsString('href="/task/APP-1#decision"', $html);
+        self::assertStringContainsString('Execution Attention:', $html);
+        self::assertStringContainsString('Need explicit user decision.', $html);
+        self::assertSame(1, substr_count($html, 'Need explicit user decision.'), 'No duplicate decision card.');
+        self::assertStringContainsString('Canonical next action unavailable.', $html);
+
+        // Unknown Attention is not a confirmed decision; every affected card
+        // must remain discoverable even when it falls outside the filter.
+        $model['attention_unavailable_ids'] = ['APP-1', 'APP-2', 'APP-3', 'APP-4', 'APP-5', 'APP-6', 'APP-7'];
+        $model['filter_workflow'] = 'decision_required';
+        $overflow = $renderer->render('board/index', $model);
+        self::assertStringContainsString('<summary>Show 2 more affected cards</summary>', $overflow);
+        foreach ($model['attention_unavailable_ids'] as $taskId) {
+            self::assertStringContainsString('href="/task/' . $taskId . '"', $overflow);
+        }
+        self::assertStringContainsString('<details>', $overflow);
     }
 
     private function removeDirectory(string $path): void

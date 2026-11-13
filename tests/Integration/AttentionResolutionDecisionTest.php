@@ -13,9 +13,20 @@ use voku\AgentLoop\Execution\StageResult;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
 use voku\AgentLoop\Workflow\TaskContractStore;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionReader;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\View\TemplateRenderer;
 
 /**
  * Human Attention Resolution workflow integration tests.
@@ -60,6 +71,31 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(AttentionKind::CLARIFICATION_REQUIRED, $attention->kind);
         self::assertSame('Ambiguity in business requirement for worker output.', $attention->message);
 
+        // The existing Board card reflects owner Attention in its authoritative
+        // Kanban lane, without duplicating the card in a second decision queue.
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertStringContainsString('card--attention', $board->body);
+        self::assertStringNotContainsString('id="board-decision-queue"', $board->body);
+        self::assertStringContainsString('waiting on a human decision', $board->body);
+        $boardProjection = (new BoardProjectionGateway($this->root))->board();
+        self::assertCount(1, $boardProjection->cards);
+        self::assertStringContainsString(
+            '<span class="lane__name">' . $boardProjection->cards[0]->lane . '</span>',
+            $board->body,
+        );
+        self::assertStringContainsString('href="/task/APP-1#decision"', $board->body);
+        self::assertStringContainsString('Execution Attention:', $board->body);
+        self::assertStringContainsString('Ambiguity in business requirement for worker output.', $board->body);
+        self::assertSame(1, substr_count($board->body, 'Ambiguity in business requirement for worker output.'), 'The decision message should appear only once on the Board.');
+        $observed = $gateway->pendingAttentionObservation('APP-1');
+        self::assertTrue($observed->available);
+        self::assertNotNull($observed->attention);
+
+        $filteredBoard = $app->handle(new Request('GET', '/board', query: ['workflow' => 'decision_required']));
+        self::assertStringContainsString('card--attention', $filteredBoard->body);
+        self::assertStringContainsString('href="/task/APP-1#decision"', $filteredBoard->body);
+
         // 1. Task overview page renders Attention in #decision
         $overview = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $overview->status);
@@ -102,6 +138,49 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString((string) $attention->id, $data['decision_html']);
     }
 
+    public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
+    {
+        $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Please clarify <the format> & its escaping.',
+        );
+
+        $board = new BoardProjectionGateway($this->root);
+        $decisions = new HumanDecisionGateway($this->root);
+        self::assertNotNull($decisions->pendingAttention('APP-1'));
+
+        // Fault injection at the manifest-projection boundary. The real
+        // ExecutionGateway remains usable and owns the pending Attention.
+        $unavailableWorkflow = $this->createStub(WorkflowProjectionReader::class);
+        $unavailableWorkflow->method('task')->willThrowException(
+            new RuntimeException('Manifest owner unavailable.'),
+        );
+
+        $action = new TaskAction(
+            $board,
+            $unavailableWorkflow,
+            $decisions,
+            new RunnerGateway($this->root),
+            new ContextExplanationGateway($this->root),
+            new TaskTransparencyGateway($this->root),
+            new CardMutationGateway($this->root),
+            new MapProjectionGateway($this->root),
+            new TaskContextComposer($board, new WorkflowProjectionGateway($this->root), $decisions),
+            new CsrfTokenManager(),
+            new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
+        );
+
+        $response = $action('APP-1');
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="decision"', $response->body);
+        self::assertStringContainsString('Workflow projection unavailable', $response->body);
+        self::assertStringContainsString('Please clarify &lt;the format&gt; &amp; its escaping.', $response->body);
+        self::assertStringNotContainsString('Please clarify <the format>', $response->body);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $response->body);
+        self::assertStringNotContainsString('agent-loop · canonical next action', $response->body);
+    }
+
     public function testAuthorizedAttentionResolutionRecordsDecisionAndResumesAttempt(): void
     {
         $app = $this->createTaskWithPendingAttention(
@@ -140,6 +219,11 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame('operator-alice', $history[0]->actor);
         self::assertSame('Keep the worker output format unchanged.', $history[0]->response);
 
+        // Once Loop resolves Attention, the Board no longer presents its owner signal.
+        $afterBoard = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $afterBoard->status);
+        self::assertStringNotContainsString('Execution Attention:', $afterBoard->body);
+
         // Subsequent page view: No attention panel or decision link
         $freshProgress = $app->handle(new Request('GET', '/task/APP-1/progress'));
         self::assertSame(200, $freshProgress->status);
@@ -154,6 +238,9 @@ final class AttentionResolutionDecisionTest extends TestCase
         $data = json_decode($freshJson->body, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($data);
         self::assertFalse($data['has_human_decision'] ?? true);
+        $observedAfter = $gateway->pendingAttentionObservation('APP-1');
+        self::assertTrue($observedAfter->available);
+        self::assertNull($observedAfter->attention);
     }
 
     public function testResolutionFailsClosedOnMissingOrInvalidCsrf(): void

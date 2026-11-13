@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Feature\Task;
 
 use InvalidArgumentException;
+use RuntimeException;
 use voku\AgentLoop\Workflow\TaskContract;
 use voku\AgentUi\Http\FlashNotice;
 use voku\AgentUi\Http\Request;
@@ -13,7 +14,7 @@ use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
 use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
 use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
-use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionReader;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
 use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
@@ -24,7 +25,7 @@ final readonly class TaskAction
 {
     public function __construct(
         private BoardProjectionGateway $board,
-        private WorkflowProjectionGateway $workflow,
+        private WorkflowProjectionReader $workflow,
         private HumanDecisionGateway $decisions,
         private RunnerGateway $runner,
         private ContextExplanationGateway $context,
@@ -40,12 +41,34 @@ final readonly class TaskAction
 
     public function __invoke(string $taskId): Response
     {
-        $transparency = $this->transparency->task($taskId);
         $card = $this->board->card($taskId);
+        $observedAttention = $this->decisions->pendingAttentionObservation($taskId);
+
+        try {
+            $workflow = $this->workflow->task($taskId);
+        } catch (RuntimeException $exception) {
+            // The execution owner may still know about a real pending Attention
+            // when the broader manifest projection cannot be built. Show only
+            // that independently observed fact; do not invent a next action or
+            // expose a decision mutation without a fresh governed projection.
+            $attention = $observedAttention->attention;
+            if (!$observedAttention->available || $attention === null) {
+                throw $exception;
+            }
+            if ($attention->taskId !== $card->id) {
+                throw new RuntimeException('Attention and Kanban card belong to different tasks.', previous: $exception);
+            }
+
+            return Response::html($this->templates->render('task/attention-unavailable', [
+                'card' => $card,
+                'attention' => $attention,
+            ]));
+        }
+
+        $transparency = $this->transparency->task($taskId);
         $contract = $this->decisions->contract($taskId);
-        $workflow = $this->workflow->task($taskId);
         $humanDecisions = $this->decisions->available($taskId);
-        $pendingAttention = $this->decisions->pendingAttention($taskId);
+        $pendingAttention = $observedAttention->attention;
 
         return Response::html($this->templates->render('task/index', [
             'card' => $card,
