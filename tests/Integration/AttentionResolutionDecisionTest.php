@@ -8,6 +8,8 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use voku\AgentLoop\Execution\AttentionKind;
 use voku\AgentLoop\Execution\ExecutionGateway;
+use voku\AgentLoop\Execution\ExecutionPlanStore;
+use voku\AgentLoop\Execution\ExecutionStateStore;
 use voku\AgentLoop\Execution\StageOutcome;
 use voku\AgentLoop\Execution\StageResult;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
@@ -136,6 +138,28 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertTrue($data['has_human_decision'] ?? false);
         self::assertIsString($data['decision_html'] ?? null);
         self::assertStringContainsString((string) $attention->id, $data['decision_html']);
+    }
+
+    public function testBoardGetDoesNotRecreateMissingExecutionPlanOrState(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+
+        $planPath = (new ExecutionPlanStore($this->root))->path('APP-1');
+        $statePath = (new ExecutionStateStore($this->root))->path('APP-1');
+        self::assertFileExists($planPath);
+        self::assertFileExists($statePath);
+        self::assertTrue(unlink($statePath));
+        self::assertTrue(unlink($planPath));
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertFileDoesNotExist($planPath);
+        self::assertFileDoesNotExist($statePath);
+        self::assertStringNotContainsString('Execution Attention:', $board->body);
     }
 
     public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
