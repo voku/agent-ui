@@ -34,8 +34,8 @@
   ],
   "repositories": [
     {
-      "type": "vcs",
-      "url": "https://github.com/voku/agent-loop"
+      "type": "git",
+      "url": "https://github.com/voku/agent-loop.git"
     }
   ],
   "require": {
