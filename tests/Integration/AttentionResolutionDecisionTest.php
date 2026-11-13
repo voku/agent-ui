@@ -71,28 +71,30 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(AttentionKind::CLARIFICATION_REQUIRED, $attention->kind);
         self::assertSame('Ambiguity in business requirement for worker output.', $attention->message);
 
-        // The Board inbox reflects the authoritative Kanban lane, which may have
-        // advanced to READY when governed work began.
+        // The existing Board card reflects owner Attention in its authoritative
+        // Kanban lane, without duplicating the card in a second decision queue.
         $board = $app->handle(new Request('GET', '/board'));
         self::assertSame(200, $board->status);
-        self::assertStringContainsString('id="board-decision-queue"', $board->body);
-        self::assertStringContainsString('Human decisions waiting', $board->body);
+        self::assertStringContainsString('card--attention', $board->body);
+        self::assertStringNotContainsString('id="board-decision-queue"', $board->body);
+        self::assertStringContainsString('waiting on a human decision', $board->body);
         $boardProjection = (new BoardProjectionGateway($this->root))->board();
         self::assertCount(1, $boardProjection->cards);
         self::assertStringContainsString(
-            'agent-kanban lane: <strong>' . $boardProjection->cards[0]->lane . '</strong>',
+            '<span class="lane__name">' . $boardProjection->cards[0]->lane . '</span>',
             $board->body,
         );
         self::assertStringContainsString('href="/task/APP-1#decision"', $board->body);
-        self::assertStringContainsString('Show owner decision context', $board->body);
+        self::assertStringContainsString('Execution Attention:', $board->body);
         self::assertStringContainsString('Ambiguity in business requirement for worker output.', $board->body);
-        self::assertStringContainsString('agent-loop Attention: <strong>clarification_required</strong>', $board->body);
+        self::assertSame(1, substr_count($board->body, 'Ambiguity in business requirement for worker output.'), 'The decision message should appear only once on the Board.');
         $observed = $gateway->pendingAttentionObservation('APP-1');
         self::assertTrue($observed->available);
         self::assertNotNull($observed->attention);
 
         $filteredBoard = $app->handle(new Request('GET', '/board', query: ['workflow' => 'decision_required']));
-        self::assertStringContainsString('id="board-decision-queue"', $filteredBoard->body);
+        self::assertStringContainsString('card--attention', $filteredBoard->body);
+        self::assertStringContainsString('href="/task/APP-1#decision"', $filteredBoard->body);
 
         // 1. Task overview page renders Attention in #decision
         $overview = $app->handle(new Request('GET', '/task/APP-1'));
@@ -217,10 +219,10 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame('operator-alice', $history[0]->actor);
         self::assertSame('Keep the worker output format unchanged.', $history[0]->response);
 
-        // Once Loop resolves the Attention, the Board decision inbox disappears.
+        // Once Loop resolves Attention, the Board no longer presents its owner signal.
         $afterBoard = $app->handle(new Request('GET', '/board'));
         self::assertSame(200, $afterBoard->status);
-        self::assertStringNotContainsString('id="board-decision-queue"', $afterBoard->body);
+        self::assertStringNotContainsString('Execution Attention:', $afterBoard->body);
 
         // Subsequent page view: No attention panel or decision link
         $freshProgress = $app->handle(new Request('GET', '/task/APP-1/progress'));
