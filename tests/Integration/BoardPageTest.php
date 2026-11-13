@@ -190,7 +190,7 @@ final class BoardPageTest extends TestCase
         self::assertStringContainsString('Decision visibility incomplete.', $response->body);
         self::assertStringContainsString('Affected cards:', $response->body);
         self::assertStringContainsString('confirmed waiting; Attention visibility incomplete', $response->body);
-        self::assertStringNotContainsString('id="board-decision-queue"', $response->body);
+        self::assertStringNotContainsString('Execution Attention:', $response->body);
     }
 
     public function testKnownPendingAttentionRendersEvenWithoutWorkflowSnapshot(): void
@@ -228,10 +228,12 @@ final class BoardPageTest extends TestCase
         $renderer = new TemplateRenderer(dirname(__DIR__, 2) . '/templates');
         $html = $renderer->render('board/index', $model);
 
-        self::assertStringContainsString('id="board-decision-queue"', $html);
+        self::assertStringContainsString('card--attention', $html);
         self::assertStringContainsString('href="/task/APP-1#decision"', $html);
+        self::assertStringContainsString('Execution Attention:', $html);
         self::assertStringContainsString('Need explicit user decision.', $html);
-        self::assertStringContainsString('agent-loop workflow projection: <strong>unavailable</strong>', $html);
+        self::assertSame(1, substr_count($html, 'Need explicit user decision.'), 'No duplicate decision card.');
+        self::assertStringContainsString('Canonical next action unavailable.', $html);
 
         // Unknown Attention is not a confirmed decision; every affected card
         // must remain discoverable even when it falls outside the filter.
