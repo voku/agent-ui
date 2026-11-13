@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Integration\AgentLoopRunner;
 
 use voku\AgentLoopRunner\Application\RunnerStatus;
+use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
 
 final readonly class RunnerSnapshot
 {
@@ -34,6 +35,27 @@ final readonly class RunnerSnapshot
     public static function diagnostic(string $message): self
     {
         return new self(true, $message, null, null, null, null, null, null, null, null, null, false, false, false);
+    }
+
+    /** Process observation without any inferred workflow or control permission. */
+    public static function fromObservation(?RuntimeAttempt $attempt): self
+    {
+        return new self(
+            true,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $attempt?->hostId,
+            $attempt?->status->value,
+            $attempt?->stageId,
+            $attempt?->attempt,
+            false,
+            false,
+            false,
+        );
     }
 
     public static function fromStatus(RunnerStatus $status): self
