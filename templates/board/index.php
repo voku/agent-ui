@@ -50,13 +50,6 @@ $workflowHref = static fn (string $value): string => '/board?' . http_build_quer
 
 $hasFilter = $filterQuery !== '' || $filterStatus !== '' || $filterPriority !== '' || $filterWorkflow !== '';
 
-/** @var list<CardSnapshot> $decisionCards */
-$decisionCards = array_values(array_filter(
-    $filteredCards,
-    static fn (CardSnapshot $card): bool => ($workflow[$card->id] ?? null)?->nextActionKind === 'decision_required'
-        || isset($pendingAttention[$card->id]),
-));
-
 $title = 'Board · ' . $board->projectPrefix . ' · agent-ui';
 $nav = 'board';
 $projectLabel = $board->projectPrefix;
@@ -190,7 +183,7 @@ require __DIR__ . '/../layout/header.php';
         Confirmed decisions are shown below, but the count is not authoritative until the owner projection is available.
         Affected cards:
         <?php foreach (array_slice($attentionUnavailableIds, 0, 5) as $unavailableId): ?>
-            <a href="/task/<?= TemplateRenderer::escape($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a>
+            <a href="/task/<?= rawurlencode($unavailableId) ?>"><?= TemplateRenderer::escape($unavailableId) ?></a>
         <?php endforeach; ?>
     </p>
     <?php if (count($attentionUnavailableIds) > 5): ?>
@@ -203,54 +196,6 @@ require __DIR__ . '/../layout/header.php';
             </ul>
         </details>
     <?php endif; ?>
-</section>
-<?php endif; ?>
-
-<?php if ($decisionCards !== []): ?>
-<section class="board-decision-queue" id="board-decision-queue" aria-labelledby="board-decision-queue-title">
-    <header class="board-decision-queue__head">
-        <div>
-            <h2 id="board-decision-queue-title">Human decisions waiting</h2>
-            <p>These are agent-loop's current decisions, regardless of their agent-kanban lane. A pending decision never moves a card by itself.</p>
-        </div>
-        <span class="pill pill--attention"><?= count($decisionCards) ?> shown</span>
-    </header>
-    <ul class="board-decision-queue__list">
-        <?php foreach ($decisionCards as $card): ?>
-            <?php $decision = $workflow[$card->id] ?? null; ?>
-            <li class="board-decision-queue__item">
-                <div class="board-decision-queue__identity">
-                    <div>
-                        <span class="board-decision-queue__id"><?= TemplateRenderer::escape($card->id) ?></span>
-                        <strong><?= TemplateRenderer::escape($card->title) ?></strong>
-                    </div>
-                    <a class="btn btn--small" href="/task/<?= TemplateRenderer::escape($card->id) ?>#decision">Inspect decision</a>
-                </div>
-                <p class="board-decision-queue__owner">
-                    <?php if (isset($pendingAttention[$card->id])): ?>
-                        <span>agent-loop Attention: <strong><?= TemplateRenderer::escape($pendingAttention[$card->id]->kind->value) ?></strong></span>
-                    <?php endif; ?>
-                    <span>agent-kanban lane: <strong><?= TemplateRenderer::escape($card->lane) ?></strong></span>
-                    <?php if ($decision !== null): ?>
-                        <span>agent-loop next: <strong><?= TemplateRenderer::escape(Presentation::label($decision->nextActionKind)) ?></strong></span>
-                    <?php else: ?>
-                        <span>agent-loop workflow projection: <strong>unavailable</strong></span>
-                    <?php endif; ?>
-                </p>
-                <details class="board-decision-queue__action">
-                    <summary>Show owner decision context</summary>
-                    <?php if (isset($pendingAttention[$card->id])): ?>
-                        <p><?= TemplateRenderer::escape($pendingAttention[$card->id]->message) ?></p>
-                    <?php endif; ?>
-                    <?php if ($decision !== null): ?>
-                        <p><?= TemplateRenderer::escape($decision->nextAction) ?></p>
-                    <?php else: ?>
-                        <p>Canonical next action unavailable; inspect the live task owner state before acting.</p>
-                    <?php endif; ?>
-                </details>
-            </li>
-        <?php endforeach; ?>
-    </ul>
 </section>
 <?php endif; ?>
 
@@ -295,7 +240,7 @@ require __DIR__ . '/../layout/header.php';
                 $cardClass = 'card';
                 if ($flow !== null && $flow->disagreements !== []) {
                     $cardClass .= ' card--blocked';
-                } elseif ($flow !== null && $flow->nextActionKind === 'decision_required') {
+                } elseif ($flow?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])) {
                     $cardClass .= ' card--attention';
                 }
                 ?>
@@ -305,10 +250,19 @@ require __DIR__ . '/../layout/header.php';
                     <?php if ($card->summary !== ''): ?>
                         <p class="small faint" style="margin:4px 0 0;line-height:1.3"><?= TemplateRenderer::escape(mb_substr($card->summary, 0, 90)) ?><?= mb_strlen($card->summary) > 90 ? '…' : '' ?></p>
                     <?php endif; ?>
-                    <?php if ($flow !== null && $flow->nextActionKind === 'decision_required'): ?>
+                    <?php if ($flow?->nextActionKind === 'decision_required' || isset($pendingAttention[$card->id])): ?>
                         <div style="margin-top:6px">
-                            <a class="btn btn--small btn--attention" style="font-size:11px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress#ws-overview">⚡ Needs Human Decision →</a>
+                            <a class="btn btn--small btn--attention" style="font-size:11px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px" href="/task/<?= rawurlencode($card->id) ?><?= isset($pendingAttention[$card->id]) ? '#decision' : '/progress#ws-overview' ?>">Needs Human Decision</a>
                         </div>
+                    <?php endif; ?>
+                    <?php if (isset($pendingAttention[$card->id])): ?>
+                        <details class="small" style="margin-top:6px">
+                            <summary>Execution Attention: <?= TemplateRenderer::escape(Presentation::label($pendingAttention[$card->id]->kind->value)) ?></summary>
+                            <p><?= TemplateRenderer::escape($pendingAttention[$card->id]->message) ?></p>
+                            <?php if ($flow === null): ?>
+                                <p class="faint">Canonical next action unavailable. Inspect owner state before acting.</p>
+                            <?php endif; ?>
+                        </details>
                     <?php endif; ?>
                     <dl class="card__owners">
                         <dt>Board</dt>
