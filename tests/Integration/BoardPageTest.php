@@ -123,7 +123,7 @@ final class BoardPageTest extends TestCase
     {
         $interruptedRunner = $this->createStub(RunnerGatewayInterface::class);
         $interruptedRunner->method('isInstalled')->willReturn(true);
-        $interruptedRunner->method('status')->willReturn(new RunnerSnapshot(
+        $interruptedRunner->method('observe')->willReturn(new RunnerSnapshot(
             installed: true,
             diagnostic: null,
             profile: 'standard',
@@ -155,7 +155,7 @@ final class BoardPageTest extends TestCase
 
         $workingRunner = $this->createStub(RunnerGatewayInterface::class);
         $workingRunner->method('isInstalled')->willReturn(true);
-        $workingRunner->method('status')->willReturn(new RunnerSnapshot(
+        $workingRunner->method('observe')->willReturn(new RunnerSnapshot(
             installed: true,
             diagnostic: null,
             profile: 'standard',
