@@ -1465,4 +1465,3 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .workflow-brief__links .btn { text-align: center; }
 .workflow-brief [data-evidence-status] { font-weight: 600; }
 @media (max-width: 700px) { .workflow-brief__facts { grid-template-columns: minmax(0, 1fr); } }
-
