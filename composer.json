@@ -36,6 +36,10 @@
     {
       "type": "git",
       "url": "https://github.com/voku/agent-loop.git"
+    },
+    {
+      "type": "git",
+      "url": "https://github.com/voku/agent-loop-runner.git"
     }
   ],
   "require": {
@@ -50,7 +54,7 @@
     "friendsofphp/php-cs-fixer": "^3.75",
     "phpstan/phpstan": "^2.1.56",
     "phpunit/phpunit": "^12.0",
-    "voku/agent-loop-runner": "^0.1.8"
+    "voku/agent-loop-runner": "dev-feat/read-only-runner-observation-20261113 as 0.1.10"
   },
   "autoload": {
     "psr-4": {
