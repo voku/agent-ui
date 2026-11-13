@@ -42,7 +42,7 @@
     "php": "^8.3",
     "voku/agent-kanban": "^0.4.6",
     "voku/agent-learning": "^0.19.0",
-    "voku/agent-loop": "dev-fix/read-only-pending-attention-observation-20261113#72d3f29c856f4e452114e033dab61ef72f25ab43 as 0.20.93",
+    "voku/agent-loop": "dev-fix/read-only-pending-attention-observation-20261113 as 0.20.93",
     "voku/agent-map": "^0.22.3",
     "voku/agent-recall-compiler": "^0.29.0"
   },
