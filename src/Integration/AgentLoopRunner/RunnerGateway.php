@@ -15,6 +15,19 @@ final readonly class RunnerGateway implements RunnerGatewayInterface
     {
     }
 
+    public function observe(string $taskId): RunnerSnapshot
+    {
+        if (!$this->installed()) {
+            return RunnerSnapshot::notInstalled();
+        }
+
+        try {
+            return RunnerSnapshot::fromObservation($this->service()->observedAttempt($taskId));
+        } catch (RuntimeException $exception) {
+            return RunnerSnapshot::diagnostic($exception->getMessage());
+        }
+    }
+
     public function status(string $taskId): RunnerSnapshot
     {
         if (!$this->installed()) {
