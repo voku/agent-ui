@@ -196,9 +196,9 @@ final readonly class HumanDecisionGateway
     public function pendingAttentionObservation(string $taskId): PendingAttentionObservation
     {
         try {
-            $projection = (new ExecutionGateway($this->projectRoot))->projection($taskId);
+            $attention = (new ExecutionGateway($this->projectRoot))->observePendingAttention($taskId);
 
-            return new PendingAttentionObservation($projection->attention);
+            return new PendingAttentionObservation($attention);
         } catch (Throwable) {
             return new PendingAttentionObservation(null, false);
         }
