@@ -162,6 +162,41 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringNotContainsString('Execution Attention:', $board->body);
     }
 
+    public function testBoardGetKeepsMultipleGovernedExecutionsReadOnly(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Decision for the first task.',
+        );
+        $this->createTaskWithPendingAttention(
+            taskId: 'APP-2',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Decision for the second task.',
+        );
+
+        $plans = new ExecutionPlanStore($this->root);
+        $states = new ExecutionStateStore($this->root);
+        $firstPlanPath = $plans->path('APP-1');
+        $firstStatePath = $states->path('APP-1');
+        $firstPlan = file_get_contents($firstPlanPath);
+        $firstState = file_get_contents($firstStatePath);
+        self::assertIsString($firstPlan);
+        self::assertIsString($firstState);
+
+        self::assertTrue(unlink($states->path('APP-2')));
+        self::assertTrue(unlink($plans->path('APP-2')));
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertSame($firstPlan, file_get_contents($firstPlanPath));
+        self::assertSame($firstState, file_get_contents($firstStatePath));
+        self::assertFileDoesNotExist($plans->path('APP-2'));
+        self::assertFileDoesNotExist($states->path('APP-2'));
+        self::assertStringContainsString('Decision for the first task.', $board->body);
+        self::assertStringNotContainsString('Decision for the second task.', $board->body);
+    }
+
     public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
     {
         $this->createTaskWithPendingAttention(
