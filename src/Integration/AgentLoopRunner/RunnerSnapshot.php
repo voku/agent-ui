@@ -9,8 +9,11 @@ use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
 
 final readonly class RunnerSnapshot
 {
-    /** Observation status for a journal attempt that does not belong to the current Loop Run. */
+    /** Observation status for a journal attempt bound to a different Run, Contract revision or plan than Loop's current execution authority. */
     public const string OBSERVATION_STALE = 'stale';
+
+    /** Observation status for a journal attempt whose binding to current Loop authority cannot be established. */
+    public const string OBSERVATION_UNVERIFIED = 'unverified';
 
     public function __construct(
         public bool $installed,
@@ -28,6 +31,8 @@ final readonly class RunnerSnapshot
         public bool $allowResume,
         public bool $allowCancel,
         public ?string $observationRunId = null,
+        public ?int $observationContractRevision = null,
+        public ?string $observationPlanDigest = null,
     ) {
     }
 
@@ -60,28 +65,44 @@ final readonly class RunnerSnapshot
             false,
             false,
             $attempt?->runId,
+            $attempt?->contractRevision,
+            $attempt?->executionPlanDigest,
         );
     }
 
     /**
-     * Binds a journal observation to the current Loop Run.
+     * Binds a journal observation to Loop's current execution authority.
      *
-     * The Runner journal carries no freshness guarantee: an attempt recorded for
-     * a retired or superseded Run (or for a task Loop cannot currently project)
-     * is reported as `stale` and is never presented as current execution. A new
-     * Contract revision always starts a new Run, so the Run id binds revision
-     * and execution plan as well.
+     * The Runner journal carries no freshness guarantee. An attempt is current
+     * only when its Run id, Contract revision and execution plan digest all
+     * match the current approved, non-retired governed Run (the same fields as
+     * Runner's own `RuntimeAttempt::sameAuthority()`). A mismatch is reported
+     * as `stale`; an unavailable binding (no approved Contract, no current or
+     * a retired Run, missing or unreadable plan) as `unverified`. Neither is
+     * ever presented as current execution, and both grant no control.
      */
-    public function boundToRun(?string $currentRunId): self
+    public function boundTo(?ExecutionBinding $current): self
     {
-        if ($this->observationRunId === null || $this->observationStatus === null) {
+        if ($this->observationStatus === null || $this->observationRunId === null) {
             return $this;
         }
 
-        if ($currentRunId !== null && hash_equals($currentRunId, $this->observationRunId)) {
-            return $this;
+        if ($current === null) {
+            return $this->withObservationStatus(self::OBSERVATION_UNVERIFIED);
         }
 
+        if (!hash_equals($current->runId, $this->observationRunId)
+            || $current->contractRevision !== $this->observationContractRevision
+            || !hash_equals($current->executionPlanDigest, $this->observationPlanDigest ?? '')
+        ) {
+            return $this->withObservationStatus(self::OBSERVATION_STALE);
+        }
+
+        return $this;
+    }
+
+    private function withObservationStatus(string $status): self
+    {
         return new self(
             $this->installed,
             $this->diagnostic,
@@ -91,13 +112,15 @@ final readonly class RunnerSnapshot
             $this->attentionId,
             $this->complete,
             $this->hostId,
-            self::OBSERVATION_STALE,
+            $status,
             $this->observationStageId,
             $this->observationAttempt,
             false,
             false,
             false,
             $this->observationRunId,
+            $this->observationContractRevision,
+            $this->observationPlanDigest,
         );
     }
 

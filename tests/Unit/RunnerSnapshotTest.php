@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use voku\AgentLoop\Execution\ExecutionProfileName;
 use voku\AgentLoop\Execution\ExecutionProjection;
 use voku\AgentLoopRunner\Application\RunnerStatus;
 use voku\AgentLoopRunner\Runtime\AttemptStatus;
 use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
+use voku\AgentUi\Integration\AgentLoopRunner\ExecutionBinding;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 
 final class RunnerSnapshotTest extends TestCase
@@ -57,18 +59,27 @@ final class RunnerSnapshotTest extends TestCase
         self::assertSame($status->allows(RunnerStatus::CANCEL), $snapshot->allowCancel, 'Cancel mirrors Runner capability without granting workflow authority.');
     }
 
-    public function testJournalObservationOfCurrentRunStaysCurrent(): void
+    public function testJournalObservationOfCurrentAuthorityStaysCurrent(): void
     {
-        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:current'))->boundToRun('run:TASK-1:current');
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:current'))
+            ->boundTo(new ExecutionBinding('run:TASK-1:current', 1, 'sha256:plan'));
 
         self::assertSame('process_started', $snapshot->observationStatus);
         self::assertSame('implementation', $snapshot->observationStageId);
-        self::assertSame('run:TASK-1:current', $snapshot->observationRunId);
     }
 
-    public function testJournalObservationOfAnotherRunIsStale(): void
+    /** @return iterable<string, array{ExecutionBinding}> */
+    public static function otherAuthority(): iterable
     {
-        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:retired'))->boundToRun('run:TASK-1:current');
+        yield 'other Run' => [new ExecutionBinding('run:TASK-1:replacement', 1, 'sha256:plan')];
+        yield 'revised Contract, same Run id' => [new ExecutionBinding('run:TASK-1:current', 2, 'sha256:plan')];
+        yield 'other plan' => [new ExecutionBinding('run:TASK-1:current', 1, 'sha256:other-plan')];
+    }
+
+    #[DataProvider('otherAuthority')]
+    public function testJournalObservationOfOtherAuthorityIsStale(ExecutionBinding $current): void
+    {
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:current'))->boundTo($current);
 
         self::assertSame(RunnerSnapshot::OBSERVATION_STALE, $snapshot->observationStatus);
         self::assertSame('implementation', $snapshot->observationStageId, 'Stale evidence stays inspectable.');
@@ -77,16 +88,16 @@ final class RunnerSnapshotTest extends TestCase
         self::assertFalse($snapshot->allowCancel);
     }
 
-    public function testJournalObservationWithoutCurrentLoopRunIsStale(): void
+    public function testJournalObservationWithoutProvableAuthorityIsUnverified(): void
     {
-        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:retired'))->boundToRun(null);
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:current'))->boundTo(null);
 
-        self::assertSame(RunnerSnapshot::OBSERVATION_STALE, $snapshot->observationStatus);
+        self::assertSame(RunnerSnapshot::OBSERVATION_UNVERIFIED, $snapshot->observationStatus);
     }
 
-    public function testMissingJournalObservationIsNotInventedAsStale(): void
+    public function testMissingJournalObservationIsNotInvented(): void
     {
-        $snapshot = RunnerSnapshot::fromObservation(null)->boundToRun(null);
+        $snapshot = RunnerSnapshot::fromObservation(null)->boundTo(null);
 
         self::assertNull($snapshot->observationStatus);
         self::assertNull($snapshot->observationRunId);

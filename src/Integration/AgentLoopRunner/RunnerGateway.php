@@ -22,7 +22,8 @@ final readonly class RunnerGateway implements RunnerGatewayInterface
         }
 
         try {
-            return RunnerSnapshot::fromObservation($this->service()->observedAttempt($taskId));
+            return RunnerSnapshot::fromObservation($this->service()->observedAttempt($taskId))
+                ->boundTo((new ExecutionBindingReader($this->projectRoot))->current($taskId));
         } catch (RuntimeException $exception) {
             return RunnerSnapshot::diagnostic($exception->getMessage());
         }

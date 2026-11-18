@@ -12,8 +12,14 @@ use voku\AgentLoop\Execution\ExecutionPlanStore;
 use voku\AgentLoop\Execution\ExecutionStateStore;
 use voku\AgentLoop\Execution\StageOutcome;
 use voku\AgentLoop\Execution\StageResult;
+use voku\AgentLoop\Run\GovernedRunStore;
+use voku\AgentLoop\Run\RunRetirementStore;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoopRunner\RunnerLayout;
+use voku\AgentLoopRunner\Runtime\AttemptStatus;
+use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
+use voku\AgentLoopRunner\Runtime\RuntimeJournal;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\Task\TaskAction;
 use voku\AgentUi\Feature\Task\TaskContextComposer;
@@ -203,6 +209,89 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame($firstState, file_get_contents($firstStatePath));
         self::assertFileDoesNotExist($plans->path('APP-2'));
         self::assertFileDoesNotExist($states->path('APP-2'));
+    }
+
+    public function testBoardShowsRunnerAttemptOnlyWhileItMatchesCurrentLoopAuthority(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        $journal = new RuntimeJournal(new RunnerLayout($this->root));
+        $attempt = static fn(string $runId): RuntimeAttempt => new RuntimeAttempt(
+            'APP-1',
+            $runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            AttemptStatus::ProcessStarted,
+        );
+
+        $journal->save($attempt($run->runId));
+        self::assertStringContainsString('Runner: process started', $app->handle(new Request('GET', '/board'))->body);
+
+        $journal->save($attempt('run:APP-1:replaced'));
+        $stale = $app->handle(new Request('GET', '/board'))->body;
+        self::assertStringContainsString('Runner: stale', $stale);
+        self::assertStringNotContainsString('Runner: process started', $stale);
+
+        $journal->save($attempt($run->runId));
+        (new RunRetirementStore($this->root))->record($run, 'abandoned', 'Replaced by a new plan.', 'maintainer');
+        $retired = $app->handle(new Request('GET', '/board'))->body;
+        self::assertStringContainsString('Runner: unverified', $retired, 'A retired Run keeps its id in the manifest but is no longer current.');
+        self::assertStringNotContainsString('Runner: process started', $retired);
+    }
+
+    public function testRevisedContractMakesRunnerAttemptUnverifiedAlthoughRunIdIsUnchanged(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        (new RuntimeJournal(new RunnerLayout($this->root)))->save(new RuntimeAttempt(
+            'APP-1',
+            $run->runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            AttemptStatus::ProcessStarted,
+        ));
+
+        $contracts = new TaskContractStore($this->root);
+        $contracts->revise(
+            taskId: 'APP-1',
+            goal: 'Execute worker correctly, revised.',
+            scope: ['src/Worker.php'],
+            nonGoals: ['no api changes'],
+            validation: ['php -l src/Worker.php'],
+            plannedBy: 'planner',
+            baseCommit: trim($this->git('rev-parse HEAD')),
+        );
+        $contracts->approve('APP-1', 'maintainer', $contracts->load('APP-1')->revision);
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertSame($run->runId, (new GovernedRunStore($this->root))->find('APP-1')?->runId, 'Precondition: Loop keeps the Run id until the next prepare.');
+        self::assertStringContainsString('Runner: unverified', $board->body);
+        self::assertStringNotContainsString('Runner: process started', $board->body);
     }
 
     public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
