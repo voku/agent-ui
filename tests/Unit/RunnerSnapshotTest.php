@@ -57,6 +57,41 @@ final class RunnerSnapshotTest extends TestCase
         self::assertSame($status->allows(RunnerStatus::CANCEL), $snapshot->allowCancel, 'Cancel mirrors Runner capability without granting workflow authority.');
     }
 
+    public function testJournalObservationOfCurrentRunStaysCurrent(): void
+    {
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:current'))->boundToRun('run:TASK-1:current');
+
+        self::assertSame('process_started', $snapshot->observationStatus);
+        self::assertSame('implementation', $snapshot->observationStageId);
+        self::assertSame('run:TASK-1:current', $snapshot->observationRunId);
+    }
+
+    public function testJournalObservationOfAnotherRunIsStale(): void
+    {
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:retired'))->boundToRun('run:TASK-1:current');
+
+        self::assertSame(RunnerSnapshot::OBSERVATION_STALE, $snapshot->observationStatus);
+        self::assertSame('implementation', $snapshot->observationStageId, 'Stale evidence stays inspectable.');
+        self::assertFalse($snapshot->allowRun);
+        self::assertFalse($snapshot->allowResume);
+        self::assertFalse($snapshot->allowCancel);
+    }
+
+    public function testJournalObservationWithoutCurrentLoopRunIsStale(): void
+    {
+        $snapshot = RunnerSnapshot::fromObservation($this->attempt('run:TASK-1:retired'))->boundToRun(null);
+
+        self::assertSame(RunnerSnapshot::OBSERVATION_STALE, $snapshot->observationStatus);
+    }
+
+    public function testMissingJournalObservationIsNotInventedAsStale(): void
+    {
+        $snapshot = RunnerSnapshot::fromObservation(null)->boundToRun(null);
+
+        self::assertNull($snapshot->observationStatus);
+        self::assertNull($snapshot->observationRunId);
+    }
+
     public function testNotInstalledProjectsNoManagedControls(): void
     {
         $snapshot = RunnerSnapshot::notInstalled();
@@ -65,5 +100,10 @@ final class RunnerSnapshotTest extends TestCase
         self::assertFalse($snapshot->allowRun);
         self::assertFalse($snapshot->allowResume);
         self::assertFalse($snapshot->allowCancel);
+    }
+
+    private function attempt(string $runId): RuntimeAttempt
+    {
+        return new RuntimeAttempt('TASK-1', $runId, 1, 'sha256:plan', 'implementation', 2, 'codex', 'sha256:workspace', 'submission-1', AttemptStatus::ProcessStarted);
     }
 }

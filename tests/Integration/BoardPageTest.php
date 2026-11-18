@@ -179,6 +179,47 @@ final class BoardPageTest extends TestCase
         self::assertStringContainsString('actively executing', $executingResponse->body);
     }
 
+    public function testRunnerAttemptOfAnotherRunIsShownAsStaleNotExecuting(): void
+    {
+        $staleRunner = $this->createStub(RunnerGatewayInterface::class);
+        $staleRunner->method('isInstalled')->willReturn(true);
+        $staleRunner->method('observe')->willReturn(new RunnerSnapshot(
+            installed: true,
+            diagnostic: null,
+            profile: null,
+            currentStageId: null,
+            currentAttempt: null,
+            attentionId: null,
+            complete: null,
+            hostId: 'codex',
+            observationStatus: 'working',
+            observationStageId: 'build',
+            observationAttempt: 1,
+            allowRun: false,
+            allowResume: false,
+            allowCancel: false,
+            observationRunId: 'run:APP-1:retired',
+        ));
+
+        $action = new BoardAction(
+            new BoardProjectionGateway($this->root),
+            new CardMutationGateway($this->root),
+            new WorkflowProjectionGateway($this->root),
+            new HumanDecisionGateway($this->root),
+            new CsrfTokenManager(),
+            new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
+            $staleRunner,
+        );
+
+        $executing = $action(new Request('GET', '/board', query: ['workflow' => 'executing']));
+        self::assertSame(200, $executing->status);
+        self::assertStringNotContainsString('Build login system', $executing->body, 'A journal attempt without a current Loop Run is not current execution.');
+
+        $all = $action(new Request('GET', '/board'));
+        self::assertSame(200, $all->status);
+        self::assertStringContainsString('Runner: stale', $all->body);
+    }
+
     public function testCorruptOwnerProjectionIsReportedAsIncompleteRatherThanEmpty(): void
     {
         $contractPath = (new TaskContractStore($this->root))->path('APP-1');

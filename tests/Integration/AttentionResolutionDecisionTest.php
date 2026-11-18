@@ -195,6 +195,14 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertFileDoesNotExist($states->path('APP-2'));
         self::assertStringContainsString('Decision for the first task.', $board->body);
         self::assertStringNotContainsString('Decision for the second task.', $board->body);
+
+        // The home page probes every card's Runner observation as well.
+        $home = $app->handle(new Request('GET', '/'));
+        self::assertSame(200, $home->status);
+        self::assertSame($firstPlan, file_get_contents($firstPlanPath));
+        self::assertSame($firstState, file_get_contents($firstStatePath));
+        self::assertFileDoesNotExist($plans->path('APP-2'));
+        self::assertFileDoesNotExist($states->path('APP-2'));
     }
 
     public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void

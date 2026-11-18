@@ -9,6 +9,9 @@ use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
 
 final readonly class RunnerSnapshot
 {
+    /** Observation status for a journal attempt that does not belong to the current Loop Run. */
+    public const string OBSERVATION_STALE = 'stale';
+
     public function __construct(
         public bool $installed,
         public ?string $diagnostic,
@@ -24,6 +27,7 @@ final readonly class RunnerSnapshot
         public bool $allowRun,
         public bool $allowResume,
         public bool $allowCancel,
+        public ?string $observationRunId = null,
     ) {
     }
 
@@ -55,6 +59,45 @@ final readonly class RunnerSnapshot
             false,
             false,
             false,
+            $attempt?->runId,
+        );
+    }
+
+    /**
+     * Binds a journal observation to the current Loop Run.
+     *
+     * The Runner journal carries no freshness guarantee: an attempt recorded for
+     * a retired or superseded Run (or for a task Loop cannot currently project)
+     * is reported as `stale` and is never presented as current execution. A new
+     * Contract revision always starts a new Run, so the Run id binds revision
+     * and execution plan as well.
+     */
+    public function boundToRun(?string $currentRunId): self
+    {
+        if ($this->observationRunId === null || $this->observationStatus === null) {
+            return $this;
+        }
+
+        if ($currentRunId !== null && hash_equals($currentRunId, $this->observationRunId)) {
+            return $this;
+        }
+
+        return new self(
+            $this->installed,
+            $this->diagnostic,
+            $this->profile,
+            $this->currentStageId,
+            $this->currentAttempt,
+            $this->attentionId,
+            $this->complete,
+            $this->hostId,
+            self::OBSERVATION_STALE,
+            $this->observationStageId,
+            $this->observationAttempt,
+            false,
+            false,
+            false,
+            $this->observationRunId,
         );
     }
 

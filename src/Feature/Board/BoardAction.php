@@ -64,7 +64,7 @@ final readonly class BoardAction
         $runners = [];
         if ($this->runner !== null && $this->runner->isInstalled()) {
             foreach ($board->cards as $card) {
-                $runners[$card->id] = $this->runner->observe($card->id);
+                $runners[$card->id] = $this->runner->observe($card->id)->boundToRun(($workflow[$card->id] ?? null)?->runId);
             }
         }
 
