@@ -212,8 +212,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/skills/agent-loop-workflow",
-            "source_sha256": "sha256:48600c8f341cc5724321899b2b6b3131124970d5147595c42711e07dc8160c93",
-            "representation_sha256": "sha256:48600c8f341cc5724321899b2b6b3131124970d5147595c42711e07dc8160c93",
+            "source_sha256": "sha256:a58521f31ed405516a0c9dc9a0e21630d9b4f87850eb48912bc7ab51ac56b81a",
+            "representation_sha256": "sha256:a58521f31ed405516a0c9dc9a0e21630d9b4f87850eb48912bc7ab51ac56b81a",
             "adopted": false
         },
         {
