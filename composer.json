@@ -32,21 +32,11 @@
       "url": "https://github.com/voku"
     }
   ],
-  "repositories": [
-    {
-      "type": "git",
-      "url": "https://github.com/voku/agent-loop.git"
-    },
-    {
-      "type": "git",
-      "url": "https://github.com/voku/agent-loop-runner.git"
-    }
-  ],
   "require": {
     "php": "^8.3",
     "voku/agent-kanban": "^0.4.6",
     "voku/agent-learning": "^0.19.0",
-    "voku/agent-loop": "dev-fix/read-only-pending-attention-observation-20261113 as 0.20.93",
+    "voku/agent-loop": "^0.20.97",
     "voku/agent-map": "^0.22.3",
     "voku/agent-recall-compiler": "^0.29.0"
   },
@@ -54,7 +44,7 @@
     "friendsofphp/php-cs-fixer": "^3.75",
     "phpstan/phpstan": "^2.1.56",
     "phpunit/phpunit": "^12.0",
-    "voku/agent-loop-runner": "dev-feat/read-only-runner-observation-20261113 as 0.1.10"
+    "voku/agent-loop-runner": "^0.1.11"
   },
   "autoload": {
     "psr-4": {
