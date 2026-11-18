@@ -6,7 +6,6 @@ namespace voku\AgentUi\Integration\AgentLoopRunner;
 
 interface RunnerGatewayInterface
 {
-    /** Owner journal observation only; never grants execution authority. */
     /**
      * Read-only Runner journal observation, bound to Loop's current execution
      * authority (stale / unverified when it cannot be shown as current). Never
