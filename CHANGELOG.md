@@ -4,6 +4,13 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.6] - 2026-11-19
+
+### Dependencies
+
+- Allow `voku/agent-map ^0.23.0` alongside `^0.22.3`. It resolves with `voku/agent-loop` 0.20.99, `voku/agent-recall-compiler` 0.29.1 and `voku/agent-edit` 0.6.4, the first owner releases that accept it (supersedes #190). agent-map 0.23.0 only adds pluggable template dialects, an experimental Smarty evidence API and Smarty/Blade template-reference fixes; the UI uses none of the changed APIs and does not consume the experimental Smarty API.
+- Refresh the managed Claude/Codex `agent-recall-consumer` skill from the released owner sources.
+
 ## [0.20.5] - 2026-11-19
 
 ### Fixed
