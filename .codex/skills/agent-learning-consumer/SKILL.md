@@ -1,6 +1,8 @@
 ---
 name: agent-learning-consumer
 description: Set up and operate voku/agent-learning in a consuming repository, including learning-root config.json, typed Finding creation, LearningNotes, findings, proposals, consolidation prompts, validation, and lifecycle commands. Use for end-user learning-loop workflows, not package source development.
+metadata:
+  author: Lars Moelleken <lars@moelleken.org>
 ---
 
 # Agent Learning Consumer
@@ -10,16 +12,7 @@ Use this skill when a project wants to run `voku/agent-learning` locally. The go
 ## Fast Path
 
 1. Locate or create the learning root, commonly `infra/doc/agent-learning`, `.agent-learning`, `docs/agent-learning`, or `agent-learning`.
-2. Add `config.json` when the project layout is not obvious or when generated constraints need project-relative files:
-
-```json
-{
-  "schema_version": "1.0",
-  "project_root": "../../..",
-  "constraint_generation_dir": "constraint-generation",
-  "active_constraints_dir": "constraints/active"
-}
-```
+2. Add config.json when the project layout is not obvious or generated constraints need project-relative paths. Use the [maintained configuration example](https://github.com/voku/agent-learning/blob/main/examples/agent-learning/config.json) as the source of truth; adapt `project_root` and other paths to the actual consuming repository. Do not copy example defaults blindly.
 
 3. Capture raw experience as findings first. Create validated Findings through the typed `FindingCreator` owner API from PHP hosts, or `finding-create` from the standalone CLI, instead of hand-writing the package storage schema.
 4. Classify reusable learning explicitly:
@@ -63,12 +56,14 @@ vendor/bin/agent-learning finding-classify \
 vendor/bin/agent-learning validate --root infra/doc/agent-learning
 vendor/bin/agent-learning prepare --root infra/doc/agent-learning --task PROJECT-123
 vendor/bin/agent-learning proposal-validate --root infra/doc/agent-learning --proposal proposal.2026-06-15.001.json
-vendor/bin/agent-learning guidance-evaluate --root infra/doc/agent-learning --selection-history history/recall-selections.jsonl --outcome-history history/outcomes.jsonl
+: "${RECALL_SELECTION_HISTORY:?Set RECALL_SELECTION_HISTORY to the immutable recall-selection history path}"
+: "${GUIDANCE_OUTCOME_HISTORY:?Set GUIDANCE_OUTCOME_HISTORY to the immutable per-guidance outcome history path}"
+vendor/bin/agent-learning guidance-evaluate --root infra/doc/agent-learning --selection-history "$RECALL_SELECTION_HISTORY" --outcome-history "$GUIDANCE_OUTCOME_HISTORY"
 ```
 
 ## From validated Finding to applied memory or skill guidance
 
-Never write a lesson straight into `MEMORY.md`, a skill or a doc. That leaves no evidence, no overlap check, no named approver and no proof that the wording landed. The path below produces all four, and each step fails closed when the one before it was skipped.
+Never write a lesson straight into MEMORY.md, a skill or a doc. That leaves no evidence, no overlap check, no named approver and no proof that the wording landed. The path below produces all four, and each step fails closed when the one before it was skipped.
 
 1. `finding-create` with real text: observation, hypothesis, conclusion, scope, evidence. The tools write immutable records, so never run it with placeholder arguments just to learn the syntax.
 2. `validate`, then `prepare --finding <id>`. `prepare` only writes a consolidation prompt; it does not produce the result.
@@ -102,6 +97,16 @@ vendor/bin/agent-learning proposal-reanchor MEMORY.md \
 ```
 
 `proposal-reanchor` repairs every applied `memory`/`skill` proof resolving to that target in one transaction and fails closed if any applied guidance on the file is missing. It preserves approval/application evidence and records the repair provenance. If the reviewed guidance itself changed or disappeared, do **not** re-anchor it; treat that as semantic drift and use the normal reviewed replace/retire path. When that drifted proof and stale proofs share one target and block each other, create and validate the reviewed REPLACE proposal, then obtain a named human's approval **before editing or committing the target** and before running `proposal-reanchor --supersede`. After committing the approved final target text, run `proposal-reanchor <target> --supersede <drifted-id>=<replacement-id>` so the drifted proof is retired and the remaining proofs are re-pinned in one transaction. Apply the already approved replacement only after reanchoring, through the normal `proposal-mark-applied` flow. Never retire applied guidance in favor of an unapproved replacement.
+
+When consolidation already recorded the triage on a candidate Proposal (`learning_decision`, `pattern_key`, `validation_case`), copy it onto the cited Finding instead of retyping it:
+
+```bash
+vendor/bin/agent-learning finding-classify finding.2026-06-15.001 \
+  --from-proposal proposal.2026-06-16.001 \
+  --root infra/doc/agent-learning
+```
+
+It requires a candidate Proposal that cites the Finding, refuses `--pattern-key`/`--given`/`--when`/`--then` alongside it, and checks an explicit classification argument against the Proposal. It does not approve, reject or apply the Proposal: a Memory candidate whose `learning_decision` is `ADD_LEARNING_NOTE` still needs its own named closure once the LearningNote exists. Close it with `proposal-reject`; `proposal-acknowledge` only accepts candidates whose `action` is `NO_DURABLE_LEARNING` and refuses any other action.
 
 For a Finding already classified `ADD_LEARNING_NOTE`, the deterministic LearningNote boundary is separate:
 
