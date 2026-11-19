@@ -251,6 +251,48 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringNotContainsString('Runner: process started', $retired);
     }
 
+    public function testBoardAndHomeClassifyRealRunnerJournalStatuses(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        $journal = new RuntimeJournal(new RunnerLayout($this->root));
+        $attempt = static fn(string $runId, AttemptStatus $status): RuntimeAttempt => new RuntimeAttempt(
+            'APP-1',
+            $runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            $status,
+        );
+        $executing = static fn(Application $app): string => $app->handle(new Request('GET', '/board', query: ['workflow' => 'executing']))->body;
+
+        $journal->save($attempt($run->runId, AttemptStatus::ProcessStarted));
+        $board = $executing($app);
+        self::assertStringContainsString('<strong>1</strong> actively executing', $board);
+        self::assertStringContainsString('href="/task/APP-1', $board);
+        self::assertStringContainsString('APP-1 active', $app->handle(new Request('GET', '/'))->body);
+
+        // A stale journal entry with the same status is not current execution.
+        $journal->save($attempt('run:APP-1:replaced', AttemptStatus::ProcessStarted));
+        $board = $executing($app);
+        self::assertStringContainsString('<strong>0</strong> actively executing', $board);
+        self::assertStringNotContainsString('APP-1 active', $app->handle(new Request('GET', '/'))->body);
+
+        $journal->save($attempt($run->runId, AttemptStatus::ProcessExited));
+        self::assertStringContainsString('<strong>0</strong> actively executing', $executing($app));
+    }
+
     public function testRevisedContractMakesRunnerAttemptUnverifiedAlthoughRunIdIsUnchanged(): void
     {
         $app = $this->createTaskWithPendingAttention(
