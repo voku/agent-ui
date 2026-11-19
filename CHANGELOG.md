@@ -4,6 +4,24 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.5] - 2026-11-19
+
+### Fixed
+
+- Board shows owner-backed pending Execution Attention inside the existing cards and counts it in "Needs my decision", read through agent-loop's read-only `observePendingAttention()`. An unreadable owner observation is reported as "Decision visibility incomplete" with links to every affected card, never as "no decision" (#184).
+- The task overview distinguishes unavailable Attention from confirmed absence, and when the workflow projection fails while Execution still reports pending Attention it opens a read-only fallback with the escaped owner facts and no invented next action or approval control (#184).
+- `GET /board` and `GET /` read Runner state only through its read-only journal observation, so they no longer recreate missing ExecutionPlan/ExecutionState artifacts (#184). Runner observations are bound to agent-loop's current execution identity through the typed `ExecutionGateway::observeCurrentExecutionBinding()`; a different Run, Contract revision or plan is shown as `stale`, an unprovable binding as `unverified`, and neither counts as current execution or grants a control (voku/agent-loop#1062).
+- Board "executing" / Runner-"blocked" filters and the Home active-runner list classify Runner observations by Runner's `AttemptStatus` (`process_started` running; `failed` / `cancelled` interrupted) instead of status strings Runner never emits (#188).
+
+### Dependencies
+
+- Require `voku/agent-loop ^0.20.98` and `voku/agent-learning ^0.20.0` (#187 already required `voku/agent-recall-compiler ^0.29.0`). The optional `voku/agent-loop-runner` stays optional but conflicts with releases below 0.1.11, which lack the read-only journal observation (#184).
+- Refresh the managed Claude/Codex skills and project-instruction router from the released owner sources.
+
+### Known limitations
+
+- With Runner installed, `GET /task/{id}` and `GET /task/{id}/progress` still use Runner's authority-bearing `status()` and can prepare missing execution artifacts (#189). Host-native installations without Runner are not affected.
+
 ## [0.20.4] - 2026-11-11
 
 ### Added

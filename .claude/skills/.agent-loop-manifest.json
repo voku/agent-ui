@@ -12,8 +12,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-hard-constraint-author",
-            "source_sha256": "sha256:62f5c5205a0fab37923c5e92152760cea78cfbcaf6e25c500219624f32944e43",
-            "representation_sha256": "sha256:62f5c5205a0fab37923c5e92152760cea78cfbcaf6e25c500219624f32944e43",
+            "source_sha256": "sha256:cd07bc121ec2a75eda3521029c9eb7589766c089248f33c7fa2c991240baa21c",
+            "representation_sha256": "sha256:cd07bc121ec2a75eda3521029c9eb7589766c089248f33c7fa2c991240baa21c",
             "adopted": false
         },
         {
@@ -22,8 +22,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-learning-consumer",
-            "source_sha256": "sha256:85c34d14478b1be2739995e52acffe02e414f3b53e68f90d646b91c7304dc4b4",
-            "representation_sha256": "sha256:85c34d14478b1be2739995e52acffe02e414f3b53e68f90d646b91c7304dc4b4",
+            "source_sha256": "sha256:ccc9f2347525402343fd9b1f05a30aed7fb17722b5c79c4e5c25bc12e69399ec",
+            "representation_sha256": "sha256:ccc9f2347525402343fd9b1f05a30aed7fb17722b5c79c4e5c25bc12e69399ec",
             "adopted": false
         },
         {
@@ -32,8 +32,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-learning-ctx-evidence",
-            "source_sha256": "sha256:d0ac2eca2c8fba53e527f04dfb9bc17b9488f56aa93538c444057f3a74a6d86c",
-            "representation_sha256": "sha256:d0ac2eca2c8fba53e527f04dfb9bc17b9488f56aa93538c444057f3a74a6d86c",
+            "source_sha256": "sha256:981ae1791218ef57aaa4e071cdb13c55e0f0e0d1c083b5508101a06c5ed1068f",
+            "representation_sha256": "sha256:981ae1791218ef57aaa4e071cdb13c55e0f0e0d1c083b5508101a06c5ed1068f",
             "adopted": false
         },
         {
@@ -42,8 +42,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-learning-note",
-            "source_sha256": "sha256:46a1a22904b790af8b3a446c21fa8e0552dc1a2dacb8e179d606213c96d9a5c0",
-            "representation_sha256": "sha256:46a1a22904b790af8b3a446c21fa8e0552dc1a2dacb8e179d606213c96d9a5c0",
+            "source_sha256": "sha256:040b4d4865b941c6103fa415c9cff3a5dbf6b1fb43c1533d9a45f7c5f4bb617b",
+            "representation_sha256": "sha256:040b4d4865b941c6103fa415c9cff3a5dbf6b1fb43c1533d9a45f7c5f4bb617b",
             "adopted": false
         },
         {
@@ -232,8 +232,8 @@
             "semantic_owner": "voku/agent-learning",
             "source_path": null,
             "source_reference": "resources/skills/agent-skill-promotion",
-            "source_sha256": "sha256:783c9f19687028b27fbf32f06cb6bd5807740247db4ccb15c2e01a3dd4b56a11",
-            "representation_sha256": "sha256:783c9f19687028b27fbf32f06cb6bd5807740247db4ccb15c2e01a3dd4b56a11",
+            "source_sha256": "sha256:08ab9b18efb0ac484b2dbe26d1b049ec8ce622405712e3a530c3415cd095d165",
+            "representation_sha256": "sha256:08ab9b18efb0ac484b2dbe26d1b049ec8ce622405712e3a530c3415cd095d165",
             "adopted": false
         }
     ]

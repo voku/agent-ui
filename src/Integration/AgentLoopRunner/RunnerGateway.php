@@ -6,6 +6,8 @@ namespace voku\AgentUi\Integration\AgentLoopRunner;
 
 use InvalidArgumentException;
 use RuntimeException;
+use voku\AgentLoop\Execution\ExecutionBinding;
+use voku\AgentLoop\Execution\ExecutionGateway;
 use voku\AgentLoopRunner\Application\RunnerControlService;
 use voku\AgentLoopRunner\Application\RunnerStatus;
 
@@ -23,9 +25,23 @@ final readonly class RunnerGateway implements RunnerGatewayInterface
 
         try {
             return RunnerSnapshot::fromObservation($this->service()->observedAttempt($taskId))
-                ->boundTo((new ExecutionBindingReader($this->projectRoot))->current($taskId));
+                ->boundTo($this->currentExecutionBinding($taskId));
         } catch (RuntimeException $exception) {
             return RunnerSnapshot::diagnostic($exception->getMessage());
+        }
+    }
+
+    /**
+     * Loop's typed read-only binding; it never prepares a plan or state. An
+     * unavailable binding (corrupt or drifted owner state) is not proof of
+     * anything, so the observation becomes unverified, never current.
+     */
+    private function currentExecutionBinding(string $taskId): ?ExecutionBinding
+    {
+        try {
+            return (new ExecutionGateway($this->projectRoot))->observeCurrentExecutionBinding($taskId);
+        } catch (RuntimeException|InvalidArgumentException) {
+            return null;
         }
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentLoopRunner;
 
+use voku\AgentLoop\Execution\ExecutionBinding;
 use voku\AgentLoopRunner\Application\RunnerStatus;
 use voku\AgentLoopRunner\Runtime\AttemptStatus;
 use voku\AgentLoopRunner\Runtime\RuntimeAttempt;

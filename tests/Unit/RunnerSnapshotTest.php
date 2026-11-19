@@ -6,12 +6,12 @@ namespace voku\AgentUi\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use voku\AgentLoop\Execution\ExecutionBinding;
 use voku\AgentLoop\Execution\ExecutionProfileName;
 use voku\AgentLoop\Execution\ExecutionProjection;
 use voku\AgentLoopRunner\Application\RunnerStatus;
 use voku\AgentLoopRunner\Runtime\AttemptStatus;
 use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
-use voku\AgentUi\Integration\AgentLoopRunner\ExecutionBinding;
 use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 
 final class RunnerSnapshotTest extends TestCase
