@@ -337,6 +337,52 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringNotContainsString('agent-loop · canonical next action', $response->body);
     }
 
+    public function testTaskOverviewDistinguishesUnavailableAttentionFromConfirmedAbsence(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Pending clarification.',
+        );
+        $decisions = new HumanDecisionGateway($this->root);
+
+        // Confirmed absence: the owner read succeeds and no Attention exists.
+        $created = $app->handle(new Request('POST', '/board/new', body: [
+            '_csrf' => (new CsrfTokenManager())->token(),
+            'card_id' => 'APP-2',
+            'title' => 'Card without execution',
+            'lane' => 'BACKLOG',
+            'status' => 'todo',
+        ]));
+        self::assertSame(303, $created->status);
+        $absent = $decisions->pendingAttentionObservation('APP-2');
+        self::assertTrue($absent->available);
+        self::assertNull($absent->attention);
+        $absentPage = $app->handle(new Request('GET', '/task/APP-2'));
+        self::assertSame(200, $absentPage->status);
+        self::assertStringNotContainsString('Attention visibility incomplete.', $absentPage->body);
+
+        // Unavailable: real corrupt owner execution state, while the workflow
+        // projection for the task page itself remains readable.
+        $statePath = (new ExecutionStateStore($this->root))->path('APP-1');
+        self::assertFileExists($statePath);
+        self::assertNotFalse(file_put_contents($statePath, '{broken JSON'));
+        $unavailable = $decisions->pendingAttentionObservation('APP-1');
+        self::assertFalse($unavailable->available);
+        self::assertNull($unavailable->attention);
+        (new WorkflowProjectionGateway($this->root))->task('APP-1');
+
+        $page = $app->handle(new Request('GET', '/task/APP-1'));
+        self::assertSame(200, $page->status);
+        $main = $this->main($page->body);
+        self::assertStringContainsString('Attention visibility incomplete.', $main);
+        self::assertStringContainsString('id="attention-availability"', $main);
+        // No invented Attention and no new permission.
+        self::assertStringNotContainsString('Pending clarification.', $main);
+        self::assertStringNotContainsString('requires human attention', $main);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $main);
+    }
+
     public function testAuthorizedAttentionResolutionRecordsDecisionAndResumesAttempt(): void
     {
         $app = $this->createTaskWithPendingAttention(
