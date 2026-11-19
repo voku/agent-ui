@@ -10,7 +10,7 @@ use voku\AgentLoop\Run\RunManifest;
 use voku\AgentLoop\Run\RunManifestProjector;
 use voku\AgentLoop\Workflow\WorkflowTaskId;
 
-final readonly class WorkflowProjectionGateway
+final readonly class WorkflowProjectionGateway implements WorkflowProjectionReader
 {
     public function __construct(private string $projectRoot)
     {

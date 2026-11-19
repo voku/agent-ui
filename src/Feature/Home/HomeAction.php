@@ -86,12 +86,14 @@ final readonly class HomeAction
         if ($runnerInstalled) {
             foreach ($board->cards as $card) {
                 try {
-                    $runnerSnapshot = $this->runner->status($card->id);
-                    if ($runnerSnapshot->observationStatus === 'running') {
+                    // Read-only journal observation: a GET must never ask Runner
+                    // for authority, which may prepare Loop execution artifacts.
+                    $runnerSnapshot = $this->runner->observe($card->id);
+                    if ($runnerSnapshot->processRunning()) {
                         $activeRunnerTasks[] = [
                             'taskId' => $card->id,
                             'title' => $card->title,
-                            'stage' => $runnerSnapshot->observationStageId ?? $runnerSnapshot->currentStageId,
+                            'stage' => $runnerSnapshot->observationStageId,
                         ];
                     }
                 } catch (Throwable) {

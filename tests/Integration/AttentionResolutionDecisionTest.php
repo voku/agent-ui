@@ -8,14 +8,33 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use voku\AgentLoop\Execution\AttentionKind;
 use voku\AgentLoop\Execution\ExecutionGateway;
+use voku\AgentLoop\Execution\ExecutionPlanStore;
+use voku\AgentLoop\Execution\ExecutionStateStore;
 use voku\AgentLoop\Execution\StageOutcome;
 use voku\AgentLoop\Execution\StageResult;
+use voku\AgentLoop\Run\GovernedRunStore;
+use voku\AgentLoop\Run\RunRetirementStore;
 use voku\AgentLoop\Workflow\HostFrontDoorApplication;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoopRunner\RunnerLayout;
+use voku\AgentLoopRunner\Runtime\AttemptStatus;
+use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
+use voku\AgentLoopRunner\Runtime\RuntimeJournal;
 use voku\AgentUi\Application\Application;
+use voku\AgentUi\Feature\Task\TaskAction;
+use voku\AgentUi\Feature\Task\TaskContextComposer;
 use voku\AgentUi\Http\Request;
+use voku\AgentUi\Integration\AgentKanban\BoardProjectionGateway;
+use voku\AgentUi\Integration\AgentKanban\CardMutationGateway;
 use voku\AgentUi\Integration\AgentLoop\HumanDecisionGateway;
+use voku\AgentUi\Integration\AgentLoop\TaskTransparencyGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionGateway;
+use voku\AgentUi\Integration\AgentLoop\WorkflowProjectionReader;
+use voku\AgentUi\Integration\AgentLoopRunner\RunnerGateway;
+use voku\AgentUi\Integration\AgentMap\MapProjectionGateway;
+use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationGateway;
 use voku\AgentUi\Security\CsrfTokenManager;
+use voku\AgentUi\View\TemplateRenderer;
 
 /**
  * Human Attention Resolution workflow integration tests.
@@ -60,6 +79,31 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(AttentionKind::CLARIFICATION_REQUIRED, $attention->kind);
         self::assertSame('Ambiguity in business requirement for worker output.', $attention->message);
 
+        // The existing Board card reflects owner Attention in its authoritative
+        // Kanban lane, without duplicating the card in a second decision queue.
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertStringContainsString('card--attention', $board->body);
+        self::assertStringNotContainsString('id="board-decision-queue"', $board->body);
+        self::assertStringContainsString('waiting on a human decision', $board->body);
+        $boardProjection = (new BoardProjectionGateway($this->root))->board();
+        self::assertCount(1, $boardProjection->cards);
+        self::assertStringContainsString(
+            '<span class="lane__name">' . $boardProjection->cards[0]->lane . '</span>',
+            $board->body,
+        );
+        self::assertStringContainsString('href="/task/APP-1#decision"', $board->body);
+        self::assertStringContainsString('Execution Attention:', $board->body);
+        self::assertStringContainsString('Ambiguity in business requirement for worker output.', $board->body);
+        self::assertSame(1, substr_count($board->body, 'Ambiguity in business requirement for worker output.'), 'The decision message should appear only once on the Board.');
+        $observed = $gateway->pendingAttentionObservation('APP-1');
+        self::assertTrue($observed->available);
+        self::assertNotNull($observed->attention);
+
+        $filteredBoard = $app->handle(new Request('GET', '/board', query: ['workflow' => 'decision_required']));
+        self::assertStringContainsString('card--attention', $filteredBoard->body);
+        self::assertStringContainsString('href="/task/APP-1#decision"', $filteredBoard->body);
+
         // 1. Task overview page renders Attention in #decision
         $overview = $app->handle(new Request('GET', '/task/APP-1'));
         self::assertSame(200, $overview->status);
@@ -102,6 +146,285 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertStringContainsString((string) $attention->id, $data['decision_html']);
     }
 
+    public function testBoardGetDoesNotRecreateMissingExecutionPlanOrState(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+
+        $planPath = (new ExecutionPlanStore($this->root))->path('APP-1');
+        $statePath = (new ExecutionStateStore($this->root))->path('APP-1');
+        self::assertFileExists($planPath);
+        self::assertFileExists($statePath);
+        self::assertTrue(unlink($statePath));
+        self::assertTrue(unlink($planPath));
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertFileDoesNotExist($planPath);
+        self::assertFileDoesNotExist($statePath);
+        self::assertStringNotContainsString('Execution Attention:', $board->body);
+    }
+
+    public function testBoardGetKeepsMultipleGovernedExecutionsReadOnly(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Decision for the first task.',
+        );
+        $this->createTaskWithPendingAttention(
+            taskId: 'APP-2',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Decision for the second task.',
+        );
+
+        $plans = new ExecutionPlanStore($this->root);
+        $states = new ExecutionStateStore($this->root);
+        $firstPlanPath = $plans->path('APP-1');
+        $firstStatePath = $states->path('APP-1');
+        $firstPlan = file_get_contents($firstPlanPath);
+        $firstState = file_get_contents($firstStatePath);
+        self::assertIsString($firstPlan);
+        self::assertIsString($firstState);
+
+        self::assertTrue(unlink($states->path('APP-2')));
+        self::assertTrue(unlink($plans->path('APP-2')));
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertSame($firstPlan, file_get_contents($firstPlanPath));
+        self::assertSame($firstState, file_get_contents($firstStatePath));
+        self::assertFileDoesNotExist($plans->path('APP-2'));
+        self::assertFileDoesNotExist($states->path('APP-2'));
+        self::assertStringContainsString('Decision for the first task.', $board->body);
+        self::assertStringNotContainsString('Decision for the second task.', $board->body);
+
+        // The home page probes every card's Runner observation as well.
+        $home = $app->handle(new Request('GET', '/'));
+        self::assertSame(200, $home->status);
+        self::assertSame($firstPlan, file_get_contents($firstPlanPath));
+        self::assertSame($firstState, file_get_contents($firstStatePath));
+        self::assertFileDoesNotExist($plans->path('APP-2'));
+        self::assertFileDoesNotExist($states->path('APP-2'));
+    }
+
+    public function testBoardShowsRunnerAttemptOnlyWhileItMatchesCurrentLoopAuthority(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        $journal = new RuntimeJournal(new RunnerLayout($this->root));
+        $attempt = static fn(string $runId): RuntimeAttempt => new RuntimeAttempt(
+            'APP-1',
+            $runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            AttemptStatus::ProcessStarted,
+        );
+
+        $journal->save($attempt($run->runId));
+        self::assertStringContainsString('Runner: process started', $app->handle(new Request('GET', '/board'))->body);
+
+        $journal->save($attempt('run:APP-1:replaced'));
+        $stale = $app->handle(new Request('GET', '/board'))->body;
+        self::assertStringContainsString('Runner: stale', $stale);
+        self::assertStringNotContainsString('Runner: process started', $stale);
+
+        $journal->save($attempt($run->runId));
+        (new RunRetirementStore($this->root))->record($run, 'abandoned', 'Replaced by a new plan.', 'maintainer');
+        $retired = $app->handle(new Request('GET', '/board'))->body;
+        self::assertStringContainsString('Runner: unverified', $retired, 'A retired Run keeps its id in the manifest but is no longer current.');
+        self::assertStringNotContainsString('Runner: process started', $retired);
+    }
+
+    public function testBoardAndHomeClassifyRealRunnerJournalStatuses(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        $journal = new RuntimeJournal(new RunnerLayout($this->root));
+        $attempt = static fn(string $runId, AttemptStatus $status): RuntimeAttempt => new RuntimeAttempt(
+            'APP-1',
+            $runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            $status,
+        );
+        $executing = static fn(Application $app): string => $app->handle(new Request('GET', '/board', query: ['workflow' => 'executing']))->body;
+
+        $journal->save($attempt($run->runId, AttemptStatus::ProcessStarted));
+        $board = $executing($app);
+        self::assertStringContainsString('<strong>1</strong> actively executing', $board);
+        self::assertStringContainsString('href="/task/APP-1', $board);
+        self::assertStringContainsString('APP-1 active', $app->handle(new Request('GET', '/'))->body);
+
+        // A stale journal entry with the same status is not current execution.
+        $journal->save($attempt('run:APP-1:replaced', AttemptStatus::ProcessStarted));
+        $board = $executing($app);
+        self::assertStringContainsString('<strong>0</strong> actively executing', $board);
+        self::assertStringNotContainsString('APP-1 active', $app->handle(new Request('GET', '/'))->body);
+
+        $journal->save($attempt($run->runId, AttemptStatus::ProcessExited));
+        self::assertStringContainsString('<strong>0</strong> actively executing', $executing($app));
+    }
+
+    public function testRevisedContractMakesRunnerAttemptUnverifiedAlthoughRunIdIsUnchanged(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Clarify the expected output.',
+        );
+        $run = (new GovernedRunStore($this->root))->find('APP-1');
+        $plan = (new ExecutionPlanStore($this->root))->find('APP-1');
+        self::assertNotNull($run);
+        self::assertNotNull($plan);
+        (new RuntimeJournal(new RunnerLayout($this->root)))->save(new RuntimeAttempt(
+            'APP-1',
+            $run->runId,
+            $run->contractRevision,
+            $plan->digest(),
+            'investigate',
+            1,
+            'codex',
+            'sha256:workspace',
+            'submission-runner-1',
+            AttemptStatus::ProcessStarted,
+        ));
+
+        $contracts = new TaskContractStore($this->root);
+        $contracts->revise(
+            taskId: 'APP-1',
+            goal: 'Execute worker correctly, revised.',
+            scope: ['src/Worker.php'],
+            nonGoals: ['no api changes'],
+            validation: ['php -l src/Worker.php'],
+            plannedBy: 'planner',
+            baseCommit: trim($this->git('rev-parse HEAD')),
+        );
+        $contracts->approve('APP-1', 'maintainer', $contracts->load('APP-1')->revision);
+
+        $board = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $board->status);
+        self::assertSame($run->runId, (new GovernedRunStore($this->root))->find('APP-1')?->runId, 'Precondition: Loop keeps the Run id until the next prepare.');
+        self::assertStringContainsString('Runner: unverified', $board->body);
+        self::assertStringNotContainsString('Runner: process started', $board->body);
+    }
+
+    public function testTaskOverviewSurvivesUnavailableWorkflowWhenExecutionOwnerHasAttention(): void
+    {
+        $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Please clarify <the format> & its escaping.',
+        );
+
+        $board = new BoardProjectionGateway($this->root);
+        $decisions = new HumanDecisionGateway($this->root);
+        self::assertNotNull($decisions->pendingAttention('APP-1'));
+
+        // Fault injection at the manifest-projection boundary. The real
+        // ExecutionGateway remains usable and owns the pending Attention.
+        $unavailableWorkflow = $this->createStub(WorkflowProjectionReader::class);
+        $unavailableWorkflow->method('task')->willThrowException(
+            new RuntimeException('Manifest owner unavailable.'),
+        );
+
+        $action = new TaskAction(
+            $board,
+            $unavailableWorkflow,
+            $decisions,
+            new RunnerGateway($this->root),
+            new ContextExplanationGateway($this->root),
+            new TaskTransparencyGateway($this->root),
+            new CardMutationGateway($this->root),
+            new MapProjectionGateway($this->root),
+            new TaskContextComposer($board, new WorkflowProjectionGateway($this->root), $decisions),
+            new CsrfTokenManager(),
+            new TemplateRenderer(dirname(__DIR__, 2) . '/templates'),
+        );
+
+        $response = $action('APP-1');
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('id="decision"', $response->body);
+        self::assertStringContainsString('Workflow projection unavailable', $response->body);
+        self::assertStringContainsString('Please clarify &lt;the format&gt; &amp; its escaping.', $response->body);
+        self::assertStringNotContainsString('Please clarify <the format>', $response->body);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $response->body);
+        self::assertStringNotContainsString('agent-loop · canonical next action', $response->body);
+    }
+
+    public function testTaskOverviewDistinguishesUnavailableAttentionFromConfirmedAbsence(): void
+    {
+        $app = $this->createTaskWithPendingAttention(
+            taskId: 'APP-1',
+            outcome: StageOutcome::NEEDS_CLARIFICATION,
+            message: 'Pending clarification.',
+        );
+        $decisions = new HumanDecisionGateway($this->root);
+
+        // Confirmed absence: the owner read succeeds and no Attention exists.
+        $created = $app->handle(new Request('POST', '/board/new', body: [
+            '_csrf' => (new CsrfTokenManager())->token(),
+            'card_id' => 'APP-2',
+            'title' => 'Card without execution',
+            'lane' => 'BACKLOG',
+            'status' => 'todo',
+        ]));
+        self::assertSame(303, $created->status);
+        $absent = $decisions->pendingAttentionObservation('APP-2');
+        self::assertTrue($absent->available);
+        self::assertNull($absent->attention);
+        $absentPage = $app->handle(new Request('GET', '/task/APP-2'));
+        self::assertSame(200, $absentPage->status);
+        self::assertStringNotContainsString('Attention visibility incomplete.', $absentPage->body);
+
+        // Unavailable: real corrupt owner execution state, while the workflow
+        // projection for the task page itself remains readable.
+        $statePath = (new ExecutionStateStore($this->root))->path('APP-1');
+        self::assertFileExists($statePath);
+        self::assertNotFalse(file_put_contents($statePath, '{broken JSON'));
+        $unavailable = $decisions->pendingAttentionObservation('APP-1');
+        self::assertFalse($unavailable->available);
+        self::assertNull($unavailable->attention);
+        (new WorkflowProjectionGateway($this->root))->task('APP-1');
+
+        $page = $app->handle(new Request('GET', '/task/APP-1'));
+        self::assertSame(200, $page->status);
+        $main = $this->main($page->body);
+        self::assertStringContainsString('Attention visibility incomplete.', $main);
+        self::assertStringContainsString('id="attention-availability"', $main);
+        // No invented Attention and no new permission.
+        self::assertStringNotContainsString('Pending clarification.', $main);
+        self::assertStringNotContainsString('requires human attention', $main);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $main);
+    }
+
     public function testAuthorizedAttentionResolutionRecordsDecisionAndResumesAttempt(): void
     {
         $app = $this->createTaskWithPendingAttention(
@@ -140,6 +463,11 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame('operator-alice', $history[0]->actor);
         self::assertSame('Keep the worker output format unchanged.', $history[0]->response);
 
+        // Once Loop resolves Attention, the Board no longer presents its owner signal.
+        $afterBoard = $app->handle(new Request('GET', '/board'));
+        self::assertSame(200, $afterBoard->status);
+        self::assertStringNotContainsString('Execution Attention:', $afterBoard->body);
+
         // Subsequent page view: No attention panel or decision link
         $freshProgress = $app->handle(new Request('GET', '/task/APP-1/progress'));
         self::assertSame(200, $freshProgress->status);
@@ -154,6 +482,9 @@ final class AttentionResolutionDecisionTest extends TestCase
         $data = json_decode($freshJson->body, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($data);
         self::assertFalse($data['has_human_decision'] ?? true);
+        $observedAfter = $gateway->pendingAttentionObservation('APP-1');
+        self::assertTrue($observedAfter->available);
+        self::assertNull($observedAfter->attention);
     }
 
     public function testResolutionFailsClosedOnMissingOrInvalidCsrf(): void

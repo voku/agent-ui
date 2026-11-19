@@ -11,12 +11,13 @@ use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, pending_attention?: ?AttentionRequest, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, pending_attention?: ?AttentionRequest, attention_available?: bool, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
 $pendingAttention = $model['pending_attention'] ?? null;
+$attentionAvailable = $model['attention_available'] ?? true;
 $contract = $model['contract'] ?? null;
 $contractDelta = $model['contract_delta'] ?? null;
 $runner = $model['runner'];
@@ -229,6 +230,17 @@ require __DIR__ . '/../layout/header.php';
                 <p class="note" style="margin-top:2px">owner: <?= TemplateRenderer::escape($d['owner']) ?></p>
             </div>
         <?php endforeach; ?>
+    </section>
+<?php endif; ?>
+
+<?php if (!$attentionAvailable): ?>
+    <section class="panel" role="status" id="attention-availability" aria-label="Attention availability">
+        <p class="note" style="margin:0">
+            <strong>Attention visibility incomplete.</strong>
+            agent-loop could not verify whether execution Attention is pending for this task.
+            The absence of an Attention decision on this page is not confirmation that none is waiting;
+            inspect the owner state before relying on it.
+        </p>
     </section>
 <?php endif; ?>
 

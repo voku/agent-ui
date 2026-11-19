@@ -187,12 +187,20 @@ final readonly class HumanDecisionGateway
 
     public function pendingAttention(string $taskId): ?AttentionRequest
     {
-        try {
-            $projection = (new ExecutionGateway($this->projectRoot))->projection($taskId);
+        return $this->pendingAttentionObservation($taskId)->attention;
+    }
 
-            return $projection->attention;
+    /**
+     * An unavailable owner projection is not proof that no decision is pending.
+     */
+    public function pendingAttentionObservation(string $taskId): PendingAttentionObservation
+    {
+        try {
+            $attention = (new ExecutionGateway($this->projectRoot))->observePendingAttention($taskId);
+
+            return new PendingAttentionObservation($attention);
         } catch (Throwable) {
-            return null;
+            return new PendingAttentionObservation(null, false);
         }
     }
 
