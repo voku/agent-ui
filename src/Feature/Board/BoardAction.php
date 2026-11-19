@@ -85,13 +85,13 @@ final readonly class BoardAction
                 if ($snapshot->disagreements !== []) {
                     ++$disagreements;
                 }
-                if ($snapshot->state === 'blocked' || $card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
+                if ($snapshot->state === 'blocked' || $card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->attemptInterrupted())) {
                     ++$blockedCount;
                 }
-            } elseif ($card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->observationStatus === 'interrupted')) {
+            } elseif ($card->lane === 'BLOCKED' || ($runnerSnapshot !== null && $runnerSnapshot->attemptInterrupted())) {
                 ++$blockedCount;
             }
-            if ($runnerSnapshot !== null && $runnerSnapshot->installed && $runnerSnapshot->observationStatus === 'working') {
+            if ($runnerSnapshot !== null && $runnerSnapshot->processRunning()) {
                 ++$executingCount;
             }
 
@@ -167,10 +167,10 @@ final readonly class BoardAction
             $hit = match ($workflowFilter) {
                 self::FILTER_DISAGREEMENT => $workflow !== null && $workflow->disagreements !== [],
                 self::FILTER_DECISION_REQUIRED => $workflow?->nextActionKind === self::FILTER_DECISION_REQUIRED || $hasPendingAttention,
-                self::FILTER_EXECUTING => $runner !== null && $runner->installed && $runner->observationStatus === 'working',
+                self::FILTER_EXECUTING => $runner !== null && $runner->processRunning(),
                 self::FILTER_BLOCKED => ($workflow !== null && $workflow->state === 'blocked')
                     || $card->lane === 'BLOCKED'
-                    || ($runner !== null && $runner->observationStatus === 'interrupted'),
+                    || ($runner !== null && $runner->attemptInterrupted()),
                 default => $workflow !== null && $workflow->nextActionKind === $workflowFilter,
             };
             if (!$hit) {

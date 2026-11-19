@@ -89,7 +89,7 @@ final readonly class HomeAction
                     // Read-only journal observation: a GET must never ask Runner
                     // for authority, which may prepare Loop execution artifacts.
                     $runnerSnapshot = $this->runner->observe($card->id);
-                    if ($runnerSnapshot->observationStatus === 'running') {
+                    if ($runnerSnapshot->processRunning()) {
                         $activeRunnerTasks[] = [
                             'taskId' => $card->id,
                             'title' => $card->title,

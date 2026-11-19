@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentUi\Integration\AgentLoopRunner;
 
 use voku\AgentLoopRunner\Application\RunnerStatus;
+use voku\AgentLoopRunner\Runtime\AttemptStatus;
 use voku\AgentLoopRunner\Runtime\RuntimeAttempt;
 
 final readonly class RunnerSnapshot
@@ -68,6 +69,27 @@ final readonly class RunnerSnapshot
             $attempt?->contractRevision,
             $attempt?->executionPlanDigest,
         );
+    }
+
+    /**
+     * The journal records a started process that has not exited: the only
+     * state Runner itself treats as a live, cancellable process. A stale or
+     * unverified observation is never running.
+     */
+    public function processRunning(): bool
+    {
+        return $this->observationStatus !== null
+            && $this->observationStatus === AttemptStatus::ProcessStarted->value;
+    }
+
+    /**
+     * The attempt ended without an accepted result: Runner recorded it as
+     * failed or cancelled. Other Runner statuses render neutrally.
+     */
+    public function attemptInterrupted(): bool
+    {
+        return $this->observationStatus !== null
+            && in_array($this->observationStatus, [AttemptStatus::Failed->value, AttemptStatus::Cancelled->value], true);
     }
 
     /**

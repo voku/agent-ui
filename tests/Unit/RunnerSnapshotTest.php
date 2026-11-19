@@ -117,4 +117,41 @@ final class RunnerSnapshotTest extends TestCase
     {
         return new RuntimeAttempt('TASK-1', $runId, 1, 'sha256:plan', 'implementation', 2, 'codex', 'sha256:workspace', 'submission-1', AttemptStatus::ProcessStarted);
     }
+
+    /** @return iterable<string, array{AttemptStatus, bool, bool}> */
+    public static function runnerAttemptStatuses(): iterable
+    {
+        foreach (AttemptStatus::cases() as $status) {
+            yield $status->value => [
+                $status,
+                $status === AttemptStatus::ProcessStarted,
+                in_array($status, [AttemptStatus::Failed, AttemptStatus::Cancelled], true),
+            ];
+        }
+    }
+
+    #[DataProvider('runnerAttemptStatuses')]
+    public function testClassifiesEveryRunnerAttemptStatusFromTheOwnerEnum(AttemptStatus $status, bool $running, bool $interrupted): void
+    {
+        $attempt = new RuntimeAttempt('TASK-1', 'run:TASK-1', 1, 'sha256:plan', 'implementation', 1, 'codex', 'sha256:workspace', 'submission-1', $status);
+        $current = RunnerSnapshot::fromObservation($attempt)->boundTo(new ExecutionBinding('run:TASK-1', 1, 'sha256:plan'));
+
+        self::assertSame($status->value, $current->observationStatus);
+        self::assertSame($running, $current->processRunning());
+        self::assertSame($interrupted, $current->attemptInterrupted());
+
+        foreach ([new ExecutionBinding('run:TASK-1:other', 1, 'sha256:plan'), null] as $notCurrent) {
+            $bound = RunnerSnapshot::fromObservation($attempt)->boundTo($notCurrent);
+            self::assertFalse($bound->processRunning(), 'A stale or unverified attempt is never running.');
+            self::assertFalse($bound->attemptInterrupted(), 'A stale or unverified attempt is never current interruption.');
+        }
+    }
+
+    public function testNoRunnerObservationIsNeitherRunningNorInterrupted(): void
+    {
+        foreach ([RunnerSnapshot::notInstalled(), RunnerSnapshot::diagnostic('journal unreadable'), RunnerSnapshot::fromObservation(null)] as $snapshot) {
+            self::assertFalse($snapshot->processRunning());
+            self::assertFalse($snapshot->attemptInterrupted());
+        }
+    }
 }

@@ -9,6 +9,7 @@ use RuntimeException;
 use voku\AgentLoop\Execution\AttentionKind;
 use voku\AgentLoop\Execution\AttentionRequest;
 use voku\AgentLoop\Workflow\TaskContractStore;
+use voku\AgentLoopRunner\Runtime\AttemptStatus;
 use voku\AgentUi\Application\Application;
 use voku\AgentUi\Feature\Board\BoardAction;
 use voku\AgentUi\Http\Request;
@@ -132,7 +133,7 @@ final class BoardPageTest extends TestCase
             attentionId: null,
             complete: false,
             hostId: 'codex',
-            observationStatus: 'interrupted',
+            observationStatus: AttemptStatus::Failed->value,
             observationStageId: 'build',
             observationAttempt: 1,
             allowRun: false,
@@ -164,7 +165,7 @@ final class BoardPageTest extends TestCase
             attentionId: null,
             complete: false,
             hostId: 'codex',
-            observationStatus: 'working',
+            observationStatus: AttemptStatus::ProcessStarted->value,
             observationStageId: 'build',
             observationAttempt: 1,
             allowRun: false,
