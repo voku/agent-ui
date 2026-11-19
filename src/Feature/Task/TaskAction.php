@@ -75,6 +75,9 @@ final readonly class TaskAction
             'workflow' => $workflow,
             'human_decisions' => $humanDecisions,
             'pending_attention' => $pendingAttention,
+            // Null Attention is only confirmed absence while the owner read
+            // succeeded; keep the distinction visible on the task page.
+            'attention_available' => $observedAttention->available,
             'contract' => $contract,
             'contract_delta' => $this->contractDelta($taskId, $contract, $workflow->nextAction, $workflow->nextActionKind),
             'runner' => $this->runner->status($taskId),
