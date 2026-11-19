@@ -4,6 +4,16 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [0.20.7] - 2026-11-19
+
+### Fixed
+
+- The managed `agent-recall-consumer` skill linked the Recall package embedding documentation with a relative `../../../docs/embedding.md`, which resolved against this repository once projected. It now uses the absolute package URL from `voku/agent-recall-compiler` 0.29.2 (voku/agent-recall-compiler#284); both Claude and Codex projections are refreshed with `agent-loop init install-assets`.
+
+### Dependencies
+
+- Require `voku/agent-recall-compiler ^0.29.2`, the release that ships the fixed skill, so the lowest supported graph matches the committed projection.
+
 ## [0.20.6] - 2026-11-19
 
 ### Dependencies

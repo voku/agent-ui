@@ -222,8 +222,8 @@
             "semantic_owner": "voku/agent-recall-compiler",
             "source_path": null,
             "source_reference": "resources/skills/agent-recall-consumer",
-            "source_sha256": "sha256:f1c3e705f6d88b8ad279e3e75c13fc03131508424e0377892c3b7e10f7dabda1",
-            "representation_sha256": "sha256:f1c3e705f6d88b8ad279e3e75c13fc03131508424e0377892c3b7e10f7dabda1",
+            "source_sha256": "sha256:d357b7ad5a89dfc9fec71b0fad5232664334a526cf1be6f615b6abbef9b42403",
+            "representation_sha256": "sha256:d357b7ad5a89dfc9fec71b0fad5232664334a526cf1be6f615b6abbef9b42403",
             "adopted": false
         },
         {
