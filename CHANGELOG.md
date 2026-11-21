@@ -9,6 +9,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 ### Changed
 
 - Require `voku/agent-learning` `^0.21.0` and `voku/agent-loop` `^0.20.102`. The previous `^0.20.0` Learning range held the UI at Loop 0.20.101, because every later Loop release requires Learning `^0.21.0`; under 0.x caret semantics the two ranges did not overlap. The Loop floor now names the oldest release that resolves with this Learning range instead of an unsatisfiable `^0.20.98`. Supersedes the Renovate update #193.
+- Require `voku/agent-recall-compiler` `^0.29.5` and refresh the committed Claude/Codex projections of the `agent-learning-consumer`, `agent-learning-note` and `agent-recall-consumer` skills from those owners. `ManagedSkillProjectionTest` compares the projections byte-for-byte with the installed owner sources, and the Recall skill changed in 0.29.5 (identical through 0.29.8), so the lowest supported graph must not resolve an older Recall.
 
 ## [0.20.7] - 2026-11-19
 
