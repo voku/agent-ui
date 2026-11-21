@@ -4,6 +4,12 @@ All notable changes to `voku/agent-ui` will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses semantic versioning where practical.
 
+## [Unreleased]
+
+### Changed
+
+- Require `voku/agent-learning` `^0.21.0` and `voku/agent-loop` `^0.20.102`. The previous `^0.20.0` Learning range held the UI at Loop 0.20.101, because every later Loop release requires Learning `^0.21.0`; under 0.x caret semantics the two ranges did not overlap. The Loop floor now names the oldest release that resolves with this Learning range instead of an unsatisfiable `^0.20.98`. Supersedes the Renovate update #193.
+
 ## [0.20.7] - 2026-11-19
 
 ### Fixed
