@@ -404,25 +404,21 @@ final class AttentionResolutionDecisionTest extends TestCase
         self::assertSame(200, $absentPage->status);
         self::assertStringNotContainsString('Attention visibility incomplete.', $absentPage->body);
 
-        // Unavailable: real corrupt owner execution state, while the workflow
-        // projection for the task page itself remains readable.
+        // Unavailable: a corrupt owner execution state also prevents the
+        // canonical workflow projection. Fail closed instead of presenting
+        // missing Attention as a confirmed absence or offering a mutation.
         $statePath = (new ExecutionStateStore($this->root))->path('APP-1');
         self::assertFileExists($statePath);
         self::assertNotFalse(file_put_contents($statePath, '{broken JSON'));
         $unavailable = $decisions->pendingAttentionObservation('APP-1');
         self::assertFalse($unavailable->available);
         self::assertNull($unavailable->attention);
-        (new WorkflowProjectionGateway($this->root))->task('APP-1');
 
         $page = $app->handle(new Request('GET', '/task/APP-1'));
-        self::assertSame(200, $page->status);
-        $main = $this->main($page->body);
-        self::assertStringContainsString('Attention visibility incomplete.', $main);
-        self::assertStringContainsString('id="attention-availability"', $main);
-        // No invented Attention and no new permission.
-        self::assertStringNotContainsString('Pending clarification.', $main);
-        self::assertStringNotContainsString('requires human attention', $main);
-        self::assertStringNotContainsString('action="/task/APP-1/attention"', $main);
+        self::assertSame(500, $page->status);
+        self::assertStringContainsString('Something went wrong', $page->body);
+        self::assertStringNotContainsString('Pending clarification.', $page->body);
+        self::assertStringNotContainsString('action="/task/APP-1/attention"', $page->body);
     }
 
     public function testAuthorizedAttentionResolutionRecordsDecisionAndResumesAttempt(): void
