@@ -8,6 +8,7 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ### Fixed
 
+- The Runner-optional matrix (`runner-absent`, `runner-installed`) failed after the home page heading became "Overview": `tools/runner-optional-smoke.php` still expected the removed "Developer Cockpit" text on `/`. The smoke now checks the Overview heading.
 - CI failed on `main` once `voku/agent-loop` 0.20.108 was released: its `agent-loop-l2-context`, `agent-loop-task-start` and `agent-loop-workflow` skills, its subagents and its router instructions changed, so `ManagedSkillProjectionTest` no longer matched the committed projections on the highest graph. The Claude/Codex skill and subagent projections and `AGENTS.md` are refreshed with `agent-loop init install-assets`, and the Loop floor is now `^0.20.108` so the lowest supported graph projects the same skills.
 
 ### Added

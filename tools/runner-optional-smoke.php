@@ -74,7 +74,7 @@ try {
 
     $application = new Application($root, dirname(__DIR__) . '/templates');
     foreach ([
-        '/' => 'Developer Cockpit',
+        '/' => '· Overview</h1>',
         '/setup' => null,
         '/board' => null,
         '/knowledge' => null,
