@@ -12,8 +12,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/subagents/agent-loop-blindspot-reviewer.md",
-            "source_sha256": "sha256:d50798d1ea93ca3d30a092565d8f0fbe251e158e9e2d6866d2c4f3b3d323d30e",
-            "representation_sha256": "sha256:55dbd0fc3f5f662b3f71157e0fee25884338393af4180b75a9932bf6278bc01e",
+            "source_sha256": "sha256:19b57c37e1d28c1a4c3895e394098696e9504baba6e08170b421bc6e2f175400",
+            "representation_sha256": "sha256:4272d95cbf068694237022c86994ae6541168922118e532521aec406ff4dee75",
             "adopted": false
         },
         {
@@ -22,8 +22,8 @@
             "semantic_owner": "voku/agent-loop",
             "source_path": null,
             "source_reference": "resources/subagents/agent-loop-code-reviewer.md",
-            "source_sha256": "sha256:ac991191fc5dea4d04b94934d8300b9c079f2f73525d4689d2c4511b2a2e5031",
-            "representation_sha256": "sha256:f1346a484d3e18b4976a57f9d83ae26b5fc60d3b9922978c9bc2faea7b8e65fc",
+            "source_sha256": "sha256:9acf31749f236468d79b5842051ed29ea7ac6c49a31014e9560b060e79fe0896",
+            "representation_sha256": "sha256:29adc8c4058b6bbcae9a380b6f6817912d0c6fd504f597ff864da05d9bdd737b",
             "adopted": false
         },
         {

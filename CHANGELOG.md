@@ -6,6 +6,10 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Fixed
+
+- CI failed on `main` once `voku/agent-loop` 0.20.108 was released: its `agent-loop-l2-context`, `agent-loop-task-start` and `agent-loop-workflow` skills, its subagents and its router instructions changed, so `ManagedSkillProjectionTest` no longer matched the committed projections on the highest graph. The Claude/Codex skill and subagent projections and `AGENTS.md` are refreshed with `agent-loop init install-assets`, and the Loop floor is now `^0.20.108` so the lowest supported graph projects the same skills.
+
 ### Added
 
 - Where a human decision waits, the task page and the Workflow workspace now show agent-loop's typed decision card (`WorkflowDecisionCard`) verbatim before any form: title, subject, why now (including the revision delta), what may change, what is out of scope, proof, what approval authorizes, the choices with their exact commands, and what the owner does not know. Gates without a UI form, such as risk acceptance or Contract supersession, now show their card instead of only the raw next action. The card is read through Loop's `projectManifest()` from the manifest the page already projects, so it carries the same run-policy blockers as the CLI card. An unknown schema major version or field shape yields no card rather than a partial one. A gate that has only a card now also raises the task's decision link and the Workspace's waiting badge.

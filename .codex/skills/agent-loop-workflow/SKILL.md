@@ -68,6 +68,10 @@ When this skill is invoked for an end-to-end implementation request, keep the re
 
 This is the implementation front door. Do not add a parallel `implement` skill that copies the same lifecycle semantics.
 
+## Session Question
+
+When `enter` returns `session_question`, ask it once before host work, in prose or with the host's question dialog, and run the chosen `command` unchanged to save the answer. Skip it when no human is attending or the developer already stated how to work. It is never blocking, it is not a `decision_required` boundary, and the answer grants no approval.
+
 ## Ambiguous New Work Items
 
 A newly created task/card already supplies durable identity; being new does **not** by itself require an interview. After entering through the normal front door, a task router may select the installed `requirements-interview` specialist only when the card plus the smallest relevant repository evidence still leaves consequential behavior, scope, constraints, edge cases, acceptance criteria, or compatibility decisions unresolved.
@@ -88,15 +92,38 @@ vendor/bin/agent-loop finish <task-id> --format=json
 
 Then obey the returned `next_action_kind` / `next_action` until `none` / complete.
 
+## Commit preparation
+
+Apply the router's commit-motivation rule to the actual commit selection
+(including partial staging). The diff can show what changed; the task/card,
+Contract, explicit decision, reproduced failure or documented constraint must
+support why it was wanted. Distinguish the developer's intent from the agent's
+implementation choice and planned from observed evidence.
+
+When the reason is still missing, ask one specific question in the configured
+developer-facing language, identifying what changed, what is known and what is
+missing. For example: "The change removes the legacy fallback. Was the old
+client retired, or must compatibility remain?" Do not infer retirement. Wait
+for the real answer before the affected commit; record the answer through the
+existing task/decision owner where appropriate and reuse it when still
+applicable. Keep unrelated work moving. If the uncertainty affects product
+intent or scope, stop the affected implementation earlier. Clarification is not
+additional approval, nor proof of a technical assertion. A necessary recovery
+checkpoint must describe its real purpose, not claim completed product work.
+
+Use the repository's commit language, not a transient interaction-language
+override. Keep private session details and sensitive evidence out of Git history.
+Where a commit-msg hook is configured, it checks message structure, not semantic truth.
+
 ## Decision & Review Presentation
 
-Before asking for any `decision_required` action, present the smallest complete developer-readable projection of the decision subject. Use the task's configured `prompting.language` for explanatory prose. Read the normalized `prompting` projection from `agent-loop workflow context <task-id> --format=json` when needed; the default is `en`. Preserve exact source text, technical identifiers, paths, commands, citations, and machine-readable status tokens. For explanatory messages from pipeline Attention, translate the explanation for the developer while retaining the exact owner evidence.
+Before asking for any `decision_required` action, present the smallest complete developer-readable projection of the decision subject. When the owner result carries `human_decision.card`, that card **is** the decision card: present its content fields (title, subject, why now, may change, out of scope, proof, unknown, what it authorizes, choices) and keep commands, paths and identifiers verbatim. Its `language` is the language the card text is written in and `requested_language` is what the session or project asked for; when `unknown` says the text needs translating, translate only the prose. Do not write a second card of your own. Only when `card` is absent or `null`, compose one from the `human_decision` subject as described below. Use the task's configured `prompting.language` (or the host session language set with `workflow interaction <host-session-id> --language=<BCP47>`) for your own explanatory prose. Read the normalized `prompting` projection from `agent-loop workflow context <task-id> --format=json` when needed; the default is `en`. Preserve exact source text, technical identifiers, paths, commands, citations, and machine-readable status tokens. For explanatory messages from pipeline Attention, translate the explanation for the developer while retaining the exact owner evidence.
 
 Apply this contract only when the current owner result says `decision_required`. Follow `command`, `command_template`, and `host_work` without turning them into confirmation questions. Ordinary review acknowledgement and Learning disposition remain agent work unless the owner explicitly marks a human decision as required.
 
 The message must make the human's choice clear:
 
-**Approval briefing first, details second.** Before any approval question, give a short, plain-language decision card grounded in the current `human_decision` projection (or equivalent owner evidence), not a generic progress summary. Cover: **what exact revision/digest is being approved and why now; what will be allowed to change; what remains explicitly out of scope; what proof exists versus what is unverified; what approving, requesting changes, or declining actually does**. For a revision, summarize changes relative to the last genuinely approved baseline when owner evidence provides one. If a required fact is unavailable, mark it unknown rather than inventing it. Never say tests passed when only a validation plan exists. Brevity removes filler, not conditions, unresolved risks or identity anchors.
+**Approval briefing first, details second.** Before any approval question, give a short, plain-language decision card grounded in the current `human_decision` projection (prefer `human_decision.card`; this paragraph describes what to cover when you must compose the card yourself), not a generic progress summary. Cover: **what exact revision/digest is being approved and why now; what will be allowed to change; what remains explicitly out of scope; what proof exists versus what is unverified; what approving, requesting changes, or declining actually does**. For a revision, summarize changes relative to the last genuinely approved baseline when owner evidence provides one. If a required fact is unavailable, mark it unknown rather than inventing it. Never say tests passed when only a validation plan exists. Brevity removes filler, not conditions, unresolved risks or identity anchors.
 
 Keep the card readable at a glance; offer the full typed Contract/review evidence immediately below it or through existing owner-backed links. If `control_plane_presentation.status=ready`, include its exact task URL as an optional rich view. If it is `unreachable` and a `start_command` exists, show that command as an explicit **manual** option; do not auto-start a service, assume a URL is live, or treat viewing the UI as approval. For `wrong_project`, `wrong_service`, `probe_failed`, or missing UI, retain the CLI/JSON evidence and do not fabricate a clickable task URL. Never replace an exact Contract or review record with a compressed paraphrase.
 
@@ -193,3 +220,5 @@ STATE: <current persisted lifecycle state>
 NEXT: <canonical next step or explicit human gate>
 ```
 Derive `STATE` and `NEXT` directly from the structured lifecycle result, never from a remembered phase diagram.
+
+When a governed task reaches completion or an actual blocking boundary, write the final developer-facing explanation anew for someone who has not read earlier progress messages. State the requested outcome, observed changes, exact available validation/review evidence, unresolved blockers or unknowns, and the current owner-backed next action. Keep the compact `RESULT`/`STATE`/`NEXT` receipt, but explain opaque agent shorthand where necessary; never treat a model's completion claim or a recommendation as workflow authority.
