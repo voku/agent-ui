@@ -897,6 +897,8 @@ document.querySelectorAll('.graph-node-link').forEach(function (node) {
                     if (openDetails) { openDetails.open = true; }
                 }
             });
+            /* The owner decision card carries Copy buttons that ship hidden. */
+            enhanceCopyButtons(decision);
             document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: decision } }));
         }
 

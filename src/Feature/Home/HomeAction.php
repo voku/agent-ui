@@ -71,12 +71,8 @@ final readonly class HomeAction
         }
 
         $mapReadiness = null;
-        $graph = null;
         try {
             $mapReadiness = $this->map->readiness();
-            if ($mapReadiness->isUsable()) {
-                $graph = $this->map->graph();
-            }
         } catch (Throwable) {
             // map remains defensive
         }
@@ -102,14 +98,6 @@ final readonly class HomeAction
             }
         }
 
-        $laneCounts = [];
-        foreach ($board->lanes as $lane) {
-            $laneCounts[$lane] = 0;
-        }
-        foreach ($board->cards as $card) {
-            $laneCounts[$card->lane] = ($laneCounts[$card->lane] ?? 0) + 1;
-        }
-
         return Response::html($this->templates->render('home/index', [
             'board' => $board,
             'attention' => $attention,
@@ -120,10 +108,8 @@ final readonly class HomeAction
             'learning' => $learning,
             'learning_error' => $learningError,
             'map_readiness' => $mapReadiness,
-            'graph' => $graph,
             'runner_installed' => $runnerInstalled,
             'active_runner_tasks' => $activeRunnerTasks,
-            'lane_counts' => $laneCounts,
         ]));
     }
 }

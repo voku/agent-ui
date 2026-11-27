@@ -96,7 +96,10 @@ final readonly class TaskContextComposer
             ));
         }
 
+        // Loop's decision card is its own typed projection of a waiting human
+        // gate, including gates this UI has no form for.
         $awaitsHumanDecision = $humanDecisions->actions !== []
+            || $workflow->decisionCard !== null
             || ($pendingAttention ?? $this->decisions->pendingAttention($card->id)) !== null;
 
         return new TaskContext(

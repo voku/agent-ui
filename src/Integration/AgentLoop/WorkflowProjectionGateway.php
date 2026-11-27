@@ -20,7 +20,10 @@ final readonly class WorkflowProjectionGateway implements WorkflowProjectionRead
     {
         $validated = new WorkflowTaskId($taskId);
 
-        return $this->snapshot((new RunManifestProjector($this->projectRoot))->project($validated->value));
+        $manifest = (new RunManifestProjector($this->projectRoot))->project($validated->value);
+
+        // Only the single-task read builds the card; list pages never show it.
+        return $this->snapshot($manifest, DecisionCardSnapshot::fromManifest($this->projectRoot, $manifest));
     }
 
     /**
@@ -74,7 +77,7 @@ final readonly class WorkflowProjectionGateway implements WorkflowProjectionRead
         return $snapshots;
     }
 
-    private function snapshot(RunManifest $manifest): WorkflowSnapshot
+    private function snapshot(RunManifest $manifest, ?DecisionCardSnapshot $decisionCard = null): WorkflowSnapshot
     {
         return new WorkflowSnapshot(
             taskId: $manifest->taskId,
@@ -85,6 +88,7 @@ final readonly class WorkflowProjectionGateway implements WorkflowProjectionRead
             disagreements: $manifest->disagreements,
             nextAction: $manifest->nextAction,
             nextActionKind: $manifest->nextActionKind,
+            decisionCard: $decisionCard,
         );
     }
 }

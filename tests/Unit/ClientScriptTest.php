@@ -45,6 +45,15 @@ final class ClientScriptTest extends TestCase
         self::assertStringContainsString('button.hidden = false', ClientScript::code());
     }
 
+    /** A decision card that arrives by refresh must get working Copy buttons too. */
+    public function testRefreshedDecisionMarkupHasItsCopyButtonsRevealed(): void
+    {
+        self::assertStringContainsString(
+            "enhanceCopyButtons(decision);\n            document.dispatchEvent(new CustomEvent('agent-ui:content-inserted', { detail: { root: decision } }));",
+            ClientScript::code(),
+        );
+    }
+
     /**
      * The `/` hint ships hidden and this script is what shows it, so the page
      * cannot advertise a key that nothing is listening for.

@@ -11,11 +11,12 @@ use voku\AgentUi\Integration\AgentLoopRunner\RunnerSnapshot;
 use voku\AgentUi\Integration\AgentRecallCompiler\ContextExplanationSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
-/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, pending_attention?: ?AttentionRequest, attention_available?: bool, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
+/** @var array{card: CardSnapshot, workflow: WorkflowSnapshot, human_decisions: WorkflowHumanDecisionProjection, decision_card?: ?\voku\AgentUi\Integration\AgentLoop\DecisionCardSnapshot, pending_attention?: ?AttentionRequest, attention_available?: bool, contract?: ?TaskContract, contract_delta?: ?ContractRevisionDelta, runner: RunnerSnapshot, context_explanation: ContextExplanationSnapshot, context_coverage: ContextCoverage, task_transparency: TaskTransparencyProjection, csrf_token: string} $model */
 $card = $model['card'];
 $taskContext = $model['task_context'];
 $workflow = $model['workflow'];
 $decisions = $model['human_decisions'];
+$decisionCard = $model['decision_card'] ?? null;
 $pendingAttention = $model['pending_attention'] ?? null;
 $attentionAvailable = $model['attention_available'] ?? true;
 $contract = $model['contract'] ?? null;
@@ -46,179 +47,12 @@ require __DIR__ . '/../layout/header.php';
 ?>
 <p class="crumbs"><a href="/board">Board</a></p>
 <?php $taskNavCurrent = ''; require __DIR__ . '/../layout/task-context.php'; ?>
-<div class="page-head page-head--split">
+<div class="page-head">
     <div>
         <h1>Task overview</h1>
         <?php if ($card->summary !== ''): ?><p class="lede"><?= TemplateRenderer::escape($card->summary) ?></p><?php endif; ?>
     </div>
-    <?php /* Workflow, Contract and Edit card are in the task navigation above; what
-             remains here is the way out of the task and into the code. */ ?>
-    <div class="btn-row" style="margin:0">
-        <a class="btn" href="/map?q=<?= rawurlencode($card->title) ?>">Find code &amp; impact</a>
-        <a class="btn" href="/map/graph">Architecture</a>
-    </div>
 </div>
-
-<?php if ($contract !== null && $decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
-    <p class="eyebrow">Decision briefing</p>
-    <section class="panel panel--attention" aria-label="Approval briefing">
-        <div class="action__head">
-            <strong>Approve Contract revision <?= (int) $contract->revision ?>?</strong>
-            <span class="pill pill--attention">Human decision required</span>
-        </div>
-        <p><strong>What this enables:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
-        <div class="grid">
-            <div>
-                <strong class="small">Where the agent may work</strong>
-                <div class="stack" style="margin-top:6px">
-                    <?php foreach ($contract->scope as $path): ?>
-                        <code><?= TemplateRenderer::escape($path) ?></code>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <div>
-                <strong class="small">Explicitly excluded</strong>
-                <?php if ($contract->nonGoals === []): ?>
-                    <p class="note">No non-goals were recorded. This does not expand the declared scope.</p>
-                <?php else: ?>
-                    <ul class="small">
-                        <?php foreach ($contract->nonGoals as $item): ?><li><?= TemplateRenderer::escape($item) ?></li><?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-            </div>
-        </div>
-        <p class="note">Acceptance criteria: <?= count($contract->acceptanceCriteria) ?>. Planned validation commands: <?= count($contract->validation) ?>.
-            A validation plan is not a passed test. Approval authorizes in-scope implementation, not acceptance of code, verification results or Learning.</p>
-        <?php if ($contractDelta !== null): ?>
-            <?php
-            $changedFields = array_keys($contractDelta->lists);
-            if ($contractDelta->previousGoal !== null) {
-                array_unshift($changedFields, 'Goal');
-            }
-            ?>
-            <p class="note"><strong>Change summary:</strong>
-                Revision <?= (int) $contractDelta->toRevision ?> compared with
-                <?= $contractDelta->previousWasApproved() ? 'approved' : 'draft' ?> revision <?= (int) $contractDelta->fromRevision ?>.
-                <?= $changedFields === []
-                    ? 'No changes in the compared fields.'
-                    : 'Changed fields: ' . TemplateRenderer::escape(implode(', ', $changedFields)) . '.' ?>
-                The full additions and removals are in the decision section below.</p>
-        <?php endif; ?>
-        <div class="btn-row">
-            <a class="btn btn--primary" href="#decision">Review full terms &amp; decide</a>
-            <a class="btn" href="/task/<?= rawurlencode($card->id) ?>/contract">Inspect Contract &amp; impact</a>
-        </div>
-    </section>
-<?php endif; ?>
-
-<?php if ($workflow->references !== []): ?>
-    <p class="eyebrow">Owner references</p>
-    <section class="panel">
-        <div class="refs">
-            <?php foreach ($workflow->references as $name => $reference): ?>
-                <?php $state = Presentation::referenceState($reference); ?>
-                <div class="ref ref--<?= TemplateRenderer::escape(Presentation::tone($state)) ?>" title="<?= TemplateRenderer::escape((string) $name . ': ' . Presentation::label($state) . ' — owned by ' . (Presentation::referenceOwner($reference) ?? 'unknown')) ?>">
-                    <span class="ref__name"><?= TemplateRenderer::escape(str_replace('_', ' ', (string) $name)) ?></span>
-                    <span class="ref__state"><?= TemplateRenderer::escape(Presentation::label($state)) ?></span>
-                </div>
-            <?php endforeach; ?>
-        </div>
-        <p class="note">Each mark is the state its owning package reports for that artifact. agent-ui does not derive them.</p>
-    </section>
-<?php endif; ?>
-
-<p class="eyebrow">Current state</p>
-<section class="panel action">
-    <div class="action__head">
-        <div>
-            <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
-        </div>
-        <a class="small" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">View workflow progress →</a>
-    </div>
-
-    <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
-        <?php if ($card->status !== ''): ?>
-            <div>
-                <span class="small faint">Status:</span>
-                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($card->status)) ?>"><?= TemplateRenderer::escape($card->status) ?></span>
-            </div>
-        <?php endif; ?>
-        <?php if ($card->priority !== null): ?>
-            <div>
-                <span class="small faint">Priority:</span>
-                <span class="mono small">P<?= (int) $card->priority ?></span>
-            </div>
-        <?php endif; ?>
-        <?php if ($card->assignee !== null && $card->assignee !== ''): ?>
-            <div>
-                <span class="small faint">Assignee:</span>
-                <strong><?= TemplateRenderer::escape($card->assignee) ?></strong>
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <?php if ($card->allowedTransitions !== []): ?>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="small faint">Transition lane:</span>
-            <?php foreach ($card->allowedTransitions as $targetLane): ?>
-                <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/move" style="margin:0;display:inline">
-                    <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
-                    <input type="hidden" name="target_lane" value="<?= TemplateRenderer::escape($targetLane) ?>">
-                    <input type="hidden" name="expected_revision" value="<?= TemplateRenderer::escape($card->revision) ?>">
-                    <button class="btn" type="submit">Move to <?= TemplateRenderer::escape($targetLane) ?></button>
-                </form>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
-    <p class="note">The canonical next action for this task is at the top of every one of its views,
-        rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
-</section>
-
-<p class="eyebrow">Context &amp; constraints</p>
-<section class="panel<?= $contextTone === 'blocked' ? ' panel--danger' : ($contextTone === 'attention' ? ' panel--attention' : '') ?>">
-    <div class="action__head">
-        <span class="pill pill--<?= TemplateRenderer::escape($contextTone) ?>"><?= TemplateRenderer::escape($contextIntegrityProblem ? 'integrity problem' : $context->status) ?></span>
-        <strong>What shaped this coding session?</strong>
-    </div>
-    <?php if ($context->explanation !== null): ?>
-        <dl class="kv" style="margin-top:12px">
-            <dt>Hard constraints</dt><dd><?= count($context->explanation->constraints) ?></dd>
-            <dt>Guidance selected</dt><dd><?= $context->selectedGuidanceCount() ?></dd>
-            <dt>Guidance excluded</dt><dd><?= $context->excludedGuidanceCount() ?></dd>
-            <dt>Inputs skipped</dt><dd><?= count($contextCoverage->skipped) ?></dd>
-            <dt>Budget omitted</dt><dd><?= $contextOmittedCount ?></dd>
-        </dl>
-        <p class="note">Counts come from persisted Recall selection plus agent-loop's typed context coverage. “Omitted” never means “irrelevant”.</p>
-    <?php else: ?>
-        <p class="muted"><?= TemplateRenderer::escape($context->problem ?? 'Persisted context explanation unavailable.') ?></p>
-        <p class="note">Unavailable context is not rendered as an empty or unconstrained session.</p>
-    <?php endif; ?>
-    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Explain context &amp; constraints →</a></p>
-</section>
-
-<p class="eyebrow">Work &amp; review</p>
-<section class="panel<?= $workTone === 'blocked' ? ' panel--danger' : ($workTone === 'attention' ? ' panel--attention' : '') ?>">
-    <div class="action__head">
-        <span class="pill pill--<?= TemplateRenderer::escape($workTone) ?>"><?= TemplateRenderer::escape($workObserved ? $transparency->review->currency->value : $transparency->observation->status->value) ?></span>
-        <strong>Did the work stay inside the approved boundary?</strong>
-    </div>
-    <?php if (!$workObserved): ?>
-        <p class="muted"><?= TemplateRenderer::escape($transparency->observation->unavailableReason ?? 'Repository observation is unavailable.') ?></p>
-        <p class="note">Unavailable Git observation is not rendered as “no scope drift”.</p>
-    <?php else: ?>
-        <dl class="kv" style="margin-top:12px">
-            <dt>Changed in scope</dt><dd><?= count($transparency->scopeCoverage->changedInScope) ?></dd>
-            <dt>Changed outside scope</dt><dd><?= count($transparency->scopeCoverage->changedOutsideScope) ?></dd>
-            <dt>Review currency</dt><dd><?= TemplateRenderer::escape(Presentation::label($transparency->review->currency->value)) ?></dd>
-            <dt>Review findings</dt><dd><?= count($transparency->review->findings) ?></dd>
-            <dt>Explicit blocker</dt><dd><?= $transparency->blocked === null ? 'none recorded' : TemplateRenderer::escape($transparency->blocked->state) ?></dd>
-            <dt>Deferred follow-up</dt><dd><?= $transparency->deferredFollowUp === null ? 'none recorded' : TemplateRenderer::escape($transparency->deferredFollowUp->followUpRef) ?></dd>
-        </dl>
-        <?php if ($workHasDrift): ?><p class="note">Outside-scope changes are observed, not adjudicated. Open the detail view before deciding what to do.</p><?php endif; ?>
-    <?php endif; ?>
-    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Inspect scope &amp; review →</a></p>
-</section>
 
 <?php if ($workflow->disagreements !== []): ?>
     <p class="eyebrow">Disagreements between owners</p>
@@ -244,11 +78,18 @@ require __DIR__ . '/../layout/header.php';
     </section>
 <?php endif; ?>
 
-<?php if ($decisions->actions !== [] || $pendingAttention !== null): ?>
+<?php if ($decisions->actions !== [] || $pendingAttention !== null || $decisionCard !== null): ?>
     <h2 class="eyebrow">Your decision</h2>
     <section class="panel panel--attention" id="decision" aria-label="Your decision">
-        <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
-            corresponding human action as recordable.</p>
+        <?php if ($decisionCard !== null): ?>
+            <?php $decisionCardDomId = 'task-decision-card'; require __DIR__ . '/_decision-card.php'; ?>
+        <?php endif; ?>
+        <?php if ($decisions->actions !== [] || $pendingAttention !== null): ?>
+            <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
+                corresponding human action as recordable.</p>
+        <?php else: ?>
+            <p class="note" style="margin:0 0 14px">agent-ui has no form for this decision. Record it with the choice's command above, as agent-loop states it.</p>
+        <?php endif; ?>
 
         <?php if ($pendingAttention !== null): ?>
             <div style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
@@ -273,11 +114,12 @@ require __DIR__ . '/../layout/header.php';
 
         <?php if ($decisions->allows(WorkflowHumanDecisionProjection::APPROVE_CONTRACT)): ?>
             <?php if ($contract !== null): ?>
-                <div style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                        <strong>Contract Revision <?= (int) $contract->revision ?> (Candidate)</strong>
-                        <span class="small faint">Planned by: <strong><?= TemplateRenderer::escape($contract->plannedBy) ?></strong></span>
-                    </div>
+                <?php /* With Loop's card above, the full terms are reference, not a second briefing. */ ?>
+                <details<?= $decisionCard === null ? ' open' : '' ?> style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+                    <summary style="margin-bottom:8px;cursor:pointer">
+                        <strong>Contract Revision <?= (int) $contract->revision ?> (Candidate) · full terms</strong>
+                        <span class="small faint" style="margin-left:8px">Planned by: <strong><?= TemplateRenderer::escape($contract->plannedBy) ?></strong></span>
+                    </summary>
                     <p style="margin:4px 0 8px"><strong>Goal:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
                     <div class="grid" style="font-size:12px;margin:8px 0">
                         <div>
@@ -326,7 +168,7 @@ require __DIR__ . '/../layout/header.php';
                             </div>
                         </div>
                     <?php endif; ?>
-                </div>
+                </details>
             <?php endif; ?>
 
             <form class="form" method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/approve">
@@ -430,6 +272,115 @@ require __DIR__ . '/../layout/header.php';
                 decision requires real Finding content through the Learning owner.</p>
         <?php endif; ?>
     </section>
+<?php endif; ?>
+
+<p class="eyebrow">Current state</p>
+<section class="panel action">
+    <div class="action__head">
+        <div>
+            <span class="small faint">mode <?= TemplateRenderer::escape($workflow->mode) ?> · run <span class="mono"><?= TemplateRenderer::escape($workflow->runId) ?></span></span>
+        </div>
+        <a class="small" href="/task/<?= TemplateRenderer::escape($card->id) ?>/progress">View workflow progress →</a>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
+        <?php if ($card->status !== ''): ?>
+            <div>
+                <span class="small faint">Status:</span>
+                <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($card->status)) ?>"><?= TemplateRenderer::escape($card->status) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($card->priority !== null): ?>
+            <div>
+                <span class="small faint">Priority:</span>
+                <span class="mono small">P<?= (int) $card->priority ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($card->assignee !== null && $card->assignee !== ''): ?>
+            <div>
+                <span class="small faint">Assignee:</span>
+                <strong><?= TemplateRenderer::escape($card->assignee) ?></strong>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($card->allowedTransitions !== []): ?>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="small faint">Transition lane:</span>
+            <?php foreach ($card->allowedTransitions as $targetLane): ?>
+                <form method="post" action="/task/<?= TemplateRenderer::escape($card->id) ?>/move" style="margin:0;display:inline">
+                    <input type="hidden" name="_csrf" value="<?= TemplateRenderer::escape($csrf) ?>">
+                    <input type="hidden" name="target_lane" value="<?= TemplateRenderer::escape($targetLane) ?>">
+                    <input type="hidden" name="expected_revision" value="<?= TemplateRenderer::escape($card->revision) ?>">
+                    <button class="btn" type="submit">Move to <?= TemplateRenderer::escape($targetLane) ?></button>
+                </form>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <p class="note">The canonical next action for this task is at the top of every one of its views,
+        rendered from agent-loop. agent-ui does not calculate the next lifecycle step.</p>
+</section>
+
+<p class="eyebrow">Context &amp; constraints</p>
+<section class="panel<?= $contextTone === 'blocked' ? ' panel--danger' : ($contextTone === 'attention' ? ' panel--attention' : '') ?>">
+    <div class="action__head">
+        <span class="pill pill--<?= TemplateRenderer::escape($contextTone) ?>"><?= TemplateRenderer::escape($contextIntegrityProblem ? 'integrity problem' : $context->status) ?></span>
+        <strong>What shaped this coding session?</strong>
+    </div>
+    <?php if ($context->explanation !== null): ?>
+        <dl class="kv" style="margin-top:12px">
+            <dt>Hard constraints</dt><dd><?= count($context->explanation->constraints) ?></dd>
+            <dt>Guidance selected</dt><dd><?= $context->selectedGuidanceCount() ?></dd>
+            <dt>Guidance excluded</dt><dd><?= $context->excludedGuidanceCount() ?></dd>
+            <dt>Inputs skipped</dt><dd><?= count($contextCoverage->skipped) ?></dd>
+            <dt>Budget omitted</dt><dd><?= $contextOmittedCount ?></dd>
+        </dl>
+        <p class="note">Counts come from persisted Recall selection plus agent-loop's typed context coverage. “Omitted” never means “irrelevant”.</p>
+    <?php else: ?>
+        <p class="muted"><?= TemplateRenderer::escape($context->problem ?? 'Persisted context explanation unavailable.') ?></p>
+        <p class="note">Unavailable context is not rendered as an empty or unconstrained session.</p>
+    <?php endif; ?>
+    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/context">Explain context &amp; constraints →</a></p>
+</section>
+
+<p class="eyebrow">Work &amp; review</p>
+<section class="panel<?= $workTone === 'blocked' ? ' panel--danger' : ($workTone === 'attention' ? ' panel--attention' : '') ?>">
+    <div class="action__head">
+        <span class="pill pill--<?= TemplateRenderer::escape($workTone) ?>"><?= TemplateRenderer::escape($workObserved ? $transparency->review->currency->value : $transparency->observation->status->value) ?></span>
+        <strong>Did the work stay inside the approved boundary?</strong>
+    </div>
+    <?php if (!$workObserved): ?>
+        <p class="muted"><?= TemplateRenderer::escape($transparency->observation->unavailableReason ?? 'Repository observation is unavailable.') ?></p>
+        <p class="note">Unavailable Git observation is not rendered as “no scope drift”.</p>
+    <?php else: ?>
+        <dl class="kv" style="margin-top:12px">
+            <dt>Changed in scope</dt><dd><?= count($transparency->scopeCoverage->changedInScope) ?></dd>
+            <dt>Changed outside scope</dt><dd><?= count($transparency->scopeCoverage->changedOutsideScope) ?></dd>
+            <dt>Review currency</dt><dd><?= TemplateRenderer::escape(Presentation::label($transparency->review->currency->value)) ?></dd>
+            <dt>Review findings</dt><dd><?= count($transparency->review->findings) ?></dd>
+            <dt>Explicit blocker</dt><dd><?= $transparency->blocked === null ? 'none recorded' : TemplateRenderer::escape($transparency->blocked->state) ?></dd>
+            <dt>Deferred follow-up</dt><dd><?= $transparency->deferredFollowUp === null ? 'none recorded' : TemplateRenderer::escape($transparency->deferredFollowUp->followUpRef) ?></dd>
+        </dl>
+        <?php if ($workHasDrift): ?><p class="note">Outside-scope changes are observed, not adjudicated. Open the detail view before deciding what to do.</p><?php endif; ?>
+    <?php endif; ?>
+    <p style="margin:14px 0 0"><a class="btn btn--primary" href="/task/<?= TemplateRenderer::escape($card->id) ?>/work">Inspect scope &amp; review →</a></p>
+</section>
+
+<?php if ($workflow->references !== []): ?>
+    <details class="panel owner-refs">
+        <summary><span class="eyebrow" style="margin:0">Owner references</span> <span class="small faint">the state each owning package reports for this task's artifacts</span></summary>
+        <div class="refs">
+            <?php foreach ($workflow->references as $name => $reference): ?>
+                <?php $state = Presentation::referenceState($reference); ?>
+                <div class="ref ref--<?= TemplateRenderer::escape(Presentation::tone($state)) ?>" title="<?= TemplateRenderer::escape((string) $name . ': ' . Presentation::label($state) . ' — owned by ' . (Presentation::referenceOwner($reference) ?? 'unknown')) ?>">
+                    <span class="ref__name"><?= TemplateRenderer::escape(str_replace('_', ' ', (string) $name)) ?></span>
+                    <span class="ref__state"><?= TemplateRenderer::escape(Presentation::label($state)) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="note">Each mark is the state its owning package reports for that artifact. agent-ui does not derive them.</p>
+    </details>
 <?php endif; ?>
 
 <?php if ($contract !== null && $contract->status === TaskContract::APPROVED): ?>

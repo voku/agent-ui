@@ -44,7 +44,7 @@ final readonly class WorkflowProgressAction
         $contract = $this->decisions->contract($taskId);
         $pendingAttention = $this->decisions->pendingAttention($taskId);
         $progress = $this->progress->task($taskId);
-        $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+        $decisionHtml = $this->decisionHtml($card, $progress, $decisions, $contract, $pendingAttention);
         $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
 
         return Response::html($this->templates->render('task/progress', [
@@ -53,7 +53,7 @@ final readonly class WorkflowProgressAction
             'decision_html' => $decisionHtml,
             'brief_html' => $briefHtml,
             // The owner's own signal; the badge must not be inferred from markup.
-            'human_waiting' => $decisions->actions !== [] || $pendingAttention !== null,
+            'human_waiting' => $decisions->actions !== [] || $pendingAttention !== null || $progress->decisionCard !== null,
             'runner' => $this->runner->status($taskId),
             'csrf_token' => $this->csrf->token(),
             'task_context' => $this->taskContext->forCard($card),
@@ -126,7 +126,7 @@ final readonly class WorkflowProgressAction
 
             $contract = $this->decisions->contract($taskId);
             $pendingAttention = $this->decisions->pendingAttention($taskId);
-            $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+            $decisionHtml = $this->decisionHtml($card, $progress, $decisions, $contract, $pendingAttention);
             $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
             $response = Response::json([
                 'schema_version' => 1,
@@ -140,7 +140,7 @@ final readonly class WorkflowProgressAction
                 'next_action_kind_tone' => Presentation::tone($progress->nextActionKind),
                 'next_action_hint' => Presentation::nextActionKindHint($progress->nextActionKind),
                 'command_reference' => Presentation::commandReference($progress->nextAction),
-                'has_human_decision' => $decisions->actions !== [] || $pendingAttention !== null,
+                'has_human_decision' => $decisions->actions !== [] || $pendingAttention !== null || $progress->decisionCard !== null,
                 'decision_html' => $decisionHtml,
                 'decision_digest' => hash('sha256', $decisionHtml),
                 'brief_html' => $briefHtml,
@@ -178,6 +178,7 @@ final readonly class WorkflowProgressAction
 
     private function decisionHtml(
         CardSnapshot $card,
+        WorkflowProgressSnapshot $progress,
         WorkflowHumanDecisionProjection $decisions,
         ?TaskContract $contract,
         ?AttentionRequest $pendingAttention = null,
@@ -185,6 +186,7 @@ final readonly class WorkflowProgressAction
         return $this->templates->render('task/_progress-decision', [
             'card' => $card,
             'human_decisions' => $decisions,
+            'decision_card' => $progress->decisionCard,
             'contract' => $contract,
             'pending_attention' => $pendingAttention,
             'attention_decision' => $pendingAttention === null ? null : $this->decisions->attentionDecision($card->id),

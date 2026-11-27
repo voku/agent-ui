@@ -22,10 +22,11 @@ final readonly class WorkflowProgressSnapshot
         public string $nextAction,
         public string $nextActionKind,
         public array $steps,
+        public ?DecisionCardSnapshot $decisionCard = null,
     ) {
     }
 
-    public static function fromOwner(RunProgressProjection $projection): self
+    public static function fromOwner(RunProgressProjection $projection, ?DecisionCardSnapshot $decisionCard = null): self
     {
         return new self(
             taskId: $projection->taskId,
@@ -36,6 +37,7 @@ final readonly class WorkflowProgressSnapshot
                 static fn(RunProgressStep $step): WorkflowProgressStepSnapshot => WorkflowProgressStepSnapshot::fromOwner($step),
                 $projection->steps,
             ),
+            decisionCard: $decisionCard,
         );
     }
 }

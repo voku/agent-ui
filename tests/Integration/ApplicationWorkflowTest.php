@@ -86,12 +86,10 @@ final class ApplicationWorkflowTest extends TestCase
         self::assertSame(200, $taskResponse->status);
         self::assertStringContainsString('Build login system', $taskResponse->body);
         self::assertStringContainsString('Edit card', $taskResponse->body);
-        self::assertStringContainsString('Find code &amp; impact', $taskResponse->body);
-        self::assertStringContainsString('Architecture', $taskResponse->body);
-        // The history route keeps its page-head shortcut's job in the task navigation.
+        // The Map stays reachable from the masthead's "More"; the task page no longer
+        // competes with its own next action by offering a way into the code first.
+        self::assertStringContainsString('href="/map"', $taskResponse->body);
         self::assertStringContainsString('History', $taskResponse->body);
-        self::assertStringContainsString('href="/map?q=Build%20login%20system"', $taskResponse->body);
-        self::assertStringContainsString('href="/map/graph"', $taskResponse->body);
         self::assertStringContainsString('href="/task/APP-1/history"', $taskResponse->body);
         self::assertStringContainsString('Move to READY', $taskResponse->body);
         self::assertStringContainsString('No Contract', $taskResponse->body);
@@ -214,29 +212,31 @@ final class ApplicationWorkflowTest extends TestCase
         );
     }
 
-    /** The cockpit's own sections, and the order they read in: attention before health. */
-    public function testDeveloperCockpitRendersVitalsActionDeckAndFlow(): void
+    /** The Overview leads with work; supporting tools follow and do not guess board semantics. */
+    public function testOverviewLeadsWithWorkAndKeepsToolsSecondary(): void
     {
         $app = new Application($this->root, $this->templates);
 
         $response = $app->handle(new Request('GET', '/'));
         self::assertSame(200, $response->status);
-        self::assertStringContainsString('Developer Cockpit', $response->body);
-        self::assertStringContainsString('System &amp; tooling', $response->body);
+        self::assertStringContainsString('<title>Overview · ', $response->body);
+        self::assertStringContainsString('id="needs-you"', $response->body);
+        self::assertStringContainsString('Supporting tools', $response->body);
         // Health explains what a page may not be able to answer; it is not the first
         // question a returning developer asks, so it reads after the work it supports.
         self::assertLessThan(
-            (int) strpos($response->body, 'System &amp; tooling'),
+            (int) strpos($response->body, 'Supporting tools'),
             (int) strpos($response->body, 'Needs you'),
-            'System and tooling health must not precede the work that needs a person',
+            'Tool health must not precede the work that needs a person',
         );
         self::assertStringContainsString('Code Map', $response->body);
-        self::assertStringContainsString('Kanban Flow', $response->body);
-        self::assertStringContainsString('Attention Radar', $response->body);
         self::assertStringContainsString('Loop Runner', $response->body);
-        self::assertStringContainsString('+ New Kanban Task', $response->body);
-        self::assertStringContainsString('Architecture Graph', $response->body);
-        self::assertStringContainsString('Prompt Workbench', $response->body);
+        self::assertStringContainsString('+ New task', $response->body);
+        // Lane-name heuristics and a duplicate attention count are gone: the board's
+        // lanes belong to agent-kanban and "Needs you" is the one waiting list.
+        self::assertStringNotContainsString('Kanban Flow', $response->body);
+        self::assertStringNotContainsString('Attention Radar', $response->body);
+        self::assertStringNotContainsString('Architecture Pulse', $response->body);
     }
 
     public function testCommandsReferenceRouteDispatchesAndRendersCatalog(): void

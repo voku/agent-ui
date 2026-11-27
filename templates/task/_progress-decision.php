@@ -8,9 +8,10 @@ use voku\AgentUi\Integration\AgentKanban\CardSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
 
-/** @var array{card: CardSnapshot, human_decisions: WorkflowHumanDecisionProjection, contract: ?TaskContract, csrf_token: string, pending_attention?: ?AttentionRequest, attention_decision?: ?WorkflowAttentionProjection, attention_history?: list<AttentionResolution>, head_commit?: ?string} $model */
+/** @var array{card: CardSnapshot, human_decisions: WorkflowHumanDecisionProjection, decision_card?: ?\voku\AgentUi\Integration\AgentLoop\DecisionCardSnapshot, contract: ?TaskContract, csrf_token: string, pending_attention?: ?AttentionRequest, attention_decision?: ?WorkflowAttentionProjection, attention_history?: list<AttentionResolution>, head_commit?: ?string} $model */
 $card = $model['card'];
 $decisions = $model['human_decisions'];
+$decisionCard = $model['decision_card'] ?? null;
 $contract = $model['contract'];
 $csrf = $model['csrf_token'];
 $pendingAttention = $model['pending_attention'] ?? null;
@@ -19,6 +20,12 @@ $attentionHistory = $model['attention_history'] ?? [];
 $headCommit = $model['head_commit'] ?? null;
 $reviewUrl = '/task/' . rawurlencode($card->id) . '/review.html';
 ?>
+<?php if ($decisionCard !== null): ?>
+    <h2 class="eyebrow">Decision agent-loop is waiting for</h2>
+    <section class="panel panel--attention">
+        <?php $decisionCardDomId = 'progress-decision-card'; require __DIR__ . '/_decision-card.php'; ?>
+    </section>
+<?php endif; ?>
 <?php if ($pendingAttention !== null): ?>
     <h2 class="eyebrow">Human attention required</h2>
     <section class="panel panel--attention">

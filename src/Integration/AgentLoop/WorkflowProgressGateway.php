@@ -21,6 +21,6 @@ final readonly class WorkflowProgressGateway
         $manifest = (new RunManifestProjector($this->projectRoot))->project($validated->value);
         $progress = (new RunProgressProjector())->projectManifest($manifest);
 
-        return WorkflowProgressSnapshot::fromOwner($progress);
+        return WorkflowProgressSnapshot::fromOwner($progress, DecisionCardSnapshot::fromManifest($this->projectRoot, $manifest));
     }
 }

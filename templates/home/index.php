@@ -4,7 +4,6 @@ use voku\AgentLearning\Catalog\LearningOverview;
 use voku\AgentLoop\Init\RepositorySetupProjection;
 use voku\AgentUi\Integration\AgentKanban\BoardSnapshot;
 use voku\AgentUi\Integration\AgentLoop\WorkflowSnapshot;
-use voku\AgentUi\Integration\AgentMap\MapGraphSnapshot;
 use voku\AgentUi\Integration\AgentMap\MapReadinessSnapshot;
 use voku\AgentUi\View\Presentation;
 use voku\AgentUi\View\TemplateRenderer;
@@ -19,10 +18,8 @@ use voku\AgentUi\View\TemplateRenderer;
  *     learning: LearningOverview|null,
  *     learning_error: string|null,
  *     map_readiness: MapReadinessSnapshot|null,
- *     graph: MapGraphSnapshot|null,
  *     runner_installed: bool,
  *     active_runner_tasks: list<array{taskId: string, title: string, stage: ?string}>,
- *     lane_counts: array<string, int>,
  * } $model */
 $board = $model['board'];
 $attention = $model['attention'];
@@ -33,12 +30,10 @@ $setupError = $model['setup_error'];
 $learning = $model['learning'];
 $learningError = $model['learning_error'];
 $mapReadiness = $model['map_readiness'] ?? null;
-$graph = $model['graph'] ?? null;
 $runnerInstalled = (bool) ($model['runner_installed'] ?? false);
 $activeRunnerTasks = $model['active_runner_tasks'] ?? [];
-$laneCounts = $model['lane_counts'] ?? [];
 
-$title = 'Developer Cockpit · ' . $board->projectPrefix . ' · agent-ui';
+$title = 'Overview · ' . $board->projectPrefix . ' · agent-ui';
 $nav = 'home';
 $projectLabel = $board->projectPrefix;
 $titles = [];
@@ -49,18 +44,16 @@ require __DIR__ . '/../layout/header.php';
 ?>
 <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
     <div>
-        <h1><?= TemplateRenderer::escape($board->projectPrefix) ?> Developer Cockpit</h1>
-        <p class="lede">Unified control plane across workflow authority, repository observation, autonomous execution, and durable learning.</p>
+        <h1><?= TemplateRenderer::escape($board->projectPrefix) ?> · Overview</h1>
+        <p class="lede">What needs you, what is in flight, and what each task is waiting for — as agent-loop projects it.</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <a class="btn btn--primary" href="/board/new">+ New Kanban Task</a>
-        <a class="btn" href="/map/graph">Architecture Graph</a>
-        <a class="btn" href="/prompts">Prompt Workbench</a>
-        <a class="btn" href="/setup">Setup &amp; Runtime</a>
+        <a class="btn btn--primary" href="/board/new">+ New task</a>
+        <a class="btn" href="/board">Open board</a>
     </div>
 </div>
 
-<p class="eyebrow">Needs you</p>
+<p class="eyebrow" id="needs-you">Needs you</p>
 <section class="panel<?= $attention === [] ? '' : ' panel--attention' ?>">
     <?php if ($attention === []): ?>
         <p class="empty">No workflow decision is waiting on a human right now.</p>
@@ -204,100 +197,41 @@ foreach ($work as $item) {
     <?php endif; ?>
 </section>
 
-<p class="eyebrow">System &amp; tooling</p>
-<p class="note" style="margin:-4px 0 12px">Health of the surfaces the work depends on. Nothing here blocks a person; it explains what a page may not be able to answer.</p>
-<div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">
-    <section class="panel panel--accent">
-        <div class="action__head">
-            <span class="small faint" style="font-weight:600">Code Map</span>
-            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($mapReadiness?->status ?? 'missing')) ?>">
-                <?= TemplateRenderer::escape($mapReadiness?->status ?? 'missing') ?>
-            </span>
-        </div>
-        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
-            <?= (int) ($mapReadiness?->fileCount ?? 0) ?> <span class="small muted" style="font-weight:normal">files</span> · <?= (int) ($mapReadiness?->symbolCount ?? 0) ?> <span class="small muted" style="font-weight:normal">symbols</span>
-        </p>
-        <p class="small muted" style="margin:0">
-            <?= count($graph?->availableRegions ?? []) ?> architecture regions
-        </p>
-        <p style="margin:10px 0 0"><a href="/map/graph" class="small">Explore architecture →</a></p>
-    </section>
-
-    <section class="panel">
-        <div class="action__head">
-            <span class="small faint" style="font-weight:600">Kanban Flow</span>
-            <span class="pill pill--neutral"><?= count($board->cards) ?> cards</span>
-        </div>
-        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
-            <?= (int) ($laneCounts['in_progress'] ?? ($laneCounts['In Progress'] ?? 0)) ?> <span class="small muted" style="font-weight:normal">active</span> · <?= (int) ($laneCounts['review'] ?? ($laneCounts['Review'] ?? 0)) ?> <span class="small muted" style="font-weight:normal">in review</span>
-        </p>
-        <p class="small muted" style="margin:0">
-            <?= (int) ($laneCounts['done'] ?? ($laneCounts['Done'] ?? 0)) ?> completed tasks
-        </p>
-        <p style="margin:10px 0 0"><a href="/board" class="small">Open board →</a></p>
-    </section>
-
-    <section class="panel <?= $attention !== [] ? 'panel--attention' : '' ?>">
-        <div class="action__head">
-            <span class="small faint" style="font-weight:600">Attention Radar</span>
-            <span class="pill pill--<?= $attention !== [] ? 'attention' : 'ok' ?>">
-                <?= $attention !== [] ? count($attention) . ' waiting' : 'clear' ?>
-            </span>
-        </div>
-        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
-            <?= count($attention) ?> <span class="small muted" style="font-weight:normal"><?= count($attention) === 1 ? 'decision required' : 'decisions required' ?></span>
-        </p>
-        <p class="small muted" style="margin:0">
-            <?= $attention !== [] ? 'Human authority requested' : 'No blockers in flight' ?>
-        </p>
-        <?php if ($attention !== []): ?>
-            <p style="margin:10px 0 0"><a href="#needs-you" class="small" style="font-weight:600">Review blockers ↓</a></p>
-        <?php else: ?>
-            <p style="margin:10px 0 0"><span class="small faint">All autonomous steps clear</span></p>
-        <?php endif; ?>
-    </section>
-
-    <section class="panel">
-        <div class="action__head">
-            <span class="small faint" style="font-weight:600">Loop Runner</span>
-            <span class="pill pill--<?= $activeRunnerTasks !== [] ? 'ok' : ($runnerInstalled ? 'neutral' : 'muted') ?>">
-                <?= $activeRunnerTasks !== [] ? 'running' : ($runnerInstalled ? 'idle' : 'uninstalled') ?>
-            </span>
-        </div>
-        <p style="margin:10px 0 4px;font-size:18px;font-weight:650">
-            <?= $activeRunnerTasks !== [] ? count($activeRunnerTasks) : ($runnerInstalled ? 'Ready' : 'Manual') ?>
-            <span class="small muted" style="font-weight:normal"><?= $activeRunnerTasks !== [] ? 'task(s) in flight' : ($runnerInstalled ? 'managed execution' : 'CLI-only') ?></span>
-        </p>
-        <p class="small muted" style="margin:0">
-            <?= $activeRunnerTasks !== [] ? TemplateRenderer::escape($activeRunnerTasks[0]['taskId'] . ' active') : ($runnerInstalled ? 'Background runner available' : 'Install agent-loop-runner') ?>
-        </p>
-        <p style="margin:10px 0 0"><a href="/setup" class="small">Inspect runtime setup →</a></p>
-    </section>
-</div>
-
-<?php if ($graph !== null && $graph->availableRegions !== []): ?>
-    <p class="eyebrow">Architecture Pulse</p>
-    <section class="panel">
-        <div class="action__head">
-            <div>
-                <strong>Architecture Regions (<?= count($graph->availableRegions) ?>)</strong>
-                <span class="small faint" style="margin-left:8px">Coupling boundaries from agent-map</span>
-            </div>
-            <a href="/map/graph" class="small">Explore interactive coupling graph →</a>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
-            <a href="/map/graph" class="pill pill--accent" style="text-decoration:none">All regions (<?= count($graph->availableRegions) ?>)</a>
-            <?php foreach (array_slice($graph->availableRegions, 0, 8) as $regionPill): ?>
-                <a href="/map/graph?region=<?= rawurlencode($regionPill['id']) ?>" class="pill pill--neutral" style="text-decoration:none" title="<?= TemplateRenderer::escape($regionPill['label']) ?> (<?= $regionPill['fileCount'] ?> files)">
-                    <?= TemplateRenderer::escape($regionPill['label']) ?> <span class="faint">(<?= $regionPill['fileCount'] ?>)</span>
-                </a>
-            <?php endforeach; ?>
-            <?php if (count($graph->availableRegions) > 8): ?>
-                <a href="/map/graph" class="pill pill--neutral faint" style="text-decoration:none">+<?= count($graph->availableRegions) - 8 ?> more…</a>
+<?php
+/*
+ * The supporting surfaces, reduced to one line each. They explain what a page
+ * may not be able to answer; none of them is work. Lane-name heuristics and a
+ * second "attention" count used to live here and are gone on purpose: the
+ * board's lanes are agent-kanban's, and "Needs you" above is the one place a
+ * waiting human decision is listed.
+ */
+?>
+<p class="eyebrow">Supporting tools</p>
+<section class="panel">
+    <ul class="tool-status">
+        <li>
+            <span class="tool-status__name">Code Map</span>
+            <span class="pill pill--<?= TemplateRenderer::escape(Presentation::tone($mapReadiness?->status ?? 'missing')) ?>"><?= TemplateRenderer::escape(Presentation::label($mapReadiness?->status ?? 'missing')) ?></span>
+            <span class="small muted"><?= (int) ($mapReadiness?->fileCount ?? 0) ?> files · <?= (int) ($mapReadiness?->symbolCount ?? 0) ?> symbols</span>
+            <a class="small" href="/map">Map →</a>
+        </li>
+        <li>
+            <span class="tool-status__name">Loop Runner</span>
+            <span class="pill pill--<?= $activeRunnerTasks !== [] ? 'ok' : ($runnerInstalled ? 'neutral' : 'muted') ?>"><?= $activeRunnerTasks !== [] ? 'running' : ($runnerInstalled ? 'idle' : 'not installed') ?></span>
+            <span class="small muted"><?= $activeRunnerTasks !== [] ? TemplateRenderer::escape(implode(', ', array_map(static fn(array $task): string => $task['taskId'] . ' active', $activeRunnerTasks))) : ($runnerInstalled ? 'managed execution available' : 'CLI-only execution') ?></span>
+            <a class="small" href="/setup">Setup →</a>
+        </li>
+        <li>
+            <span class="tool-status__name">Setup</span>
+            <?php if ($setupError !== null): ?>
+                <span class="pill pill--danger">unavailable</span>
+                <span class="small muted"><?= TemplateRenderer::escape($setupError) ?></span>
+            <?php else: ?>
+                <span class="small muted">host integration, assets and policy</span>
             <?php endif; ?>
-        </div>
-    </section>
-<?php endif; ?>
-
+            <a class="small" href="/setup">Inspect →</a>
+        </li>
+    </ul>
+</section>
 
 <?php require __DIR__ . '/../layout/footer.php'; ?>
