@@ -86,6 +86,20 @@ final class ContractDecisionDeltaPageTest extends TestCase
         self::assertStringContainsString('Decision required: Contract approval', $main);
     }
 
+    public function testTheWorkspaceRefreshCarriesTheOwnerCardAndRaisesTheDecisionFlag(): void
+    {
+        $app = $this->revisedContract();
+        $response = $app->handle(new Request('GET', '/task/APP-1/progress.json'));
+        self::assertSame(200, $response->status);
+        $payload = json_decode($response->body, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+
+        self::assertTrue($payload['has_human_decision']);
+        self::assertIsString($payload['decision_html']);
+        self::assertStringContainsString('agent-loop · decision card', $payload['decision_html']);
+        self::assertSame(hash('sha256', $payload['decision_html']), $payload['decision_digest']);
+    }
+
     public function testMultiRevisionDecisionComparesWithTheOwnerApprovedBaseline(): void
     {
         $app = $this->revisedContract();
