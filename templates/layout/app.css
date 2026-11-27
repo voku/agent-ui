@@ -228,6 +228,38 @@ code, pre, .mono { font-family: var(--mono); font-size: .92em; }
     box-shadow: inset 0 -2px 0 currentColor;
 }
 
+/* "More": the supporting tools, behind a native disclosure that needs no script. */
+.workspace-nav { align-items: center; }
+.workspace-nav__more { position: relative; }
+.workspace-nav__summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    color: #c3cae0;
+    font-size: 13.5px;
+}
+.workspace-nav__summary::-webkit-details-marker { display: none; }
+.workspace-nav__summary::after { content: " \25BE"; font-size: 11px; opacity: .7; }
+.workspace-nav__summary:hover { background: rgba(255, 255, 255, .08); color: #ffffff; }
+.workspace-nav__summary--current { color: #ffffff; font-weight: 550; box-shadow: inset 0 -2px 0 currentColor; }
+.workspace-nav__panel {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    gap: 16px;
+    padding: 10px 8px;
+    border-radius: var(--radius-sm);
+    background: #0a0f1d;
+    border: 1px solid rgba(255, 255, 255, .12);
+    box-shadow: var(--shadow-sm);
+}
+@media (max-width: 640px) {
+    .workspace-nav__panel { position: static; flex-direction: column; margin-top: 6px; }
+}
+
 .masthead__meta {
     margin-left: auto;
     display: flex;
@@ -860,11 +892,17 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 .task-nav .btn:hover { background: var(--surface); border-color: var(--rule); color: var(--ink); }
 .task-nav .btn.btn--current { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
+.task-nav__more { display: flex; gap: 2px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.task-nav__more > summary { list-style: none; cursor: pointer; }
+.task-nav__more > summary::-webkit-details-marker { display: none; }
+.task-nav__more > summary::after { content: " \25BE"; font-size: 10px; }
+.task-nav__more[open] > summary::after { content: " \25B4"; }
+
 .task-nav {
     display: flex;
     gap: 6px 20px;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: center;
     margin: 0 0 28px;
     padding: 10px 16px 12px;
     border: 1px solid var(--rule);
@@ -1465,3 +1503,25 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .workflow-brief__links .btn { text-align: center; }
 .workflow-brief [data-evidence-status] { font-weight: 600; }
 @media (max-width: 700px) { .workflow-brief__facts { grid-template-columns: minmax(0, 1fr); } }
+
+/* agent-loop's decision card: owner sentences, UI layout only. */
+.decision-card { display: block; }
+.decision-card + * { margin-top: 18px; }
+.decision-card__title { margin: 4px 0 6px; font-size: 17px; }
+.decision-card h4 { margin: 0 0 6px; font-size: 12.5px; letter-spacing: .02em; color: var(--ink-soft); }
+.decision-card__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px 20px; margin: 12px 0; }
+.decision-card__grid p, .decision-card__grid ul { margin: 0 0 6px; }
+.decision-card__authorizes { margin: 10px 0 14px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius-sm); font-size: 13px; }
+.decision-card__choices { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.decision-card__choices li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); min-width: 0; }
+
+/* One line per supporting surface on the Overview. */
+.tool-status { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tool-status li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.tool-status li + li { padding-top: 8px; border-top: 1px solid var(--rule); }
+.tool-status__name { font-weight: 600; min-width: 110px; }
+.tool-status li > a { margin-left: auto; }
+
+/* Owner reference marks: still one click away, no longer ahead of the work. */
+.owner-refs > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.owner-refs[open] > summary { margin-bottom: 12px; }

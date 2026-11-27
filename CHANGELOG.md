@@ -6,6 +6,21 @@ The format follows Keep a Changelog, and this project uses semantic versioning w
 
 ## [Unreleased]
 
+### Added
+
+- Where a human decision waits, the task page and the Workflow workspace now show agent-loop's typed decision card (`WorkflowDecisionCard`) verbatim before any form: title, subject, why now (including the revision delta), what may change, what is out of scope, proof, what approval authorizes, the choices with their exact commands, and what the owner does not know. Gates without a UI form, such as risk acceptance or Contract supersession, now show their card instead of only the raw next action. An owner shape the UI does not understand yields no card rather than a partial one.
+
+### Changed
+
+- The masthead leads with the workflow: Overview, Tasks and Knowledge. Map, Prompts, Commands and Setup moved under a native "More" disclosure that opens by itself on those pages. No route was removed.
+- Task navigation leads with the task story (Task, Workflow, Contract, Work & review, Evidence, History). Context & constraints, Prompts, Learning and Edit card are under "More".
+- The task page opens with owner disagreements and the waiting decision, ahead of current state and the context and work summaries. Owner reference marks are collapsed by default. The UI-authored "Decision briefing" is replaced by the owner card, and the full Contract terms beside the approval form are collapsed while the card is shown.
+- The Overview is focused on work: "Needs you", current work, the board and Learning, followed by one compact "Supporting tools" line each for Map, Runner and Setup.
+
+### Removed
+
+- The Overview's "Kanban Flow" tile, which counted guessed lane names (`in_progress`, `review`, `done`) that this board does not use. Also removed: the "Attention Radar" tile, which duplicated "Needs you" and linked to a missing anchor, and the "Architecture Pulse" panel, along with the Map graph build it needed on every Overview load.
+
 ## [0.20.8] - 2026-11-21
 
 ### Changed

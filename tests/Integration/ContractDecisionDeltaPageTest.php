@@ -38,41 +38,55 @@ final class ContractDecisionDeltaPageTest extends TestCase
         $this->removeDirectory($this->root);
     }
 
-    public function testApprovalBriefingPrecedesDecisionAndKeepsAuthorityVisible(): void
+    /**
+     * The decision subject is agent-loop's card, shown verbatim before the approval form.
+     *
+     * The page used to carry its own "Decision briefing" paraphrase of the same
+     * approval. Two statements of one decision can disagree; the owner's card is
+     * the one that is shown now.
+     */
+    public function testOwnerDecisionCardPrecedesTheApprovalForm(): void
     {
         $app = $this->revisedContract();
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
 
-        $brief = strpos($main, 'aria-label="Approval briefing"');
-        $decision = strpos($main, 'aria-label="Your decision"');
-        self::assertIsInt($brief);
-        self::assertIsInt($decision);
-        self::assertLessThan($decision, $brief, 'The developer must see the briefing before the approval form.');
-        self::assertStringContainsString('Approve Contract revision 2?', $main);
+        $cardAt = strpos($main, 'agent-loop · decision card');
+        $formAt = strpos($main, 'action="/task/APP-1/approve"');
+        self::assertIsInt($cardAt);
+        self::assertIsInt($formAt);
+        self::assertLessThan($formAt, $cardAt, 'The developer must read the owner card before the approval form.');
+        self::assertStringContainsString('Decision required: Contract approval', $main);
         self::assertStringContainsString('Make the greeter friendlier without changing its public API.', $main);
-        self::assertStringContainsString('Where the agent may work', $main);
-        self::assertStringContainsString('Explicitly excluded', $main);
+        self::assertStringContainsString('Revision 2 replaces revision 1, which maintainer approved', $main);
+        self::assertStringContainsString('Scope: + tests/GreeterTest.php', $main);
         self::assertStringContainsString('no new dependencies', $main);
-        self::assertStringContainsString('A validation plan is not a passed test.', $main);
-        self::assertStringContainsString('Change summary:', $main);
-        self::assertStringContainsString('Changed fields: Scope, Acceptance criteria.', $main);
-        self::assertStringContainsString('approved revision 1.', $main);
-        self::assertStringContainsString('href="#decision">Review full terms &amp; decide</a>', $main);
-        self::assertStringContainsString('href="/task/APP-1/contract">Inspect Contract &amp; impact</a>', $main);
+        self::assertStringContainsString('What approval authorizes: work only within the Contract scope.', $main);
+        // Choice commands are shown exactly as Loop wrote them, placeholders included.
+        self::assertStringContainsString('agent-loop workflow approve APP-1 --revision 2 --by &lt;named-actor&gt;', $main);
+        self::assertStringNotContainsString('aria-label="Approval briefing"', $main);
     }
 
-    public function testApprovalBriefingDisappearsWhenOwnerNoLongerAllowsApproval(): void
+    public function testOwnerDecisionCardDisappearsWhenOwnerNoLongerAllowsApproval(): void
     {
         $app = $this->revisedContract();
         $contracts = new TaskContractStore($this->root);
         $contracts->approve('APP-1', 'maintainer', 2);
 
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
-        self::assertStringNotContainsString('aria-label="Approval briefing"', $main);
-        self::assertStringNotContainsString('Approve Contract revision 2?', $main);
+        self::assertStringNotContainsString('agent-loop · decision card', $main);
+        self::assertStringNotContainsString('action="/task/APP-1/approve"', $main);
     }
 
-    public function testMultiRevisionBriefingUsesOwnerApprovedBaselineWithoutObsoleteWarning(): void
+    public function testTheProgressWorkspaceShowsTheSameOwnerCard(): void
+    {
+        $app = $this->revisedContract();
+        $main = $this->main($app->handle(new Request('GET', '/task/APP-1/progress'))->body);
+
+        self::assertStringContainsString('agent-loop · decision card', $main);
+        self::assertStringContainsString('Decision required: Contract approval', $main);
+    }
+
+    public function testMultiRevisionDecisionComparesWithTheOwnerApprovedBaseline(): void
     {
         $app = $this->revisedContract();
         (new TaskContractStore($this->root))->revise(
@@ -85,13 +99,9 @@ final class ContractDecisionDeltaPageTest extends TestCase
         );
 
         $main = $this->main($app->handle(new Request('GET', '/task/APP-1'))->body);
-        self::assertStringContainsString('Approve Contract revision 3?', $main);
-        self::assertStringContainsString('approved revision 1.', $main);
-        self::assertStringContainsString('Changed fields: Goal, Scope, Acceptance criteria.', $main);
+        self::assertStringContainsString('Contract Revision 3 (Candidate)', $main);
+        self::assertStringContainsString('compared with approved revision 1', $main);
         self::assertStringNotContainsString('Revision history matters:', $main);
-
-
-
     }
 
     public function testTwoRevisionBriefingDoesNotShowMultiRevisionWarning(): void

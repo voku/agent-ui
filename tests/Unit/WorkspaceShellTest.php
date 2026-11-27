@@ -57,24 +57,42 @@ final class WorkspaceShellTest extends TestCase
         }
     }
 
-    /** The four areas are the product hierarchy; a flat list returning would undo the change silently. */
-    public function testNavigationIsGroupedByDeveloperIntentRatherThanFlat(): void
+    /**
+     * Workflow work leads; the supporting tools sit behind one native disclosure.
+     *
+     * Every area used to be a peer in the masthead. Only the routes a governed
+     * task is worked through stay primary; the rest must still be reachable
+     * without script, which a <details> disclosure guarantees.
+     */
+    public function testPrimaryNavigationLeadsWithWorkflowWorkAndDisclosesTheTools(): void
     {
         $header = $this->read('templates/layout/header.php');
 
-        foreach (['Work', 'Knowledge', 'Code', 'Tools'] as $section) {
-            self::assertStringContainsString("'" . $section . "' => [", $header);
+        $primary = substr($header, (int) strpos($header, '$primaryLinks = ['), 400);
+        $primary = substr($primary, 0, (int) strpos($primary, '];'));
+        foreach (["['/',", "['/board',", "['/knowledge',"] as $route) {
+            self::assertStringContainsString($route, $primary);
         }
+        foreach (["['/map',", "['/prompts',", "['/commands',", "['/setup',"] as $route) {
+            self::assertStringNotContainsString($route, $primary, $route . ' is a supporting tool, not primary navigation');
+        }
+        self::assertStringContainsString('<details class="workspace-nav__more"', $header);
+        // The disclosure opens by itself while one of its pages is current.
+        self::assertStringContainsString("\$secondaryCurrent ? ' open' : ''", $header);
     }
 
-    /** The task groups follow the story - where it stands, what was agreed, what was done, what proves it. */
-    public function testTaskViewsAreGroupedByTheTaskStory(): void
+    /** The task story is the primary row; context detail and tools sit under "More". */
+    public function testTaskViewsLeadWithTheTaskStory(): void
     {
         $nav = $this->read('templates/layout/task-nav.php');
 
-        foreach (['Summary', 'Intent', 'Execution', 'Evidence', 'Tools'] as $group) {
-            self::assertStringContainsString("'" . $group . "' => [", $nav);
+        $primary = substr($nav, (int) strpos($nav, '$taskNavPrimary = ['));
+        $primary = substr($primary, 0, (int) strpos($primary, '];'));
+        foreach (["'' =>", "'/progress' =>", "'/contract' =>", "'/work' =>", "'/evidence' =>", "'/history' =>"] as $view) {
+            self::assertStringContainsString($view, $primary);
         }
+        self::assertStringContainsString('<details class="task-nav__more"', $nav);
+        self::assertStringContainsString("\$taskNavMoreCurrent ? ' open' : ''", $nav);
     }
 
     /**

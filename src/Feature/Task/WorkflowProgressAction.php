@@ -44,7 +44,7 @@ final readonly class WorkflowProgressAction
         $contract = $this->decisions->contract($taskId);
         $pendingAttention = $this->decisions->pendingAttention($taskId);
         $progress = $this->progress->task($taskId);
-        $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+        $decisionHtml = $this->decisionHtml($card, $progress, $decisions, $contract, $pendingAttention);
         $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
 
         return Response::html($this->templates->render('task/progress', [
@@ -126,7 +126,7 @@ final readonly class WorkflowProgressAction
 
             $contract = $this->decisions->contract($taskId);
             $pendingAttention = $this->decisions->pendingAttention($taskId);
-            $decisionHtml = $this->decisionHtml($card, $decisions, $contract, $pendingAttention);
+            $decisionHtml = $this->decisionHtml($card, $progress, $decisions, $contract, $pendingAttention);
             $briefHtml = $this->briefHtml($card, $progress, $decisions, $contract, $pendingAttention);
             $response = Response::json([
                 'schema_version' => 1,
@@ -178,6 +178,7 @@ final readonly class WorkflowProgressAction
 
     private function decisionHtml(
         CardSnapshot $card,
+        WorkflowProgressSnapshot $progress,
         WorkflowHumanDecisionProjection $decisions,
         ?TaskContract $contract,
         ?AttentionRequest $pendingAttention = null,
@@ -185,6 +186,7 @@ final readonly class WorkflowProgressAction
         return $this->templates->render('task/_progress-decision', [
             'card' => $card,
             'human_decisions' => $decisions,
+            'decision_card' => $this->decisions->decisionCard($card->id, $progress->nextAction, $progress->nextActionKind),
             'contract' => $contract,
             'pending_attention' => $pendingAttention,
             'attention_decision' => $pendingAttention === null ? null : $this->decisions->attentionDecision($card->id),

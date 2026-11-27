@@ -44,21 +44,23 @@ $favicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><l
         </a>
         <?php
         /**
-         * Grouped by the question a developer is asking, not by which package owns
-         * the answer. A flat `Overview | Setup | Prompts | Board | Map | Knowledge`
-         * row made every concept a peer, so choosing required knowing the
-         * architecture first. Daily work (Work, Knowledge) leads; the tools that
-         * support it stay one click away instead of competing for the same
-         * attention. Routes and URLs are unchanged - this is presentation only.
+         * Daily workflow work leads; everything else is one disclosure away.
+         *
+         * Every area used to be a peer in the masthead, so the Map, the Prompt
+         * Workbench and the command reference competed with the board for the
+         * same attention. Working a governed task means three questions - what
+         * needs me, where do my tasks stand, what did we learn - so only those
+         * stay in the primary row. The supporting tools keep their routes and
+         * sit under "More", a native <details> that needs no script and opens
+         * by itself while one of its pages is current, so location is never
+         * hidden. Presentation only: no route was removed.
          */
-        $workspaceSections = [
-            'Work' => [
-                ['/', 'Overview', 'home'],
-                ['/board', 'Tasks', 'board'],
-            ],
-            'Knowledge' => [
-                ['/knowledge', 'Knowledge', 'knowledge'],
-            ],
+        $primaryLinks = [
+            ['/', 'Overview', 'home'],
+            ['/board', 'Tasks', 'board'],
+            ['/knowledge', 'Knowledge', 'knowledge'],
+        ];
+        $secondarySections = [
             'Code' => [
                 ['/map', 'Map', 'map'],
             ],
@@ -68,28 +70,38 @@ $favicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><l
                 ['/setup', 'Setup', 'setup'],
             ],
         ];
+        $secondaryCurrent = false;
+        foreach ($secondarySections as $links) {
+            foreach ($links as [, , $key]) {
+                $secondaryCurrent = $secondaryCurrent || $nav === $key;
+            }
+        }
         ?>
         <nav class="workspace-nav" aria-label="Primary">
-            <?php foreach ($workspaceSections as $section => $links): ?>
-                <?php
-                $sectionCurrent = false;
-                foreach ($links as [, , $key]) {
-                    $sectionCurrent = $sectionCurrent || $nav === $key;
-                }
-                ?>
-                <div class="workspace-nav__group<?= $sectionCurrent ? ' workspace-nav__group--current' : '' ?>">
-                    <span class="workspace-nav__label" aria-hidden="true"><?= TemplateRenderer::escape($section) ?></span>
-                    <ul class="workspace-nav__links">
-                        <?php foreach ($links as [$href, $label, $key]): ?>
-                            <li><a href="<?= $href ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><?php
-                                /* The group name is decoration for sighted scanning; the
-                                   accessible name carries it so a screen reader hears the
-                                   same grouping the eye gets. */
-                                ?><span class="visually-hidden"><?= TemplateRenderer::escape($section) ?>: </span><?= TemplateRenderer::escape($label) ?></a></li>
-                        <?php endforeach; ?>
-                    </ul>
+            <ul class="workspace-nav__links">
+                <?php foreach ($primaryLinks as [$href, $label, $key]): ?>
+                    <li><a href="<?= $href ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><?= TemplateRenderer::escape($label) ?></a></li>
+                <?php endforeach; ?>
+            </ul>
+            <details class="workspace-nav__more"<?= $secondaryCurrent ? ' open' : '' ?>>
+                <summary class="workspace-nav__summary<?= $secondaryCurrent ? ' workspace-nav__summary--current' : '' ?>">More</summary>
+                <div class="workspace-nav__panel">
+                    <?php foreach ($secondarySections as $section => $links): ?>
+                        <div class="workspace-nav__group">
+                            <span class="workspace-nav__label" aria-hidden="true"><?= TemplateRenderer::escape($section) ?></span>
+                            <ul class="workspace-nav__links">
+                                <?php foreach ($links as [$href, $label, $key]): ?>
+                                    <li><a href="<?= $href ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><?php
+                                        /* The group name is decoration for sighted scanning; the
+                                           accessible name carries it so a screen reader hears the
+                                           same grouping the eye gets. */
+                                        ?><span class="visually-hidden"><?= TemplateRenderer::escape($section) ?>: </span><?= TemplateRenderer::escape($label) ?></a></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
+            </details>
         </nav>
         <?php
         /*
