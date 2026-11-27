@@ -25,6 +25,8 @@ final readonly class WorkflowSnapshot
         public array $disagreements,
         public string $nextAction,
         public string $nextActionKind,
+        /** agent-loop's decision card, read only for single-task projections. */
+        public ?DecisionCardSnapshot $decisionCard = null,
     ) {
     }
 }

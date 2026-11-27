@@ -77,8 +77,8 @@ final class WorkspaceShellTest extends TestCase
             self::assertStringNotContainsString($route, $primary, $route . ' is a supporting tool, not primary navigation');
         }
         self::assertStringContainsString('<details class="workspace-nav__more"', $header);
-        // The disclosure opens by itself while one of its pages is current.
-        self::assertStringContainsString("\$secondaryCurrent ? ' open' : ''", $header);
+        // Closed by default (open it would overlay the page); the summary carries the current-page cue.
+        self::assertStringContainsString("\$secondaryCurrent ? ' workspace-nav__summary--current' : ''", $header);
     }
 
     /** The task story is the primary row; context detail and tools sit under "More". */

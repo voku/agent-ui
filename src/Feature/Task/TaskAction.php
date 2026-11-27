@@ -74,7 +74,7 @@ final readonly class TaskAction
             'card' => $card,
             'workflow' => $workflow,
             'human_decisions' => $humanDecisions,
-            'decision_card' => $this->decisions->decisionCard($taskId, $workflow->nextAction, $workflow->nextActionKind),
+            'decision_card' => $workflow->decisionCard,
             'pending_attention' => $pendingAttention,
             // Null Attention is only confirmed absence while the owner read
             // succeeded; keep the distinction visible on the task page.

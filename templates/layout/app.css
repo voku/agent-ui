@@ -870,14 +870,6 @@ dl.kv dd code { background: var(--surface-alt); padding: 1px 5px; border-radius:
 .task-context__decision { margin: 10px 0 0; }
 .task-context__next .codeblock { margin-top: 8px; }
 
-.task-nav__group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.task-nav__label {
-    font-size: 10px;
-    font-weight: 620;
-    letter-spacing: .085em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-}
 .task-nav__links { display: flex; gap: 2px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; min-width: 0; }
 /* Tabs, not a wall of buttons: at full button weight the eleven views took
    two rows and pushed every task view's own content below the fold. */
@@ -1523,5 +1515,6 @@ details.raw[open] > summary { margin-bottom: 10px; }
 .tool-status li > a { margin-left: auto; }
 
 /* Owner reference marks: still one click away, no longer ahead of the work. */
-.owner-refs > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.owner-refs > summary { cursor: pointer; }
+.owner-refs > summary .eyebrow { display: inline; margin-right: 8px; }
 .owner-refs[open] > summary { margin-bottom: 12px; }

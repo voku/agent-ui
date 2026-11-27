@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace voku\AgentUi\Integration\AgentLoop;
 
+use Throwable;
+use voku\AgentLoop\Run\RunManifest;
+use voku\AgentLoop\Workflow\WorkflowHumanDecisionProjector;
+
 /**
  * agent-loop's typed decision card for the one decision_required gate a task waits on.
  *
@@ -13,8 +17,12 @@ namespace voku\AgentUi\Integration\AgentLoop;
  * owner's statement, not a UI paraphrase. It is never authority: the typed
  * decision forms still revalidate everything through agent-loop.
  *
- * Parsing is deliberately strict. A shape this UI does not understand yields no
- * card at all instead of a partial one that could misstate the subject.
+ * Parsing is deliberately strict. A schema major version or a field shape this
+ * UI does not understand yields no card at all instead of a partial one that
+ * could misstate the decision. The one exception is the owner-defined subject
+ * map: scalar facts are shown, a null fact is shown as "none", and nested
+ * structures (such as blockers, which Loop restates as `why_now` lines) are left
+ * to the owner views that present them.
  */
 final readonly class DecisionCardSnapshot
 {
@@ -29,6 +37,8 @@ final readonly class DecisionCardSnapshot
      */
     public function __construct(
         public string $type,
+        public string $language,
+        public string $requestedLanguage,
         public string $title,
         public string $authorizes,
         public array $subject,
@@ -47,10 +57,36 @@ final readonly class DecisionCardSnapshot
     ) {
     }
 
+    /**
+     * The card for the gate this manifest waits on, through Loop's own entry point.
+     *
+     * `projectManifest()` evaluates the run policy and passes its blockers, so
+     * the card matches the one the CLI prints. A non-decision next action, a
+     * card Loop could not build, or an owner failure yields null: the card is
+     * presentation, and its absence must never hide the gate itself.
+     */
+    public static function fromManifest(string $projectRoot, RunManifest $manifest): ?self
+    {
+        try {
+            $decision = (new WorkflowHumanDecisionProjector($projectRoot))->projectManifest($manifest);
+        } catch (Throwable) {
+            return null;
+        }
+        $card = $decision['card'] ?? null;
+
+        return is_array($card) ? self::fromOwnerArray($card) : null;
+    }
+
     /** @param array<mixed> $card */
     public static function fromOwnerArray(array $card): ?self
     {
+        $schema = $card['schema_version'] ?? null;
+        if (!is_string($schema) || !str_starts_with($schema, '1.')) {
+            return null;
+        }
         $type = $card['type'] ?? null;
+        $language = $card['language'] ?? null;
+        $requestedLanguage = $card['requested_language'] ?? null;
         $title = $card['title'] ?? null;
         $authorizes = $card['authorizes'] ?? null;
         $whyNow = $card['why_now'] ?? null;
@@ -59,6 +95,7 @@ final readonly class DecisionCardSnapshot
         $subjectRaw = $card['subject'] ?? null;
         if (
             !is_string($type) || !is_string($title) || !is_string($authorizes)
+            || !is_string($language) || !is_string($requestedLanguage)
             || !is_array($whyNow) || !is_array($proof) || !is_array($choicesRaw) || !is_array($subjectRaw)
         ) {
             return null;
@@ -111,14 +148,20 @@ final readonly class DecisionCardSnapshot
         // owner order, and the key is shown as the owner wrote it.
         $subject = [];
         foreach ($subjectRaw as $key => $value) {
-            if (!is_string($key) || !(is_string($value) || is_int($value) || is_float($value) || is_bool($value))) {
+            if (!is_string($key) || !($value === null || is_scalar($value))) {
                 continue;
             }
-            $subject[] = ['label' => $key, 'value' => is_bool($value) ? ($value ? 'true' : 'false') : (string) $value];
+            $subject[] = ['label' => $key, 'value' => match (true) {
+                $value === null => 'none',
+                is_bool($value) => $value ? 'true' : 'false',
+                default => (string) $value,
+            }];
         }
 
         return new self(
             type: $type,
+            language: $language,
+            requestedLanguage: $requestedLanguage,
             title: $title,
             authorizes: $authorizes,
             subject: $subject,

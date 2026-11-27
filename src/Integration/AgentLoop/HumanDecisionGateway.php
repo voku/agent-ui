@@ -110,25 +110,6 @@ final readonly class HumanDecisionGateway
         return $this->approvalProjector->projectContractApprovalPresentation($taskId, $nextAction, $nextActionKind);
     }
 
-    /**
-     * agent-loop's typed decision card for the gate the task waits on, if any.
-     *
-     * Loop builds the card only for a decision_required next action; any other
-     * kind, an unbuildable card, or a shape this UI does not understand yields
-     * null so the page falls back to the typed decision forms alone.
-     */
-    public function decisionCard(string $taskId, string $nextAction, string $nextActionKind): ?DecisionCardSnapshot
-    {
-        try {
-            $decision = $this->approvalProjector->project($taskId, $nextAction, $nextActionKind);
-        } catch (Throwable) {
-            return null;
-        }
-        $card = $decision['card'] ?? null;
-
-        return is_array($card) ? DecisionCardSnapshot::fromOwnerArray($card) : null;
-    }
-
     public function available(string $taskId): WorkflowHumanDecisionProjection
     {
         return $this->service->availableActions($taskId);

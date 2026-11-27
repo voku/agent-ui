@@ -84,8 +84,12 @@ require __DIR__ . '/../layout/header.php';
         <?php if ($decisionCard !== null): ?>
             <?php $decisionCardDomId = 'task-decision-card'; require __DIR__ . '/_decision-card.php'; ?>
         <?php endif; ?>
-        <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
-            corresponding human action as recordable.</p>
+        <?php if ($decisions->actions !== [] || $pendingAttention !== null): ?>
+            <p class="note" style="margin:0 0 14px">These controls exist only because agent-loop currently projects the
+                corresponding human action as recordable.</p>
+        <?php else: ?>
+            <p class="note" style="margin:0 0 14px">agent-ui has no form for this decision. Record it with the choice's command above, as agent-loop states it.</p>
+        <?php endif; ?>
 
         <?php if ($pendingAttention !== null): ?>
             <div style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
@@ -112,9 +116,9 @@ require __DIR__ . '/../layout/header.php';
             <?php if ($contract !== null): ?>
                 <?php /* With Loop's card above, the full terms are reference, not a second briefing. */ ?>
                 <details<?= $decisionCard === null ? ' open' : '' ?> style="margin-bottom:16px;padding:12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px">
-                    <summary style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:pointer">
+                    <summary style="margin-bottom:8px;cursor:pointer">
                         <strong>Contract Revision <?= (int) $contract->revision ?> (Candidate) · full terms</strong>
-                        <span class="small faint">Planned by: <strong><?= TemplateRenderer::escape($contract->plannedBy) ?></strong></span>
+                        <span class="small faint" style="margin-left:8px">Planned by: <strong><?= TemplateRenderer::escape($contract->plannedBy) ?></strong></span>
                     </summary>
                     <p style="margin:4px 0 8px"><strong>Goal:</strong> <?= TemplateRenderer::escape($contract->goal) ?></p>
                     <div class="grid" style="font-size:12px;margin:8px 0">

@@ -18,7 +18,10 @@ use voku\AgentUi\View\TemplateRenderer;
 ?>
 <article class="decision-card" aria-label="<?= TemplateRenderer::escape($decisionCard->title) ?>">
     <p class="provenance provenance--authority">agent-loop · decision card</p>
-    <h3 class="decision-card__title"><?= TemplateRenderer::escape($decisionCard->title) ?></h3>
+    <h3 class="decision-card__title" lang="<?= TemplateRenderer::escape($decisionCard->language) ?>"><?= TemplateRenderer::escape($decisionCard->title) ?></h3>
+    <?php if ($decisionCard->language !== $decisionCard->requestedLanguage): ?>
+        <p class="small note">agent-loop wrote this card in <code><?= TemplateRenderer::escape($decisionCard->language) ?></code>; <code><?= TemplateRenderer::escape($decisionCard->requestedLanguage) ?></code> was requested. The text is shown as the owner wrote it.</p>
+    <?php endif; ?>
 
     <?php if ($decisionCard->subject !== []): ?>
         <dl class="decision-facts">

@@ -31,20 +31,45 @@ final class DecisionCardSnapshotTest extends TestCase
         self::assertSame(['composer ci'], $card->plannedValidation);
     }
 
-    public function testNonScalarSubjectFactsAreLeftOutRatherThanFlattened(): void
+    public function testNestedSubjectFactsAreLeftOutAndNullFactsShownAsNone(): void
     {
         $raw = self::card();
         $raw['subject']['blockers'] = [['code' => 'x']];
+        $raw['subject']['head_commit'] = null;
 
         $card = DecisionCardSnapshot::fromOwnerArray($raw);
 
         self::assertNotNull($card);
-        self::assertCount(2, $card->subject);
+        self::assertSame([
+            ['label' => 'task_id', 'value' => 'APP-1'],
+            ['label' => 'contract_revision', 'value' => '2'],
+            ['label' => 'head_commit', 'value' => 'none'],
+        ], $card->subject);
+    }
+
+    public function testLanguagesAreKeptSoAMismatchCanBeShown(): void
+    {
+        $raw = self::card();
+        $raw['requested_language'] = 'de';
+
+        $card = DecisionCardSnapshot::fromOwnerArray($raw);
+
+        self::assertNotNull($card);
+        self::assertSame('en', $card->language);
+        self::assertSame('de', $card->requestedLanguage);
     }
 
     /** @return iterable<string, array{0: array<string, mixed>}> */
     public static function malformedCards(): iterable
     {
+        $c = self::card();
+        $c['schema_version'] = '2.0';
+        yield 'unknown schema major version' => [$c];
+
+        $c = self::card();
+        unset($c['language']);
+        yield 'missing language' => [$c];
+
         $c = self::card();
         unset($c['authorizes']);
         yield 'missing authorizes' => [$c];

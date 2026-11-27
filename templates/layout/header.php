@@ -51,9 +51,10 @@ $favicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><l
          * same attention. Working a governed task means three questions - what
          * needs me, where do my tasks stand, what did we learn - so only those
          * stay in the primary row. The supporting tools keep their routes and
-         * sit under "More", a native <details> that needs no script and opens
-         * by itself while one of its pages is current, so location is never
-         * hidden. Presentation only: no route was removed.
+         * sit under "More", a native <details> that needs no script. It stays
+         * closed - open, it would overlay the page - and its summary carries
+         * the current-page cue instead, so location is never hidden.
+         * Presentation only: no route was removed.
          */
         $primaryLinks = [
             ['/', 'Overview', 'home'],
@@ -83,7 +84,7 @@ $favicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><l
                     <li><a href="<?= $href ?>"<?= $nav === $key ? ' aria-current="page"' : '' ?>><?= TemplateRenderer::escape($label) ?></a></li>
                 <?php endforeach; ?>
             </ul>
-            <details class="workspace-nav__more"<?= $secondaryCurrent ? ' open' : '' ?>>
+            <details class="workspace-nav__more">
                 <summary class="workspace-nav__summary<?= $secondaryCurrent ? ' workspace-nav__summary--current' : '' ?>">More</summary>
                 <div class="workspace-nav__panel">
                     <?php foreach ($secondarySections as $section => $links): ?>
